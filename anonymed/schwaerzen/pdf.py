@@ -87,15 +87,23 @@ def _passende_groesse(text: str, breite: float, start: float, opt: Schwaerzoptio
 
 
 def lage_intakt(
-    vorher: Seitentext, nachher: Seitentext, fundstellen: list[Fundstelle], toleranz: float = 0.6
+    vorher: Seitentext, nachher: Seitentext, fundstellen: list[Fundstelle], toleranz: float = 0.6,
+    kaesten: list[pymupdf.Rect] | None = None,
 ) -> bool:
-    """True when every character outside the hits is still where it was."""
+    """True when every character outside the hits (and outside the applied boxes
+    ``kaesten``) is still where it was."""
     entfernt: set[int] = set()
+    kaesten = list(kaesten or [])
     for f in fundstellen:
         entfernt.update(range(f.start, f.ende))
+
+    def unter_kasten(box: tuple[float, float, float, float]) -> bool:
+        return any(k.intersects(pymupdf.Rect(box)) for k in kaesten)
+
     erwartet = sorted(
         ((vorher.text[i], vorher.boxen[i]) for i in range(len(vorher.text))
-         if vorher.boxen[i] is not None and i not in entfernt and not vorher.text[i].isspace()),
+         if vorher.boxen[i] is not None and i not in entfernt and not vorher.text[i].isspace()
+         and not unter_kasten(vorher.boxen[i])),
         key=lambda e: (round(e[1][1]), e[1][0]),
     )
     ist = sorted(
@@ -232,23 +240,39 @@ def schwaerze_seite(
     fundstellen: list[Fundstelle],
     opt: Schwaerzoptionen | None = None,
 ) -> Seitenergebnis:
-    """Apply all hits of one page.  Text-layer hits (``quelle == "text"``) use the
-    clipped band and the layout check; OCR and code hits blank the image pixels
-    under a padded box.  Returns the number of boxes and whether the remaining
-    text kept its position; the caller rasterises the page if not."""
+    """Apply all hits of one page in two passes.
+
+    Pass one removes text: text-layer hits and the text spans of manual boxes
+    use the band clipped to their line (so neighbouring lines are untouched),
+    OCR and code hits use their padded box.  Pass two blanks image pixels under
+    the boxes the user drew without touching any text, because a drawn box
+    reaches into the glyph boxes of neighbouring lines.  Returns the number of
+    boxes and whether the remaining text kept its position; the caller
+    rasterises the page if not.
+    """
     opt = opt or Schwaerzoptionen()
     einblendungen: list[tuple[pymupdf.Rect, float, float, str]] = []
     anzahl = 0
     texttreffer = [f for f in fundstellen if f.quelle == "text"]
+    manuell = [f for f in fundstellen if f.quelle == "manuell"]
+    baender_kaesten: list[pymupdf.Rect] = []
+    nur_pixel: list[pymupdf.Rect] = []
     tinte = _Tinte(page) if any(f.quelle == "ocr" for f in fundstellen) else None
     for f in fundstellen:
         if not f.rects:
             continue
+        gezeichnet = f.quelle == "manuell" and f.ende > f.start and seite is not None
         for k, roh in enumerate(f.rects):
             rect = pymupdf.Rect(roh)
-            if f.quelle == "text" and seite is not None:
+            if gezeichnet and k == len(f.rects) - 1 and len(f.rects) > 1:
+                nur_pixel.append(rect & page.rect)  # the drawn box: pixels only (pass two)
+                continue
+            if (f.quelle == "text" or gezeichnet) and seite is not None:
                 zeile = _zeile_von_rect(seite, f, rect)
                 band = _band(rect, zeile, seite) if zeile >= 0 else rect
+            elif f.quelle == "manuell":
+                band = pymupdf.Rect(rect) & page.rect  # box on an image page
+                baender_kaesten.append(pymupdf.Rect(band))
             else:
                 if f.quelle == "ocr" and tinte is not None:
                     rect = tinte.erweitere(rect)
@@ -256,9 +280,10 @@ def schwaerze_seite(
                 rect = pymupdf.Rect(rect.x0 - rand, rect.y0 - OCR_RAND,
                                     rect.x1 + rand, rect.y1 + OCR_RAND) & page.rect
                 band = pymupdf.Rect(rect)
+                baender_kaesten.append(pymupdf.Rect(band))
             fuell = pymupdf.Rect(rect)
             if k == 0:
-                textquelle = f.quelle == "text" and seite is not None
+                textquelle = (f.quelle == "text" or gezeichnet) and seite is not None
                 basis = seite.basislinie(f.start, f.ende) if textquelle else None
                 if basis is None:
                     basis = rect.y1 - 0.22 * rect.height
@@ -272,15 +297,25 @@ def schwaerze_seite(
                 einblendungen.append((fuell, basis, groesse, f.pseudonym))
             page.add_redact_annot(band, fill=opt.fuellfarbe, cross_out=False)
             anzahl += 1
-    if not anzahl:
+    if not anzahl and not nur_pixel:
         return Seitenergebnis(0, True)
-    page.apply_redactions(
-        images=opt.bilder, graphics=opt.grafik, text=pymupdf.PDF_REDACT_TEXT_REMOVE
-    )
-    if seite is not None and texttreffer:
-        if not lage_intakt(seite, lese_seite(page, seite.nummer), texttreffer):
+    if anzahl:
+        page.apply_redactions(
+            images=opt.bilder, graphics=opt.grafik, text=pymupdf.PDF_REDACT_TEXT_REMOVE
+        )
+    if nur_pixel:
+        for rect in nur_pixel:
+            page.add_redact_annot(rect, fill=opt.fuellfarbe, cross_out=False)
+        page.apply_redactions(images=opt.bilder, graphics=opt.grafik,
+                              text=pymupdf.PDF_REDACT_TEXT_NONE)
+        anzahl += len(nur_pixel)
+    if seite is not None and (texttreffer or manuell or baender_kaesten):
+        if not lage_intakt(seite, lese_seite(page, seite.nummer), texttreffer + manuell,
+                           kaesten=baender_kaesten):
             return Seitenergebnis(anzahl, False)
     # all boxes first, then all pseudonyms, so that a neighbouring box never covers a text
+    for rect in nur_pixel:
+        page.draw_rect(rect, color=None, fill=opt.fuellfarbe, overlay=True)
     for fuell, _basis, _groesse, _pseudonym in einblendungen:
         page.draw_rect(fuell, color=None, fill=opt.fuellfarbe, overlay=True)
     for fuell, basis, groesse, pseudonym in _ohne_ueberlappung(einblendungen, opt):

@@ -390,6 +390,14 @@ def pseudonyme(speicher: SpeicherOption = None) -> None:
 
 
 @app.command()
+def gui() -> None:
+    """Grafische Oberfläche starten (Extra 'gui')."""
+    from anonymed.gui.app import main
+
+    raise typer.Exit(code=main([]))
+
+
+@app.command()
 def vorlage() -> None:
     """JSON-Vorlage für eine Patientendatei ausgeben."""
     from anonymed.quellen.manuell import vorlage as _vorlage

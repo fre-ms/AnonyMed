@@ -11,7 +11,7 @@ import pymupdf
 import pytest
 
 from anonymed import ablauf
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
+from anonymed.ablauf import Ablaufoptionen, abschliessen, anonymisiere, vorbereiten
 from anonymed.kern.modell import Patient
 from anonymed.pruefung.bericht import als_text
 from anonymed.pseudonyme.kennung import kennung_gueltig
@@ -161,3 +161,45 @@ def test_bild_ohne_ocr_wird_nicht_freigegeben(tmp_path: Path, befund: Path, pati
     erg = anonymisiere(bild, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert not erg.freigegeben
     assert erg.bericht.seiten == 1
+
+
+def test_zwei_phasen_mit_verwerfen_und_kasten(befund: Path, patient: Patient,
+                                             speicher: Pseudonymspeicher) -> None:
+    v = vorbereiten(befund, patient, Ablaufoptionen(), speicher=speicher)
+    assert v.fundstellen and not v.ocr_seiten
+    assert v.seitenbild(0)[:4] == b"\x89PNG"
+    # drop the hit on the referrer's name on page 1 (a false positive, say)
+    zuweiser = [f for f in v.fundstellen if f.regel == "zuweiser1.name"]
+    assert zuweiser
+    for f in zuweiser:
+        v.verwerfe(f)
+    # a manual box over the diagnosis line of page 1
+    with pymupdf.open(befund) as d:
+        rect = d[0].search_for("Leichte kognitive Störung")[0]
+    neue = v.kasten(0, (rect.x0 - 1, rect.y0 - 1, rect.x1 + 1, rect.y1 + 1), "[Diagnose]")
+    assert len(neue) == 1 and neue[0].text == "Leichte kognitive Störung"
+    assert neue[0].quelle == "manuell"
+    erg = abschliessen(v)
+    assert erg.freigegeben, als_text(erg.bericht)
+    assert "[Diagnose]" in erg.text and "Leichte kognitive Störung" not in erg.text
+    assert patient.zuweiser[0].nachname in erg.text  # dropped hit stays in the text
+    with pymupdf.open(erg.ziel_pdf) as d:
+        text = d[0].get_text()
+        assert "[Diagnose]" in text and "Leichte kognitive Störung" not in text
+        assert "ICD-10 F06.7" in text  # the rest of the line survived the manual box
+    assert not any("gerastert" in w for w in erg.bericht.warnungen)
+    with pytest.raises(RuntimeError):
+        abschliessen(v)
+
+
+def test_kasten_auf_bildseite(tmp_path: Path, befund: Path, patient: Patient,
+                              speicher: Pseudonymspeicher) -> None:
+    with pymupdf.open(befund) as d:
+        scan = rastere(d, dpi=72)
+        scan_pfad = tmp_path / "scan.pdf"
+        scan.save(scan_pfad)
+        scan.close()
+    v = vorbereiten(scan_pfad, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    neue = v.kasten(0, (50, 60, 300, 120))
+    assert len(neue) == 1 and neue[0].rects == [(50, 60, 300, 120)] and neue[0].text == ""
+    v.schliessen()

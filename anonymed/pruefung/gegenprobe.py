@@ -16,21 +16,35 @@ from anonymed.kern.modell import Gegenprobe
 from anonymed.schwaerzen.pdf import ERLAUBTE_METADATEN, VERMERK_PRAEFIX
 
 
+def toleranzschluessel(regel: str, text: str) -> tuple[str, str]:
+    """Key of an occurrence the user deliberately kept: rule and normalised text."""
+    return regel, " ".join(text.split()).casefold()
+
+
 def pruefe(
-    doc: pymupdf.Document, regeln: list[Regel], zusatztexte: Iterable[str] = ()
+    doc: pymupdf.Document, regeln: list[Regel], zusatztexte: Iterable[str] = (),
+    toleriert: Iterable[tuple[str, str]] = (),
 ) -> Gegenprobe:
+    """Re-run the rules on the output.  ``toleriert`` lists occurrences (rule, text)
+    the user decided to keep; they do not count as leftovers."""
     ergebnis = Gegenprobe()
     gesehen: set[tuple[int, str, str]] = set()
+    toleriert = set(toleriert)
+
+    def erlaubt(regel: str, text: str) -> bool:
+        return toleranzschluessel(regel, text) in toleriert
 
     for seite in lese_dokument(doc):
         for f in finde(seite, regeln):
             gesehen.add((f.seite, f.regel, f.text))
-            ergebnis.resttreffer.append(f.ohne_klartext())
+            if not erlaubt(f.regel, f.text):
+                ergebnis.resttreffer.append(f.ohne_klartext())
 
     for i, page in enumerate(doc):
-        for a, b, regel in finde_im_text(page.get_text("text"), regeln):
-            schluessel = (i, regel.id, page.get_text("text")[a:b])
-            if schluessel in gesehen:
+        text = page.get_text("text")
+        for a, b, regel in finde_im_text(text, regeln):
+            schluessel = (i, regel.id, text[a:b])
+            if schluessel in gesehen or erlaubt(regel.id, text[a:b]):
                 continue
             gesehen.add(schluessel)
             ergebnis.resttreffer.append(
@@ -39,7 +53,9 @@ def pruefe(
             )
 
     for n, text in enumerate(zusatztexte, 1):
-        for _a, _b, regel in finde_im_text(text, regeln):
+        for a, b, regel in finde_im_text(text, regeln):
+            if erlaubt(regel.id, text[a:b]):
+                continue
             ergebnis.resttreffer.append(
                 {"seite": 0, "art": str(regel.art), "regel": regel.id,
                  "pseudonym": regel.pseudonym, "rects": [], "quelle": f"zusatztext{n}"}

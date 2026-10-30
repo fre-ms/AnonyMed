@@ -201,3 +201,49 @@ def anonymisierter_text(seiten: list[Seitentext], fundstellen: list[Fundstelle])
         text = re.sub(r"\n{3,}", "\n\n", text).strip()
         teile.append(f"=== Seite {seite.nummer + 1} ===\n\n{text}")
     return "\n\n".join(teile) + "\n"
+
+
+def kasten_zu_fundstellen(
+    seite: Seitentext, rect: tuple[float, float, float, float], pseudonym: str = "[geschwärzt]",
+    quelle: str = "manuell",
+) -> list[Fundstelle]:
+    """A box drawn by the user becomes hits with text spans where the page has text.
+
+    Characters whose centre lies inside the box are grouped per line into one
+    hit each, so that the text file, the layout check and the re-check see the
+    same thing as the redaction.  Without characters (image page) the box is a
+    hit of its own with the rectangle only.
+    """
+    x0, y0, x1, y1 = rect
+    innen = [
+        i for i, box in enumerate(seite.boxen)
+        if box is not None and x0 <= (box[0] + box[2]) / 2 <= x1
+        and y0 <= (box[1] + box[3]) / 2 <= y1
+    ]
+    if not innen:
+        return [Fundstelle(seite=seite.nummer, start=0, ende=0, text="", art=Art.MANUELL,
+                           regel=quelle, pseudonym=pseudonym, rects=[tuple(rect)],
+                           schriftgroesse=9.0, quelle=quelle)]
+    treffer: list[Fundstelle] = []
+    start = innen[0]
+    vorher = innen[0]
+    for i in innen[1:] + [None]:
+        zusammen = (
+            i is not None and i == vorher + 1 and seite.zeilen[i] == seite.zeilen[start]
+        ) or (i is not None and seite.zeilen[i] == seite.zeilen[start]
+              and all(seite.text[k].isspace() for k in range(vorher + 1, i)))
+        if not zusammen:
+            ende = vorher + 1
+            treffer.append(Fundstelle(
+                seite=seite.nummer, start=start, ende=ende, text=seite.text[start:ende],
+                art=Art.MANUELL, regel=quelle, pseudonym=pseudonym,
+                rects=[tuple(r) for r in seite.rects(start, ende)],
+                schriftgroesse=seite.schriftgroesse(start, ende), quelle=quelle,
+            ))
+            if i is None:
+                break
+            start = i
+        vorher = i
+    # the drawn box itself is covered too, for ink that is not text (image, stamp)
+    treffer[0].rects = treffer[0].rects + [tuple(rect)]
+    return treffer

@@ -2,7 +2,7 @@
 
 Local de-identification of patient documents (PDF, later scans and photos) so that they can be handed to cloud language models for drafting letters. Identifiers are replaced by **stable pseudonyms** rather than black bars, so the text stays readable and consistent for the model; afterwards the clear data is put back locally. The pseudonym key never leaves the machine.
 
-Status (30 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV address book) and M3 (scans, photos, OCR, barcodes) are done. The desktop GUI (M4) and installers (M5) follow. The design, open decisions and milestones are kept in the project's internal hand-over notes.
+Status (31 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV address book), M3 (scans, photos, OCR, barcodes) and M4 (desktop interface) are done. Installers (M5) follow. The design, open decisions and milestones are kept in the project's internal hand-over notes.
 
 ## The round trip
 
@@ -55,6 +55,15 @@ uv run anonymed konfig            # version, pseudonym database and key file (ba
 
 Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb. 1990]`; `--rastern` produces an image-only PDF; `--ocr auto|rapidocr|tesseract|aus`; `--keine-codes`; `--vorschau auto|immer|nie`; `--kein-text`, `--kein-bericht`, `--ohne-vermerk`; `--ziel DIR`; `--speicher FILE` for a different pseudonym database; `--konfig FILE` for a different configuration file.
 
+### Desktop interface
+
+```sh
+uv sync --extra gui        # PySide6 (Qt 6)
+uv run anonymed gui        # or: uv run anonymed-gui
+```
+
+Five tabs in one window: **1 Patient** (address-book search, patient file or vCard; every identifier in an editable field; relatives, referrers and free terms one per line), **2 Dokumente** (drag and drop, OCR backend, date form, codes), **3 Prüfen** (every page as an image with a coloured box per hit: blue text layer, orange OCR, purple code, red manual, grey unreadable; click a box or a table row and *Treffer verwerfen* drops a false hit; drag on the page to draw a box over what was missed), **4 Exportieren** (target folder, options, the report per file) and **5 Rückersetzen** (paste the model's text, pick the person, copy or save the result). A dropped hit is remembered: the re-check tolerates exactly that rule and text, everything else still blocks the release. Long steps run in a worker thread; the window never talks to the network except for the address-book search.
+
 ### Address book
 
 `kontakte einrichten` stores server address, user name and address book in the configuration file (`anonymed konfig` shows where) and the app password in the operating system's keyring (install the extra: `uv sync --extra carddav`). Without a keyring, set `ANONYMED_CARDDAV_PASSWORT`; `ANONYMED_CARDDAV_URL`, `_BENUTZER` and `_ADRESSBUCH` override the file. Only https is accepted (loopback addresses excepted for tests). The client speaks plain CardDAV (PROPFIND, REPORT addressbook-query) and needs no third-party library.
@@ -76,7 +85,7 @@ OCR misreads are met in three ways: codes such as insurance numbers are matched 
 ## What it does not do yet
 
 * No NER: unknown names (a relative not listed in the patient file) are not found. Add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`).
-* Handwriting and text inside photos of screens or odd angles are beyond OCR; the previews are there to catch that, the GUI (M4) will show them in place.
+* Handwriting and text inside photos of screens or odd angles are beyond OCR; the review tab shows every page so that you can draw a box over what was missed.
 
 ## Safety notes
 
@@ -93,7 +102,7 @@ uv run ruff check anonymed tests
 tests/e2e/nextcloud.sh         # optional: the same against a throwaway Nextcloud 35 in Docker
 ```
 
-Layout: `anonymed/kern` (data model), `dokument` (loading incl. HEIC, text layer, OCR backends), `erkennung` (rules, generic and label patterns, barcodes), `schwaerzen` (redaction of text and pixels, clean-up, rasterising), `pruefung` (re-check incl. OCR, report, previews), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
+Layout: `anonymed/kern` (data model), `dokument` (loading incl. HEIC, text layer, OCR backends), `erkennung` (rules, generic and label patterns, fuzzy OCR search, barcodes), `schwaerzen` (redaction of text and pixels, clean-up, rasterising), `pruefung` (re-check incl. OCR, report, previews), `gui` (PySide6 pages over a Qt-free session model), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
 
 ## Licence
 
