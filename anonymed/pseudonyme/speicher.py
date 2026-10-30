@@ -21,7 +21,7 @@ from typing import Any
 from platformdirs import user_data_path
 
 from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.abgleich import Vergleich, abgleichen
+from anonymed.pseudonyme.abgleich import Vergleich, abgleichen, vergleiche
 from anonymed.pseudonyme.kennung import geheimnis_laden, hash_kennung, kanonische_identitaet
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS patienten (
     schluessel   TEXT PRIMARY KEY,
     kennung      TEXT UNIQUE NOT NULL,
     schema       TEXT NOT NULL DEFAULT 'hash',
+    identitaet   TEXT NOT NULL DEFAULT '',
     nachname     TEXT NOT NULL DEFAULT '',
     vorname      TEXT NOT NULL DEFAULT '',
     geburtsname  TEXT NOT NULL DEFAULT '',
@@ -43,6 +44,7 @@ CREATE TABLE IF NOT EXISTS patienten (
 CREATE TABLE IF NOT EXISTS aliasse (
     alias_schluessel TEXT PRIMARY KEY,
     schluessel       TEXT NOT NULL,
+    identitaet       TEXT NOT NULL DEFAULT '',
     nachname         TEXT NOT NULL DEFAULT '',
     vorname          TEXT NOT NULL DEFAULT '',
     geburtsname      TEXT NOT NULL DEFAULT '',
@@ -158,20 +160,21 @@ class Pseudonymspeicher:
 
     def _kandidaten(self) -> list[dict[str, Any]]:
         zeilen = self.verbindung.execute(
-            "SELECT p.schluessel, p.kennung, p.nachname, p.vorname, p.geburtsname, p.geburtsdatum"
-            " FROM patienten p"
+            "SELECT p.schluessel, p.kennung, p.identitaet, p.nachname, p.vorname, p.geburtsname,"
+            " p.geburtsdatum FROM patienten p"
             " UNION ALL"
-            " SELECT p.schluessel, p.kennung, a.nachname, a.vorname, a.geburtsname, a.geburtsdatum"
-            " FROM aliasse a JOIN patienten p ON p.schluessel = a.schluessel"
+            " SELECT p.schluessel, p.kennung, a.identitaet, a.nachname, a.vorname, a.geburtsname,"
+            " a.geburtsdatum FROM aliasse a JOIN patienten p ON p.schluessel = a.schluessel"
         )
         return [dict(z) for z in zeilen]
 
     def _verknuepfe(self, patient: Patient, ziel: Vergleich) -> None:
         self.verbindung.execute(
-            "INSERT OR IGNORE INTO aliasse (alias_schluessel, schluessel, nachname, vorname,"
-            " geburtsname, geburtsdatum, score, angelegt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (patient.schluessel(), ziel.schluessel, patient.nachname, patient.vorname,
-             patient.geburtsname,
+            "INSERT OR IGNORE INTO aliasse (alias_schluessel, schluessel, identitaet, nachname,"
+            " vorname, geburtsname, geburtsdatum, score, angelegt)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (patient.schluessel(), ziel.schluessel, kanonische_identitaet(patient),
+             patient.nachname, patient.vorname, patient.geburtsname,
              patient.geburtsdatum.isoformat() if patient.geburtsdatum else "", ziel.score,
              _jetzt()),
         )
@@ -204,7 +207,18 @@ class Pseudonymspeicher:
         if zeile:
             return Kennungsergebnis(zeile["kennung"])
 
-        treffer = abgleichen(patient, self._kandidaten())
+        kandidaten = self._kandidaten()
+        treffer = abgleichen(patient, kandidaten)
+        if entscheidung != "neu":
+            # Same canonical identity (phonetic names + date of birth): the hash scheme would
+            # mint the same code anyway, so treat it as the same person without asking.
+            identitaet = kanonische_identitaet(patient)
+            gleiche = [k for k in kandidaten if k["identitaet"] == identitaet]
+            if gleiche:
+                ziel = next((t for t in treffer if t.schluessel == gleiche[0]["schluessel"]),
+                            vergleiche(patient, gleiche[0]))
+                self._verknuepfe(patient, ziel)
+                return Kennungsergebnis(ziel.kennung, verknuepft=True, abgleich=ziel)
         if entscheidung and entscheidung.startswith("gleich:"):
             gewuenscht = entscheidung.split(":", 1)[1].strip().upper()
             ziel = next((t for t in treffer if t.kennung == gewuenscht), None)
@@ -223,10 +237,11 @@ class Pseudonymspeicher:
 
         neu = self._neue_kennung(patient)
         self.verbindung.execute(
-            "INSERT INTO patienten (schluessel, kennung, schema, nachname, vorname, geburtsname,"
-            " geschlecht, titel, geburtsdatum, angelegt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (schluessel, neu, self.schema, patient.nachname, patient.vorname, patient.geburtsname,
-             patient.geschlecht, patient.titel,
+            "INSERT INTO patienten (schluessel, kennung, schema, identitaet, nachname, vorname,"
+            " geburtsname, geschlecht, titel, geburtsdatum, angelegt)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (schluessel, neu, self.schema, kanonische_identitaet(patient), patient.nachname,
+             patient.vorname, patient.geburtsname, patient.geschlecht, patient.titel,
              patient.geburtsdatum.isoformat() if patient.geburtsdatum else "", _jetzt()),
         )
         self.verbindung.commit()

@@ -37,8 +37,11 @@ compound names are compared component-wise (its *GermanLastNameDecomposer*
 and *FirstNameDecomposer*). The score is the weighted mean over the fields
 present on both sides.
 
-Decision thresholds:
+Decision rules, in this order:
 
+* equal canonical identity (section 2: phonetically equal names and the same
+  date of birth): the same person, because the hash scheme would mint the
+  same code on an empty machine anyway; `--neu` overrides.
 * score ≥ 0.95: the same person. The new spelling is stored as an alias of
   the existing entry and the existing identifier is reused. The report says
   so (`Patient dem vorhandenen Eintrag … zugeordnet`).

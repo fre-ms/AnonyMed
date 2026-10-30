@@ -91,16 +91,18 @@ def test_unsicherer_abgleich_braucht_entscheidung(speicher: Pseudonymspeicher) -
         speicher.kennung_fuer(_p(geb="1959-07-23"), entscheidung="gleich:ZZZZZZ")
 
 
-def test_kollision_bekommt_variante(speicher: Pseudonymspeicher) -> None:
-    """Same canonical identity, declared to be different people: distinct codes."""
+def test_gleiche_kanonische_identitaet(speicher: Pseudonymspeicher) -> None:
+    """Phonetically equal names with the same date of birth are the same person
+    (the hash scheme would mint the same code on an empty machine anyway)."""
     a = _p(nachname="Meier", vorname="Hans", geb="1960-01-01")
     b = _p(nachname="Mayer", vorname="Hanns", geb="1960-01-01")
     ka = speicher.kennung_fuer(a).kennung
-    try:
-        kb = speicher.kennung_fuer(b, entscheidung="neu").kennung
-    except UnsichererAbgleich:  # pragma: no cover - depends on thresholds
-        kb = speicher.kennung_fuer(b, entscheidung="neu").kennung
-    assert kb != ka and len(kb) == 6
+    erg = speicher.kennung_fuer(b)
+    assert erg.kennung == ka and erg.verknuepft
+    # declared different: a variant code of the same identity, never the same code
+    c = _p(nachname="Maier", vorname="Hannes", geb="1960-01-01")
+    kc = speicher.kennung_fuer(c, entscheidung="neu").kennung
+    assert kc != ka and len(kc) == 6 and speicher.kennung_fuer(c).kennung == kc
 
 
 def test_namensvetter_ist_neue_person(speicher: Pseudonymspeicher) -> None:
