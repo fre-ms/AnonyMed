@@ -17,7 +17,8 @@ from anonymed.erkennung import codes as codemodul
 from anonymed.kern.modell import Patient
 from anonymed.pruefung.bericht import als_text
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
-from anonymed.schwaerzen.pdf import rastere
+from anonymed.schwaerzen.pdf import Schwaerzoptionen, rastere
+from tests.synthetisch import datum_lang
 from tests.test_ablauf import gefundene_klardaten
 
 BACKENDS = ocrmodul.verfuegbare_backends()
@@ -161,3 +162,105 @@ def test_heic_laden(tmp_path: Path, befund: Path) -> None:
     doc = oeffne(heic)
     assert len(doc) == 1 and doc[0].get_images()
     doc.close()
+
+
+def _wahre_boxen(befund: Path, patient: Patient) -> list[tuple[int, pymupdf.Rect]]:
+    """Rectangles of the identifier words as the source text layer knows them."""
+    geb = patient.geburtsdatum
+    gesucht = {patient.nachname, patient.vorname, patient.nachname.upper(), patient.vorname.upper(),
+               geb.strftime("%d.%m.%Y"), geb.strftime("%d.%m.%y"), patient.versichertennummer,
+               patient.patienten_id, patient.plz, patient.ort, patient.emails[0],
+               patient.angehoerige[0].vorname, patient.zuweiser[0].nachname,
+               str(geb.day) + ".", str(geb.year)}
+    gesucht |= set(datum_lang(geb).split())
+    boxen = []
+    with pymupdf.open(befund) as d:
+        for i, page in enumerate(d):
+            for begriff in gesucht:
+                if len(begriff) < 3:
+                    continue
+                for rect in page.search_for(begriff):  # character-precise, no punctuation
+                    boxen.append((i, rect))
+    assert len(boxen) >= 15
+    return boxen
+
+
+def _tinte_in(doc: pymupdf.Document, seite: int, rect: pymupdf.Rect, dpi: int = 200) -> int:
+    pix = doc[seite].get_pixmap(dpi=dpi, clip=rect, colorspace=pymupdf.csGRAY, alpha=False)
+    return sum(1 for v in pix.samples if v < 100)
+
+
+@braucht_backend
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("stoerung", ["sauber", "verrauscht"])
+def test_keine_tinte_unter_den_treffern(tmp_path: Path, befund: Path, patient: Patient,
+                                        speicher: Pseudonymspeicher, backend: str,
+                                        stoerung: str) -> None:
+    """Pseudonyms are drawn in the fill colour here, so any dark pixel inside a
+    known identifier box is a remnant of the original glyphs."""
+    kw = dict(dpi=150, rauschen=0.01, drehung=0.0) if stoerung == "verrauscht" else {}
+    scan = _scan(befund, tmp_path / "scan.pdf", **kw)
+    opt = Ablaufoptionen(ocr=backend, schwaerzen=Schwaerzoptionen(textfarbe=(0.88, 0.88, 0.88)))
+    erg = anonymisiere(scan, patient, opt, speicher=speicher)
+    if not erg.freigegeben:
+        # a block is a legitimate outcome on a noisy scan, as long as it is a block for cause
+        assert stoerung == "verrauscht", als_text(erg.bericht)
+        assert erg.bericht.gegenprobe is not None and erg.bericht.gegenprobe.resttreffer
+        return
+    reste = []
+    with pymupdf.open(erg.ziel_pdf) as d:
+        for seite, rect in _wahre_boxen(befund, patient):
+            innen = pymupdf.Rect(rect.x0 + 0.5, rect.y0 + 2, rect.x1 - 0.5, rect.y1 - 2)
+            tinte = _tinte_in(d, seite, innen)
+            # an edge fringe or noise specks are allowed; a digit leaves 40+ dark pixels
+            schwelle = 25 if stoerung == "verrauscht" else 8
+            if tinte > schwelle:
+                reste.append((seite + 1, [round(v) for v in rect], tinte))
+    assert reste == [], reste
+
+
+def test_unscharfe_suche() -> None:
+    from anonymed.erkennung.unscharf import distanz, finde_unscharf, ziele_fuer
+    from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+    from tests.synthetisch import synthetischer_patient
+
+    assert distanz("Juli", "Jull", 1) == 1 and distanz("Flantz", "Fiantz", 1) == 1
+    assert distanz("Flantz", "Zahn", 2) > 2
+    p = synthetischer_patient(7)
+    v = Pseudonymvergabe(p, "K7Q4MX", geheimnis=bytes(32))
+    ziele = ziele_fuer(p, v)
+    woerter = [OCRWort(w, 50 + 40 * i, 100, 85 + 40 * i, 112)
+               for i, w in enumerate(["Geboren", "am", "21.", "Jull", "1959", "in", "Rlesa."])]
+    woerter += [OCRWort(w, 50 + 40 * i, 130, 85 + 40 * i, 142)
+                for i, w in enumerate(["Herr", "Fiantz,", "Gotthard", "und", "Zahn"])]
+    s = seitentext_aus_woerter(woerter, 0, 595, 842)
+    treffer = finde_unscharf(s, ziele, [])
+    texte = {f.text: f.regel for f in treffer}
+    assert texte["21. Jull 1959"] == "unscharf.datum.geburtsdatum"
+    assert texte["Rlesa"] == "unscharf.adresse.ort"
+    assert "Fiantz, Gotthard" in texte or "Fiantz" in texte
+    assert "Zahn" not in texte and "Geboren" not in texte
+    # a long token split by OCR is found across the pieces
+    geteilt = [OCRWort(w, 50 + 60 * i, 160, 100 + 60 * i, 172)
+               for i, w in enumerate(["Mail", "gotthard.", "flantz@example.", "org", "Ende"])]
+    s2 = seitentext_aus_woerter(geteilt, 0, 595, 842)
+    unscharf = [f.text for f in finde_unscharf(s2, ziele, [])]
+    assert "gotthard. flantz@example. org" in unscharf
+
+
+def test_unlesbare_zeile_wird_geschwaerzt() -> None:
+    from anonymed.dokument.ocr import unlesbare_regionen
+
+    fragmente = ["G6ot", "n", "e", "n", "e", "i", "l", "e", "5g"]
+    woerter = [OCRWort(w, 50 + 30 * i, 100, 70 + 30 * i, 112, k)
+               for i, (w, k) in enumerate(zip(fragmente, [0.87, 0.5, 0.99, 0.9, 0.25, 0.5, 0.47,
+                                                           0.97, 0.81], strict=True))]
+    woerter += [OCRWort(w, 50 + 40 * i, 130, 85 + 40 * i, 142, 0.99)
+                for i, w in enumerate(["in", "Riesa.", "Flantz,", "berichtet"])]
+    s = seitentext_aus_woerter(woerter, 0, 595, 842)
+    regionen = unlesbare_regionen(s)
+    assert len(regionen) == 1
+    r = regionen[0]
+    assert r.pseudonym == "[unlesbar]" and r.quelle == "ocr" and r.regel == "ocr.unlesbar"
+    assert s.text[r.start:r.ende] == "G6ot n e n e i l e 5g"
+    assert "Riesa" not in s.text[r.start:r.ende]

@@ -226,8 +226,14 @@ def anonymisieren(
                                         help="Barcodes und QR-Codes schwärzen.")] = True,
     vorschau: Annotated[str, typer.Option("--vorschau", help="Vorschaubilder: auto (nur bei OCR),"
                                                           " immer oder nie.")] = "auto",
+    unlesbar: Annotated[str, typer.Option(
+        "--unlesbar", help="Von der OCR nicht lesbare Zeilen: schwaerzen oder lassen.")]
+    = "schwaerzen",
 ) -> None:
     """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
+    if unlesbar not in ("schwaerzen", "lassen"):
+        typer.echo("--unlesbar muss 'schwaerzen' oder 'lassen' sein.", err=True)
+        raise typer.Exit(code=1)
     if datum not in ("jahr", "alter"):
         typer.echo("--datum muss 'jahr' oder 'alter' sein.", err=True)
         raise typer.Exit(code=1)
@@ -244,6 +250,7 @@ def anonymisieren(
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
+        unlesbar=unlesbar,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True

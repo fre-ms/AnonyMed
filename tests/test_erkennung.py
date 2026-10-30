@@ -64,6 +64,10 @@ def test_generische_muster_und_rollen() -> None:
     text = "KVNR X123456789, IBAN DE12 3456 7890 1234 5678 90, fremd@example.com"
     ids = sorted(r.id for _a, _b, r in finde_im_text(text, regeln))
     assert ids == ["muster.email", "muster.iban", "muster.versichertennummer"]
+    # OCR puts spaces around dots: still one address
+    treffer = finde_im_text("Mail an max. muster@example. org bitte", regeln)
+    assert [("max. muster@example. org", "muster.email")] == [
+        ("Mail an max. muster@example. org bitte"[a:b], r.id) for a, b, r in treffer]
 
 
 def test_etikettregeln_treffen_nur_den_wert() -> None:

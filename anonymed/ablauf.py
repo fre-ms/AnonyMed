@@ -13,6 +13,7 @@ from anonymed.dokument.laden import oeffne
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
 from anonymed.erkennung.deterministisch import Regel, anonymisierter_text, finde, regeln_fuer
+from anonymed.erkennung.unscharf import Ziel, finde_unscharf, ziele_fuer
 from anonymed.kern.modell import Fundstelle, Gegenprobe, Patient, Pruefbericht
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
 from anonymed.pruefung.gegenprobe import pruefe
@@ -40,6 +41,7 @@ class Ablaufoptionen:
     ocr: str = "auto"  # "auto", "rapidocr", "tesseract" or "aus"
     ocr_dpi: int = ocrmodul.OCR_DPI
     codes: bool = True  # blank barcodes and QR codes (extra "codes")
+    unlesbar: str = "schwaerzen"  # lines OCR could not read: "schwaerzen" or "lassen"
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
@@ -86,7 +88,7 @@ class _Seite:
 
 
 def _lese_seiten(
-    doc: pymupdf.Document, regeln: list[Regel], opt: Ablaufoptionen,
+    doc: pymupdf.Document, regeln: list[Regel], ziele: list[Ziel], opt: Ablaufoptionen,
     backend: ocrmodul.OCRBackend | None,
 ) -> tuple[list[_Seite], list[int]]:
     """Text layer and, where needed and possible, OCR per page; returns the pages and
@@ -102,9 +104,15 @@ def _lese_seiten(
                 ohne_text.append(i + 1)
             else:
                 eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, opt.ocr_dpi)
-                for f in finde(eintrag.ocr, regeln):
+                genau = finde(eintrag.ocr, regeln)
+                for f in genau:
                     f.quelle = "ocr"
-                    eintrag.fundstellen.append(f)
+                eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau)
+                if opt.unlesbar == "schwaerzen":
+                    belegt = [(f.start, f.ende) for f in eintrag.fundstellen if f.quelle == "ocr"]
+                    for u in ocrmodul.unlesbare_regionen(eintrag.ocr):
+                        if not any(u.start < y and u.ende > x for x, y in belegt):
+                            eintrag.fundstellen.append(u)
         if opt.codes and codemodul.verfuegbar():
             eintrag.fundstellen += codemodul.finde_codes(page, i)
         seiten.append(eintrag)
@@ -126,16 +134,18 @@ def _text(seiten: list[_Seite]) -> str:
 
 
 def _gegenprobe_bilder(
-    doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel],
+    doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel], ziele: list[Ziel],
     backend: ocrmodul.OCRBackend | None, opt: Ablaufoptionen, gegenprobe: Gegenprobe,
 ) -> None:
-    """OCR the output pages that were read by OCR and look for leftovers; re-scan codes."""
+    """OCR the output pages that were read by OCR and look for leftovers (exact and
+    fuzzy); re-scan codes."""
     for s in seiten:
         if s.nummer >= len(doc):
             continue
         if s.ocr is not None and backend is not None:
             nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, opt.ocr_dpi)
-            for f in finde(nachher, regeln):
+            genau = finde(nachher, regeln)
+            for f in genau + finde_unscharf(nachher, ziele, genau):
                 eintrag = f.ohne_klartext()
                 eintrag["quelle"] = "ocr"
                 gegenprobe.resttreffer.append(eintrag)
@@ -160,6 +170,7 @@ def anonymisiere(
         vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform,
                                    geheimnis=speicher.geheimnis)
         regeln = regeln_fuer(patient, vergabe)
+        ziele = ziele_fuer(patient, vergabe)
         warnungen: list[str] = []
         if kennung.verknuepft and kennung.abgleich is not None:
             a = kennung.abgleich
@@ -173,7 +184,7 @@ def anonymisiere(
         doc = oeffne(quelle)
         original = oeffne(quelle)
         try:
-            seiten, ohne_text = _lese_seiten(doc, regeln, opt, backend)
+            seiten, ohne_text = _lese_seiten(doc, regeln, ziele, opt, backend)
             if ohne_text:
                 warnungen.append(
                     "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
@@ -182,9 +193,12 @@ def anonymisiere(
             ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
             if ocr_seiten:
                 unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
+                unlesbar = sum(1 for s in seiten for f in s.fundstellen
+                               if f.regel == "ocr.unlesbar")
                 warnungen.append(
                     f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
-                    f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter)."
+                    f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter"
+                    f", {unlesbar} unlesbare Zeilen geschwärzt)."
                     " Handschrift wird nicht erkannt; Vorschaubilder vor der Weitergabe prüfen."
                 )
             fundstellen = [f for s in seiten for f in s.fundstellen]
@@ -216,7 +230,7 @@ def anonymisiere(
         vorschau: list[Path] = []
         with pymupdf.open(ziel) as kontrolle:
             gegenprobe = pruefe(kontrolle, regeln, zusatztexte=[text] if opt.textdatei else [])
-            _gegenprobe_bilder(kontrolle, seiten, regeln, backend, opt, gegenprobe)
+            _gegenprobe_bilder(kontrolle, seiten, regeln, ziele, backend, opt, gegenprobe)
             seitenzahl = len(kontrolle)
             if opt.vorschau == "immer" or (opt.vorschau == "auto" and ocr_seiten):
                 vorschau = schreibe_vorschau(kontrolle, zielpfad(quelle, opt, "_vorschau"))

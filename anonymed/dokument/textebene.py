@@ -34,6 +34,7 @@ class Seitentext:
     zeilenboxen: dict[int, Box] = field(default_factory=dict)
     quelle: str = "text"  # "text" (PDF text layer) or "ocr"
     konfidenzen: list[float] = field(default_factory=list)  # OCR word confidences
+    wortspannen: list[tuple[int, int]] = field(default_factory=list)  # OCR word offsets
 
     MIN_ZEICHEN_TEXTEBENE = 20
 

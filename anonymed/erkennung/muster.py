@@ -14,7 +14,9 @@ from anonymed.kern.modell import Art
 
 VERSICHERTENNUMMER = re.compile(r"(?<![A-Z0-9])[A-Z]\d{9}(?!\d)")
 IBAN = re.compile(r"(?<![A-Z0-9])DE\d{2}(?:\s?\d{4}){4}\s?\d{2}(?![0-9])")
-EMAIL = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+(?![\w.-])")
+EMAIL = re.compile(
+    r"(?<![\w.+-])[\w+-]+(?:\.\s?[\w+-]+)*\s?@\s?[\w-]+(?:\s?\.\s?[\w-]+)+(?![\w.-])"
+)
 
 _SEP = r"\s*[:.]?\s*"
 VERSICHERTENNUMMER_MIT_ETIKETT = re.compile(

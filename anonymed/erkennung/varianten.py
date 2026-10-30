@@ -127,18 +127,25 @@ def nachname_teile(nachname: str) -> list[str]:
 def datum_muster(d: dt.date) -> str:
     """All common German spellings of one calendar date."""
     t, m, j = d.day, d.month, d.year
-    T, M = rf"0?{t}", rf"0?{m}"
-    JJ = rf"(?:{j}|{j % 100:02d})"
+    tz = _ziffern_tolerant
+    T, M = rf"[0OoDQ]?{tz(t)}", rf"[0OoDQ]?{tz(m)}"
+    J, JJ = tz(j), rf"(?:{tz(j)}|{tz(j % 100, 2)})"
     mon = "|".join(re.escape(x) + r"\.?" for x in _MONATE[m])
     alts = [
         rf"{T}\s?\.\s?{M}\s?\.\s?{JJ}",
         rf"{T}\s?/\s?{M}\s?/\s?{JJ}",
-        rf"{T}\s?-\s?{M}\s?-\s?{j}",
-        rf"{j}-{m:02d}-{t:02d}",
-        rf"{j}/{m:02d}/{t:02d}",
-        rf"{T}\.?\s*(?i:{mon})\s*{j}",
+        rf"{T}\s?-\s?{M}\s?-\s?{J}",
+        rf"{J}-{tz(m, 2)}-{tz(t, 2)}",
+        rf"{J}/{tz(m, 2)}/{tz(t, 2)}",
+        rf"{T}\.?\s*(?i:{mon})\s*{J}",
     ]
     return r"(?<![\d.])(?:" + "|".join(f"(?:{a})" for a in alts) + r")(?!\d)"
+
+
+def _ziffern_tolerant(zahl: int, stellen: int = 0) -> str:
+    """Digits of ``zahl`` as OCR-tolerant character classes ("1" also matches "I" or "l")."""
+    text = f"{zahl:0{stellen}d}" if stellen else str(zahl)
+    return "".join(_tolerant(c) for c in text)
 
 
 def telefon_muster(nummer: str) -> str | None:
@@ -153,8 +160,8 @@ def telefon_muster(nummer: str) -> str | None:
     if len(ziffern) < 5:
         return None
     S = r"[\s\-/().]*"
-    kern = S.join(ziffern)
-    prefix = r"\(?\s*(?:\+\s?49|0049|0)\s*\)?\s*(?:\(0\))?"
+    kern = S.join(_tolerant(c) for c in ziffern)
+    prefix = r"\(?\s*(?:\+\s?49|0049|[0O])\s*\)?\s*(?:\([0O]\))?"
     return rf"(?<![\d+]){prefix}{S}{kern}(?!\d)"
 
 

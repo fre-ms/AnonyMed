@@ -113,9 +113,10 @@ def lage_intakt(
 
 def _einblendung(
     page: pymupdf.Page, fuell: pymupdf.Rect, basis: float, groesse: float, pseudonym: str,
-    opt: Schwaerzoptionen,
+    opt: Schwaerzoptionen, mit_flaeche: bool = True,
 ) -> None:
-    page.draw_rect(fuell, color=None, fill=opt.fuellfarbe, overlay=True)
+    if mit_flaeche:
+        page.draw_rect(fuell, color=None, fill=opt.fuellfarbe, overlay=True)
     page.insert_text(
         (fuell.x0 + 0.75, basis),
         pseudonym,
@@ -140,17 +141,19 @@ def rastere_seite(
     temp = pymupdf.open()
     temp.insert_pdf(original, from_page=nummer, to_page=nummer)
     tp = temp[0]
+    texte: list[tuple[pymupdf.Rect, float, float, str]] = []
     for f in fundstellen:
         for k, roh in enumerate(f.rects):
             rect = pymupdf.Rect(roh)
+            tp.draw_rect(rect, color=None, fill=opt.fuellfarbe, overlay=True)
             if k == 0:
                 basis = seite.basislinie(f.start, f.ende) if f.quelle == "text" else None
                 if basis is None:
                     basis = rect.y1 - 0.22 * rect.height
                 groesse = _passende_groesse(f.pseudonym, rect.width - 1.5, f.schriftgroesse, opt)
-                _einblendung(tp, rect, basis, groesse, f.pseudonym, opt)
-            else:
-                tp.draw_rect(rect, color=None, fill=opt.fuellfarbe, overlay=True)
+                texte.append((rect, basis, groesse, f.pseudonym))
+    for rect, basis, groesse, pseudonym in texte:
+        _einblendung(tp, rect, basis, groesse, pseudonym, opt, mit_flaeche=False)
     pix = tp.get_pixmap(dpi=opt.dpi, alpha=False)
     breite, hoehe = tp.rect.width, tp.rect.height
     temp.close()
@@ -160,6 +163,67 @@ def rastere_seite(
 
 
 OCR_RAND = 1.5  # points of padding around OCR word boxes before pixels are blanked
+SNAP_DPI = 200
+
+
+class _Tinte:
+    """Grey rendering of a page for snapping OCR boxes to the gaps between words.
+
+    OCR engines report line or word boxes; the position of a hit inside them is
+    an estimate, so the box is widened outward to the nearest gap that is wider
+    than the gap between two letters but not wider than a word space (ink-free
+    run of at least 20 % of the box height), at most one box height to each side.
+    Over-covering a neighbour is accepted; leaving a character of a name or a
+    date uncovered is not.
+    """
+
+    def __init__(self, page: pymupdf.Page, dpi: int = SNAP_DPI) -> None:
+        self.skala = dpi / 72.0
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(self.skala, self.skala), alpha=False,
+                              colorspace=pymupdf.csGRAY)
+        self.breite, self.hoehe = pix.width, pix.height
+        self.pixel = pix.samples  # one byte per pixel, row-major
+
+    def _spalte_leer(self, x: int, y0: int, y1: int) -> bool:
+        if x < 0 or x >= self.breite:
+            return True
+        erlaubt = max(1, (min(self.hoehe, y1) - max(0, y0)) // 12)  # noise specks
+        dunkel = 0
+        for y in range(max(0, y0), min(self.hoehe, y1)):
+            if self.pixel[y * self.breite + x] < 128:
+                dunkel += 1
+                if dunkel > erlaubt:
+                    return False
+        return True
+
+    def erweitere(self, rect: pymupdf.Rect) -> pymupdf.Rect:
+        h = rect.height
+        if h <= 0:
+            return rect
+        y0, y1 = int(rect.y0 * self.skala), int(rect.y1 * self.skala) + 1
+        luecke = max(3, int(0.2 * h * self.skala))
+        grenze = int(1.0 * h * self.skala)
+        x0 = int(rect.x0 * self.skala)
+        x1 = int(rect.x1 * self.skala)
+        neu_x0 = self._suche(x0, -1, y0, y1, luecke, grenze)
+        neu_x1 = self._suche(x1, +1, y0, y1, luecke, grenze)
+        return pymupdf.Rect(neu_x0 / self.skala, rect.y0, neu_x1 / self.skala, rect.y1)
+
+    def _suche(self, start: int, richtung: int, y0: int, y1: int, luecke: int, grenze: int) -> int:
+        """Walk from ``start`` in ``richtung`` until a run of ``luecke`` empty columns."""
+        x = start
+        leer_in_folge = 0
+        schritte = 0
+        while schritte < grenze:
+            x += richtung
+            schritte += 1
+            if self._spalte_leer(x, y0, y1):
+                leer_in_folge += 1
+                if leer_in_folge >= luecke:
+                    return x - richtung * (luecke - 1)
+            else:
+                leer_in_folge = 0
+        return start + richtung * grenze
 
 
 def schwaerze_seite(
@@ -176,6 +240,7 @@ def schwaerze_seite(
     einblendungen: list[tuple[pymupdf.Rect, float, float, str]] = []
     anzahl = 0
     texttreffer = [f for f in fundstellen if f.quelle == "text"]
+    tinte = _Tinte(page) if any(f.quelle == "ocr" for f in fundstellen) else None
     for f in fundstellen:
         if not f.rects:
             continue
@@ -185,8 +250,11 @@ def schwaerze_seite(
                 zeile = _zeile_von_rect(seite, f, rect)
                 band = _band(rect, zeile, seite) if zeile >= 0 else rect
             else:
-                rect = pymupdf.Rect(rect.x0 - OCR_RAND, rect.y0 - OCR_RAND,
-                                    rect.x1 + OCR_RAND, rect.y1 + OCR_RAND) & page.rect
+                if f.quelle == "ocr" and tinte is not None:
+                    rect = tinte.erweitere(rect)
+                rand = max(OCR_RAND, 0.15 * rect.height)
+                rect = pymupdf.Rect(rect.x0 - rand, rect.y0 - OCR_RAND,
+                                    rect.x1 + rand, rect.y1 + OCR_RAND) & page.rect
                 band = pymupdf.Rect(rect)
             fuell = pymupdf.Rect(rect)
             if k == 0:
@@ -212,9 +280,31 @@ def schwaerze_seite(
     if seite is not None and texttreffer:
         if not lage_intakt(seite, lese_seite(page, seite.nummer), texttreffer):
             return Seitenergebnis(anzahl, False)
-    for fuell, basis, groesse, pseudonym in einblendungen:
-        _einblendung(page, fuell, basis, groesse, pseudonym, opt)
+    # all boxes first, then all pseudonyms, so that a neighbouring box never covers a text
+    for fuell, _basis, _groesse, _pseudonym in einblendungen:
+        page.draw_rect(fuell, color=None, fill=opt.fuellfarbe, overlay=True)
+    for fuell, basis, groesse, pseudonym in _ohne_ueberlappung(einblendungen, opt):
+        _einblendung(page, fuell, basis, groesse, pseudonym, opt, mit_flaeche=False)
     return Seitenergebnis(anzahl, True)
+
+
+def _ohne_ueberlappung(
+    einblendungen: list[tuple[pymupdf.Rect, float, float, str]], opt: Schwaerzoptionen
+) -> list[tuple[pymupdf.Rect, float, float, str]]:
+    """Shrink a pseudonym to the room before the next box on the same line, so that
+    overlapping boxes (frequent on scans) never print one text over another."""
+    ergebnis = []
+    for fuell, basis, groesse, pseudonym in einblendungen:
+        rechts = fuell.x1
+        for anderes, andere_basis, _g, _p in einblendungen:
+            if anderes is fuell or abs(andere_basis - basis) > 3:
+                continue
+            if fuell.x0 < anderes.x0 < rechts:
+                rechts = anderes.x0
+        if rechts < fuell.x1:
+            groesse = _passende_groesse(pseudonym, rechts - fuell.x0 - 1.5, groesse, opt)
+        ergebnis.append((fuell, basis, groesse, pseudonym))
+    return ergebnis
 
 
 def bereinige(doc: pymupdf.Document, vermerk: bool = True, datum: dt.date | None = None) -> None:

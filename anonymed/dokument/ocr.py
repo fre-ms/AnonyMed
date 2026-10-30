@@ -23,9 +23,12 @@ from typing import Protocol
 import pymupdf
 
 from anonymed.dokument.textebene import Seitentext
+from anonymed.kern.modell import Art, Fundstelle
 
 OCR_DPI = 300
 MAX_PIXEL = 4000  # longest side; photos from phones are larger than needed
+UNSICHER_KONFIDENZ = 0.6
+UNLESBAR = "[unlesbar]"
 
 
 @dataclass
@@ -62,6 +65,22 @@ def _rendere(page: pymupdf.Page, dpi: int = OCR_DPI) -> tuple[pymupdf.Pixmap, fl
 
 def _png(pix: pymupdf.Pixmap) -> bytes:
     return pix.tobytes("png")
+
+
+def vorverarbeite(pix: pymupdf.Pixmap) -> pymupdf.Pixmap:
+    """Median filter against salt-and-pepper noise; a no-op when Pillow is missing."""
+    try:
+        from PIL import Image, ImageFilter
+    except ImportError:
+        return pix
+    bild = Image.frombytes("RGB" if pix.n == 3 else "L", (pix.width, pix.height), pix.samples)
+    bild = bild.filter(ImageFilter.MedianFilter(3))
+    puffer = io.BytesIO()
+    bild.save(puffer, format="PNG")
+    neu = pymupdf.Pixmap(puffer.getvalue())
+    if neu.n != 3 or neu.alpha:
+        neu = pymupdf.Pixmap(pymupdf.csRGB, neu) if neu.n != 3 else pymupdf.Pixmap(neu, 0)
+    return neu
 
 
 # -- Tesseract -----------------------------------------------------------------------------------
@@ -146,19 +165,31 @@ class RapidOCRBackend:
         if pix.n == 3:
             bild = bild[:, :, ::-1]  # RapidOCR expects BGR like OpenCV
         try:
-            ergebnis = self._engine(bild)
+            ergebnis = self._engine(bild, return_word_box=True)
         except Exception as e:
             # the language model is loaded lazily; unsupported or missing -> bundled default
             if self._standard:
                 raise OCRFehler(f"RapidOCR fehlgeschlagen: {e}") from e
             self._engine = self._RapidOCR(params=self._params)
             self._standard = True
-            ergebnis = self._engine(bild)
+            ergebnis = self._engine(bild, return_word_box=True)
         boxen = getattr(ergebnis, "boxes", None)
         if boxen is None:
             return []
         woerter: list[OCRWort] = []
-        for box, text, score in zip(boxen, ergebnis.txts, ergebnis.scores, strict=False):
+        wortboxen = getattr(ergebnis, "word_results", None) or ()
+        for i, (box, text, score) in enumerate(zip(boxen, ergebnis.txts, ergebnis.scores,
+                                                   strict=False)):
+            if i < len(wortboxen) and wortboxen[i]:
+                # real word boxes from the engine
+                for wort, wort_score, wbox in wortboxen[i]:
+                    xs = [float(pt[0]) for pt in wbox]
+                    ys = [float(pt[1]) for pt in wbox]
+                    if str(wort).strip():
+                        woerter.append(OCRWort(str(wort).strip(), min(xs) / skala,
+                                               min(ys) / skala, max(xs) / skala, max(ys) / skala,
+                                               float(wort_score)))
+                continue
             xs = [float(pt[0]) for pt in box]
             ys = [float(pt[1]) for pt in box]
             zeile = OCRWort(str(text).strip(), min(xs) / skala, min(ys) / skala, max(xs) / skala,
@@ -240,17 +271,57 @@ def seitentext_aus_woerter(
             n = max(len(w.text), 1)
             schritt = (w.x1 - w.x0) / n
             groesse = max(w.y1 - w.y0, 1.0) * 0.8
+            start = len(seite.text)
             for k, c in enumerate(w.text):
                 box = (w.x0 + k * schritt, w.y0, w.x0 + (k + 1) * schritt, w.y1)
                 seite._fuege_an(c, box, nr, groesse, w.y1 - 0.2 * (w.y1 - w.y0))
             seite.konfidenzen.append(w.konfidenz)
+            seite.wortspannen.append((start, len(seite.text)))
         seite._fuege_an("\n", None, nr, 0.0, 0.0)
     return seite
 
 
+def _wort_unsicher(text: str, konfidenz: float) -> bool:
+    kern = text.strip(",.;:()*\"'")
+    if konfidenz < UNSICHER_KONFIDENZ:
+        return True
+    # a lone letter in the middle of a line is a fragment of a word OCR could not read
+    return len(kern) == 1 and kern.isalpha() and konfidenz < 0.995
+
+
+def unlesbare_regionen(seite: Seitentext, mindestanteil: float = 0.4) -> list[Fundstelle]:
+    """Lines OCR could not read (many uncertain words or fragments) as hits to blank.
+
+    What cannot be read cannot be checked: such a line may hold a name, a date
+    or handwriting.  The whole line is covered and marked "[unlesbar]".
+    """
+    if seite.quelle != "ocr" or not seite.wortspannen:
+        return []
+    je_zeile: dict[int, list[tuple[int, int, bool]]] = {}
+    for (a, b), konf in zip(seite.wortspannen, seite.konfidenzen, strict=True):
+        z = seite.zeile_von(a)
+        je_zeile.setdefault(z, []).append((a, b, _wort_unsicher(seite.text[a:b], konf)))
+    treffer: list[Fundstelle] = []
+    for woerter in je_zeile.values():
+        unsicher = [w for w in woerter if w[2]]
+        if len(unsicher) >= 3 or (unsicher and len(unsicher) / len(woerter) >= mindestanteil):
+            if len(unsicher) >= 2 or len(woerter) == 1:
+                # the whole line: confidently "read" fragments next to garbage are garbage too
+                a, b = woerter[0][0], woerter[-1][1]
+                treffer.append(Fundstelle(
+                    seite=seite.nummer, start=a, ende=b, text=seite.text[a:b], art=Art.MANUELL,
+                    regel="ocr.unlesbar", pseudonym=UNLESBAR,
+                    rects=[tuple(r) for r in seite.rects(a, b)],
+                    schriftgroesse=seite.schriftgroesse(a, b), quelle="ocr",
+                ))
+    return treffer
+
+
 def erkenne_seite(page: pymupdf.Page, backend_: OCRBackend, nummer: int | None = None,
-                  dpi: int = OCR_DPI) -> Seitentext:
+                  dpi: int = OCR_DPI, vorverarbeitung: bool = True) -> Seitentext:
     pix, skala = _rendere(page, dpi)
+    if vorverarbeitung:
+        pix = vorverarbeite(pix)
     woerter = backend_.erkenne(pix, skala)
     nummer = page.number if nummer is None else nummer
     return seitentext_aus_woerter(woerter, nummer, page.rect.width, page.rect.height)
