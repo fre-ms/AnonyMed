@@ -72,7 +72,7 @@ def test_vorlage_und_konfig(tmp_path: Path) -> None:
     r = runner.invoke(app, ["konfig", "--speicher", str(tmp_path / "x.sqlite")])
     assert r.exit_code == 0 and "AnonyMed" in r.output and "x.sqlite" in r.output
     r = runner.invoke(app, ["kontakte"])
-    assert r.exit_code == 1
+    assert r.exit_code == 2 and "einrichten" in r.output
 
 
 def test_fehlerhafte_eingaben(tmp_path: Path, befund: Path, patient: Patient) -> None:

@@ -9,6 +9,7 @@ from anonymed.kern.modell import (
     Pruefbericht,
     Rolle,
     normalisiere,
+    parse_datum,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "Pruefbericht",
     "Rolle",
     "normalisiere",
+    "parse_datum",
 ]

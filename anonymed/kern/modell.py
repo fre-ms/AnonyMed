@@ -107,6 +107,7 @@ class Patient(Person):
     zuweiser: list[Person] = field(default_factory=list)
     aktenzeichen: list[str] = field(default_factory=list)
     begriffe: list[str] = field(default_factory=list)  # free terms supplied by the user
+    hinweise: list[str] = field(default_factory=list)  # notes for display only (vCard NOTE)
 
     def schluessel(self) -> str:
         """Stable key for the pseudonym store: surname|first name|birth date."""
@@ -114,6 +115,24 @@ class Patient(Person):
         if self.geburtsdatum:
             teile.append(self.geburtsdatum.isoformat())
         return "|".join(teile)
+
+    def als_dict(self) -> dict[str, Any]:
+        """Plain dict for the JSON patient file (``anonymed kontakte export``)."""
+
+        def person(p: Person) -> dict[str, Any]:
+            d = asdict(p)
+            d["geburtsdatum"] = p.geburtsdatum.isoformat() if p.geburtsdatum else ""
+            return {k: v for k, v in d.items() if v not in ("", [], None)}
+
+        d = person(self)
+        d.update(
+            angehoerige=[person(a) for a in self.angehoerige],
+            zuweiser=[person(z) for z in self.zuweiser],
+            aktenzeichen=list(self.aktenzeichen),
+            begriffe=list(self.begriffe),
+        )
+        d.pop("hinweise", None)
+        return d
 
     @classmethod
     def aus_dict(cls, d: dict[str, Any]) -> Patient:
@@ -135,7 +154,7 @@ class Patient(Person):
 def _personenfelder(d: dict[str, Any]) -> dict[str, Any]:
     geburtsdatum = d.get("geburtsdatum")
     if isinstance(geburtsdatum, str) and geburtsdatum:
-        geburtsdatum = _parse_datum(geburtsdatum)
+        geburtsdatum = parse_datum(geburtsdatum)
     elif isinstance(geburtsdatum, dt.datetime):
         geburtsdatum = geburtsdatum.date()
     telefone = d.get("telefone", d.get("telefon", []))
@@ -157,9 +176,10 @@ def _personenfelder(d: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _parse_datum(text: str) -> dt.date | None:
+def parse_datum(text: str) -> dt.date | None:
+    """ISO, German or compact date string to a date; ``None`` when unreadable."""
     text = text.strip()
-    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%Y%m%d"):
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y", "%Y%m%d", "%d.%m.%Y %H:%M"):
         try:
             return dt.datetime.strptime(text, fmt).date()
         except ValueError:

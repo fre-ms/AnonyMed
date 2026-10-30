@@ -117,3 +117,61 @@ def erzeuge_befund(pfad: Path, p: Patient, mit_metadaten: bool = True) -> Path:
     doc.save(pfad, garbage=0)
     doc.close()
     return pfad
+
+
+def _falte(zeile: str) -> str:
+    """Fold at 75 octets as vCard writers do, to exercise unfolding."""
+    roh = zeile.encode("utf-8")
+    teile = []
+    while len(roh) > 75:
+        schnitt = 75
+        while schnitt > 1 and (roh[schnitt] & 0xC0) == 0x80:
+            schnitt -= 1
+        teile.append(roh[:schnitt].decode("utf-8"))
+        roh = b" " + roh[schnitt:]
+    teile.append(roh.decode("utf-8"))
+    return "\r\n".join(teile)
+
+
+def _vcard_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\;").replace("\n", "\\n")
+
+
+def vcard_aus_patient(p: Patient, uid: str | None = None) -> str:
+    """A card as DoctoNext writes it (vCard 4.0, salutation in N, GENDER, X fields)."""
+    anrede = "Herr" if p.maennlich else "Frau" if p.weiblich else ""
+    uid = uid or f"synthetisch-{abs(hash(p.schluessel())) % 10**8}"
+    zeilen = [
+        "BEGIN:VCARD",
+        "VERSION:4.0",
+        f"UID:{uid}",
+        f"FN:{_vcard_escape(p.vollname)}",
+        f"N:{_vcard_escape(p.nachname)};{_vcard_escape(p.vorname)};;{anrede};",
+    ]
+    if p.geburtsdatum:
+        zeilen.append(f"BDAY:{p.geburtsdatum.strftime('%Y%m%d')}")
+    if p.geschlecht:
+        zeilen.append(f"GENDER:{'M' if p.maennlich else 'F'}")
+    for i, t in enumerate(p.telefone):
+        zeilen.append(f"TEL;TYPE={'cell' if i == 0 else 'voice'}:{t}")
+    for e in p.emails:
+        zeilen.append(f"EMAIL;TYPE=home:{e}")
+    if p.strasse or p.ort:
+        zeilen.append(f"ADR;TYPE=home:;;{_vcard_escape(p.strasse)};{_vcard_escape(p.ort)};;{p.plz};")
+    if p.geburtsname:
+        zeilen.append(f"X-MAIDENNAME:{_vcard_escape(p.geburtsname)}")
+    if p.patienten_id:
+        zeilen.append(f"X-DOCTOLIB-PATIENT-ID:{p.patienten_id}")
+    notiz = []
+    if p.versichertennummer:
+        notiz.append(f"KVNR {p.versichertennummer}")
+    if p.angehoerige:
+        a = p.angehoerige[0]
+        notiz.append(f"Ehepartner: {a.vollname}, erreichbar unter {a.telefone[0]}")
+    if notiz:
+        zeilen.append("NOTE:" + _vcard_escape(", ".join(notiz)))
+    zeilen.append("X-DOCTOLIB-INSURANCE-SECTOR:private")
+    zeilen.append("CATEGORIES:Doctolib,Privatpatient")
+    zeilen.append("REV:20261030T120000Z")
+    zeilen.append("END:VCARD")
+    return "\r\n".join(_falte(z) for z in zeilen) + "\r\n"
