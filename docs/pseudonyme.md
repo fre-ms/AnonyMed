@@ -112,6 +112,33 @@ The previous scheme, a running letter (`Patient A`, `B`, …), remains
 available with `--schema buchstabe`; existing entries keep their identifier
 whatever the scheme.
 
+## 3 Streets and towns
+
+The same chain gives every street and every town its own reproducible code,
+so that a letter can tell the patient's home from the referrer's practice and
+the re-identification can put each back exactly:
+
+| In the document | Pseudonym | Canonical identity hashed |
+|---|---|---|
+| Musterstraße 12 / Musterstr. 12 / Muster-Strasse 12 | `[Straße K7Q4MX]` | `strasse:` Kölner Phonetik of the name with the *straße/strasse/str.* suffix normalised `:str:` house number (`12`, `12a`) |
+| 80331 München / D-80331 Muenchen | `[PLZ Ort 2F7QV4]` | `ort:` Kölner Phonetik of the town, particles (*am*, *an der*, *Bad*, *OT*) ignored |
+| München / MÜNCHEN (bare) | `[Ort 2F7QV4]` | the same, hence the same code |
+
+Other suffixes (*Lindenweg*, *Marktplatz*) stay inside the phonetic code, so
+*Lindenweg 5* and *Lindenstraße 5* differ; words run together before encoding,
+so *Linden-Weg* equals *Lindenweg*. The house number is part of the street
+identity: the same street with another number is another code, which is what
+you want when two people of one household appear in a document. The postcode
+is deliberately not part of the town identity, otherwise a bare "München" in
+the running text could not share the code of "80331 München" in the address
+block; the two placeholders keep the postcode recoverable. Relatives' and
+referring physicians' addresses get their own codes (`[Straße …]` of the
+practice instead of the former `[Praxisanschrift]`).
+
+Codes need the same secret key as the patient identifiers; without a key
+(for example in unit tests without a store) the placeholders fall back to
+`[Wohnort]`.
+
 ## References
 
 * Lablans M, Borg A, Ückert F. A RESTful interface to pseudonymization services in modern web applications. *BMC Medical Informatics and Decision Making* 2015;15:2. doi:10.1186/s12911-014-0123-5

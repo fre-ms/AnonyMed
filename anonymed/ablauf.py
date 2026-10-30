@@ -79,7 +79,8 @@ def anonymisiere(
     speicher = speicher or Pseudonymspeicher()
     try:
         kennung = speicher.kennung_fuer(patient, opt.abgleich)
-        vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform)
+        vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform,
+                                   geheimnis=speicher.geheimnis)
         regeln = regeln_fuer(patient, vergabe)
         warnungen: list[str] = []
         if kennung.verknuepft and kennung.abgleich is not None:

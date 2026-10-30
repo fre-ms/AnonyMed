@@ -3,8 +3,11 @@
 The main person becomes "Patient K7Q4MX" (or "Patientin …"; with the letter
 scheme "Patient A"), relatives "Angehörige K7Q4MX-1", referring physicians
 "Dr. Z1"; other identifiers become bracketed placeholders such as
-"[geb. 1990]" or "[Wohnort]".  The identifier is handed in by the store so
-that it stays stable across documents, sessions and machines.
+"[geb. 1990]".  Streets and towns get their own reproducible codes derived
+like the patient's identifier ("[Straße K7Q4MX]", "[PLZ Ort 2F7QV4]",
+"[Ort 2F7QV4]"); without a secret key they fall back to "[Wohnort]".  The
+identifier is handed in by the store so that it stays stable across
+documents, sessions and machines.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from __future__ import annotations
 import datetime as dt
 
 from anonymed.kern.modell import Art, Fundstelle, Patient, Person
+from anonymed.pseudonyme.kennung import hash_kennung, kanonische_strasse, kanonischer_ort
 
 PLATZHALTER: dict[Art, str] = {
     Art.ADRESSE: "[Wohnort]",
@@ -34,9 +38,11 @@ class Pseudonymvergabe:
         kennung: str,
         datumsform: str = "jahr",
         heute: dt.date | None = None,
+        geheimnis: bytes | None = None,
     ) -> None:
         self.patient = patient
         self.kennung = kennung
+        self.geheimnis = geheimnis
         self.datumsform = datumsform
         self.heute = heute or dt.date.today()
         self.zuordnung: dict[str, str] = {}
@@ -77,10 +83,38 @@ class Pseudonymvergabe:
             pseudonym = f"[geb. {d.year}]"
         return self._merke(pseudonym, d.strftime("%d.%m.%Y"), Art.GEBURTSDATUM)
 
+    # -- addresses: one code per street and per town ----------------------------------------------
+    def _adresscode(self, identitaet: str) -> str:
+        assert self.geheimnis is not None
+        return hash_kennung(self.geheimnis, identitaet)
+
+    def strasse(self, person: Person | None = None) -> str:
+        person = person or self.patient
+        if self.geheimnis is None or not person.strasse:
+            eigene = person is self.patient
+            platzhalter = PLATZHALTER[Art.ADRESSE] if eigene else "[Praxisanschrift]"
+            return self._merke(platzhalter, person.strasse, Art.ADRESSE)
+        code = self._adresscode(kanonische_strasse(person.strasse))
+        return self._merke(f"[Straße {code}]", person.strasse, Art.ADRESSE)
+
+    def ort(self, person: Person | None = None) -> str:
+        person = person or self.patient
+        if self.geheimnis is None or not person.ort:
+            return self._merke(PLATZHALTER[Art.ORT], person.ort, Art.ORT)
+        code = self._adresscode(kanonischer_ort(person.ort))
+        return self._merke(f"[Ort {code}]", person.ort, Art.ORT)
+
+    def plz_ort(self, person: Person | None = None) -> str:
+        person = person or self.patient
+        klartext = f"{person.plz} {person.ort}".strip()
+        if self.geheimnis is None or not person.ort:
+            return self._merke(PLATZHALTER[Art.ORT], klartext, Art.ORT)
+        code = self._adresscode(kanonischer_ort(person.ort))
+        return self._merke(f"[PLZ Ort {code}]", klartext, Art.ORT)
+
     def adresse(self) -> str:
-        p = self.patient
-        klartext = ", ".join(t for t in (p.strasse, f"{p.plz} {p.ort}".strip()) if t)
-        return self._merke(PLATZHALTER[Art.ADRESSE], klartext, Art.ADRESSE)
+        """Compatibility: the street placeholder of the main person."""
+        return self.strasse()
 
     def telefon(self) -> str:
         return self._merke(PLATZHALTER[Art.TELEFON], "; ".join(self.patient.telefone), Art.TELEFON)

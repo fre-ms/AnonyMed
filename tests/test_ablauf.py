@@ -58,7 +58,9 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     txt = erg.ziel_txt.read_text(encoding="utf-8")
     assert gefundene_klardaten(txt, patient) == []
     # the actual content stays untouched
-    for erwartet in (f"Patient {k}", f"[geb. {patient.geburtsdatum.year}]", "[Wohnort]", "Dr. Z1",
+    assert re.search(r"\[Straße [A-Z2-9]{6}\]", txt) and re.search(r"\[PLZ Ort [A-Z2-9]{6}\]", txt)
+    assert "[Wohnort]" not in txt
+    for erwartet in (f"Patient {k}", f"[geb. {patient.geburtsdatum.year}]", "Dr. Z1",
                      f"Angehörige {k}-1", "[Versichertennummer]", "max. 3 Tabletten",
                      "Ramipril 5 mg",
                      "Sehr geehrte Frau Kollegin Dr. Z1,", "=== Seite 2 ==="):
@@ -74,6 +76,9 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     z = speicher.zuordnung(patient.schluessel())
     assert z[f"Patient {k}"] == patient.vollname
     assert z["[E-Mail]"] == patient.emails[0]
+    assert patient.strasse in z.values() and f"{patient.plz} {patient.ort}" in z.values()
+    # the referrer's practice address has its own street code
+    assert sum(1 for p in z if p.startswith("[Straße ")) == 2
 
 
 def test_kennungen_je_person(tmp_path: Path, patient: Patient, patientin: Patient,
@@ -89,6 +94,7 @@ def test_buchstabenschema_im_ablauf(befund: Path, patient: Patient,
                                     buchstabenspeicher: Pseudonymspeicher) -> None:
     erg = anonymisiere(befund, patient, speicher=buchstabenspeicher)
     assert erg.kennung == "A" and "Patient A" in erg.text and "Angehörige A-1" in erg.text
+    assert "[Straße " in erg.text  # address codes do not depend on the identifier scheme
 
 
 def test_schreibvariante_bekommt_gleiche_kennung(tmp_path: Path, patient: Patient,

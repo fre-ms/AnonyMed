@@ -121,15 +121,20 @@ def test_adresse_ohne_suffix_und_fehltreffer() -> None:
     assert not _passt(v.adresse_muster("Musterstraße 12"), "Mustermann 12")
 
 
-@pytest.mark.parametrize(
-    "text", ["80331 München", "D-80331 München", "München", "Muenchen", "MÜNCHEN"]
-)
+@pytest.mark.parametrize("text", ["München", "Muenchen", "MÜNCHEN", "in München,"])
 def test_ort(text: str) -> None:
-    assert _passt(v.ort_muster("80331", "München"), text)
+    assert _passt(v.ort_muster("München"), text)
+
+
+@pytest.mark.parametrize("text", ["80331 München", "D-80331 München", "D 80331 Muenchen"])
+def test_plz_ort(text: str) -> None:
+    assert _passt(v.plz_ort_muster("80331", "München"), text)
 
 
 def test_ort_keine_fehltreffer() -> None:
-    assert not _passt(v.ort_muster("80331", "München"), "Münchener Kindl")
+    assert not _passt(v.ort_muster("München"), "Münchener Kindl")
+    assert not _passt(v.plz_ort_muster("80331", "München"), "80333 München")
+    assert v.plz_ort_muster("", "München") is None
 
 
 def test_codes() -> None:

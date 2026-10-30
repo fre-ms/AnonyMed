@@ -32,6 +32,10 @@ _INDEX = {c: i for i, c in enumerate(ALPHABET)}
 STANDARDLAENGE = 5  # payload characters; one check character is appended
 _PARTIKEL = {"von", "van", "der", "den", "de", "zu", "zur", "zum", "da", "dos", "del", "la", "le"}
 MUSTER_KENNUNG = re.compile(r"[A-Z2-9]{4,9}")
+_STRASSEN_SUFFIX = re.compile(r"[\s\-]?(stra(?:ß|ss)e|str\.?)$", re.IGNORECASE)
+_HAUSNUMMER = re.compile(r"^(.*?)[\s,]*(\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+\s?[a-zA-Z]?)?)?\s*$")
+_ORTSPARTIKEL = {"am", "an", "a", "d", "der", "dem", "den", "im", "in", "ob", "bei", "b", "vor",
+                 "auf", "unter", "ot", "ortsteil", "stadt", "bad"}
 
 
 def pruefzeichen(code: str) -> str:
@@ -116,3 +120,39 @@ def geheimnis_laden(pfad: Path, erzeugen: bool = True) -> bytes:
     except OSError:
         pass
     return geheimnis
+
+
+def trenne_hausnummer(strasse: str) -> tuple[str, str]:
+    """"Musterstraße 12 a" -> ("Musterstraße", "12a"); number may be absent."""
+    m = _HAUSNUMMER.match(strasse.strip())
+    if not m:
+        return strasse.strip(), ""
+    name = (m.group(1) or "").strip(" ,")
+    nummer = re.sub(r"\s+", "", (m.group(2) or "")).lower()
+    return name, nummer
+
+
+def kanonische_strasse(strasse: str) -> str:
+    """Phonetic street name with the "straße/strasse/str." suffix normalised, plus house number.
+
+    "Musterstraße 12", "Musterstr. 12" and "Muster-Strasse 12" all give the same form;
+    "Lindenweg 5" keeps its suffix inside the phonetic code.
+    """
+    name, nummer = trenne_hausnummer(strasse)
+    suffix = ""
+    m = _STRASSEN_SUFFIX.search(name)
+    if m and name[: m.start()].strip(" -"):
+        name, suffix = name[: m.start()].strip(" -"), "str"
+    # phonetic code of the words run together, so that "Linden-Weg" equals "Lindenweg"
+    woerter = [w for w in re.split(r"[\s\-‐‑–.]+", name) if w]
+    return f"strasse:{koelner_phonetik(''.join(woerter))}:{suffix}:{nummer}"
+
+
+def kanonischer_ort(ort: str) -> str:
+    """Phonetic town name, particles ("am", "an der", "Bad", "OT") ignored.
+
+    "München" and "Muenchen" agree; "Frankfurt am Main" and "Frankfurt (Oder)" differ.
+    """
+    woerter = [w for w in re.split(r"[\s\-‐‑–./()]+", ort) if w]
+    kern = [w for w in woerter if w.lower().rstrip(".") not in _ORTSPARTIKEL] or woerter
+    return "ort:" + koelner_phonetik("".join(kern))

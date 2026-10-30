@@ -191,14 +191,21 @@ def adresse_muster(strasse: str) -> str | None:
     return rf"{L}{strassen_re}{nummer_re}(?![^\W_])"
 
 
-def ort_muster(plz: str, ort: str) -> str | None:
-    """"12345 Musterstadt", "D-12345 Musterstadt" or the town on its own."""
+def ort_muster(ort: str) -> str | None:
+    """The town on its own ("Musterstadt", "MUSTERSTADT", "Muenchen")."""
     ort = ort.strip()
     if len(ort) < 3:
         return None
+    return rf"{L}{alternative(formen(ort))}{R}"
+
+
+def plz_ort_muster(plz: str, ort: str) -> str | None:
+    """"12345 Musterstadt" or "D-12345 Musterstadt"; needs both parts."""
+    ort = ort.strip()
     plz = re.sub(r"\D", "", plz)
-    plz_re = rf"(?:(?:D[\-\s])?{plz}\s*)?" if plz else ""
-    return rf"(?<![\w]){plz_re}{alternative(formen(ort))}{R}"
+    if len(ort) < 3 or not plz:
+        return None
+    return rf"(?<![\w])(?:D[\-\s])?{plz}\s*{alternative(formen(ort))}{R}"
 
 
 def exakt_muster(wert: str) -> str | None:

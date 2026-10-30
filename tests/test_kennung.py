@@ -13,8 +13,11 @@ from anonymed.pseudonyme.kennung import (
     hash_kennung,
     hauptteil,
     kanonische_identitaet,
+    kanonische_strasse,
+    kanonischer_ort,
     kennung_gueltig,
     pruefzeichen,
+    trenne_hausnummer,
 )
 from anonymed.pseudonyme.phonetik import koelner_phonetik
 
@@ -77,3 +80,27 @@ def test_hauptteil() -> None:
     assert hauptteil("von der Leyen") == "Leyen"
     assert hauptteil("de") == "de"
     assert hauptteil("") == ""
+
+
+def test_kanonische_strasse() -> None:
+    k = kanonische_strasse("Musterstraße 12")
+    assert k == "strasse:6827:str:12"
+    for variante in ("Musterstr. 12", "Muster-Strasse 12", "MUSTERSTRASSE 12", "Musterstraße, 12",
+                     "Musterstraße 12 "):
+        assert kanonische_strasse(variante) == k, variante
+    assert kanonische_strasse("Musterstraße 12a") == "strasse:6827:str:12a"
+    assert kanonische_strasse("Musterstraße 14") != k
+    assert kanonische_strasse("Musterweg 12") != k
+    assert kanonische_strasse("Lindenweg 5") == kanonische_strasse("Linden-Weg 5")
+    assert kanonische_strasse("Am Alten Markt 3") == kanonische_strasse("Am alten Markt 3")
+    assert kanonische_strasse("Straße des Friedens 1").startswith("strasse:8278")
+    assert trenne_hausnummer("Hauptstraße 12 a") == ("Hauptstraße", "12a")
+    assert trenne_hausnummer("Hauptstraße") == ("Hauptstraße", "")
+
+
+def test_kanonischer_ort() -> None:
+    assert kanonischer_ort("München") == kanonischer_ort("Muenchen") == kanonischer_ort("MÜNCHEN")
+    assert kanonischer_ort("Frankfurt am Main") == kanonischer_ort("Frankfurt a. Main")
+    assert kanonischer_ort("Frankfurt am Main") != kanonischer_ort("Frankfurt (Oder)")
+    assert kanonischer_ort("Bad Tölz") == kanonischer_ort("Tölz")
+    assert kanonischer_ort("Riesa") != kanonischer_ort("Dresden")

@@ -64,10 +64,10 @@ def test_zuordnung_und_datei(tmp_path: Path, patient: Patient) -> None:
     pfad = tmp_path / "pseudonyme.sqlite"
     with Pseudonymspeicher(pfad) as s:
         k = s.kennung_fuer(patient).kennung
-        vergabe = Pseudonymvergabe(patient, k)
+        vergabe = Pseudonymvergabe(patient, k, geheimnis=s.geheimnis)
         vergabe.hauptperson()
         vergabe.geburtsdatum()
-        vergabe.adresse()
+        strasse = vergabe.strasse()
         s.merke(patient, vergabe)
     assert pfad.exists()
     with Pseudonymspeicher(pfad) as s:
@@ -75,7 +75,7 @@ def test_zuordnung_und_datei(tmp_path: Path, patient: Patient) -> None:
         z = s.zuordnung(patient.schluessel())
         assert z[f"Patient {k}"] == patient.vollname
         assert z[f"[geb. {patient.geburtsdatum.year}]"] == patient.geburtsdatum.strftime("%d.%m.%Y")
-        assert patient.strasse in z["[Wohnort]"]
+        assert z[strasse] == patient.strasse and strasse.startswith("[Straße ")
         info = s.patient_info(patient.schluessel())
         assert info["geschlecht"] == "m" and info["kennung"] == k and info["schema"] == "hash"
         assert s.kennungen() == [k]

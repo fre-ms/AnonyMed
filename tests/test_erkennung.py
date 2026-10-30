@@ -40,6 +40,24 @@ def test_benachbarte_treffer_verschmelzen() -> None:
     assert fundstellen[0].text == "Musterstraße 12, 80331 München"
 
 
+def test_adresscodes_mit_schluessel() -> None:
+    p = _patient()
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 100), "Anschrift: Musterstr. 12, 80331 München; geboren in Muenchen.",
+                     fontname="helv")
+    vergabe = Pseudonymvergabe(p, "K7Q4MX", geheimnis=bytes(32))
+    fundstellen = finde(lese_seite(page), regeln_fuer(p, vergabe))
+    pseudonyme = [f.pseudonym for f in fundstellen]
+    assert len(pseudonyme) == 3
+    assert pseudonyme[0].startswith("[Straße ") and pseudonyme[1].startswith("[PLZ Ort ")
+    assert pseudonyme[2].startswith("[Ort ")
+    assert pseudonyme[1].split()[-1] == pseudonyme[2].split()[-1]  # same town, same code
+    assert vergabe.zuordnung[pseudonyme[0]] == "Musterstraße 12"
+    assert vergabe.zuordnung[pseudonyme[1]] == "80331 München"
+    assert vergabe.zuordnung[pseudonyme[2]] == "München"
+
+
 def test_generische_muster_und_rollen() -> None:
     p = _patient()
     regeln = regeln_fuer(p, Pseudonymvergabe(p, "A"))

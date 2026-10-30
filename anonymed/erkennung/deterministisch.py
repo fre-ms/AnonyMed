@@ -64,12 +64,17 @@ def regeln_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Regel]:
     if p.geburtsdatum:
         add("datum.geburtsdatum", v.datum_muster(p.geburtsdatum), Art.GEBURTSDATUM,
             vergabe.geburtsdatum(), 20, Rolle.PATIENT)
-    if p.strasse:
-        add("adresse.strasse", v.adresse_muster(p.strasse), Art.ADRESSE, vergabe.adresse(), 20,
-            Rolle.PATIENT)
-    if p.ort:
-        add("adresse.ort", v.ort_muster(p.plz, p.ort), Art.ORT, vergabe.adresse(), 15,
-            Rolle.PATIENT)
+    def adressregeln(prefix: str, person: Person, rolle: Rolle) -> None:
+        if person.strasse:
+            add(f"{prefix}.strasse", v.adresse_muster(person.strasse), Art.ADRESSE,
+                vergabe.strasse(person), 20, rolle)
+        if person.ort:
+            add(f"{prefix}.plz_ort", v.plz_ort_muster(person.plz, person.ort), Art.ORT,
+                vergabe.plz_ort(person), 20, rolle)
+            add(f"{prefix}.ort", v.ort_muster(person.ort), Art.ORT, vergabe.ort(person), 15,
+                rolle)
+
+    adressregeln("adresse", p, Rolle.PATIENT)
     for t in p.telefone:
         add("telefon", v.telefon_muster(t), Art.TELEFON, vergabe.telefon(), 20, Rolle.PATIENT)
     for e in p.emails:
@@ -87,6 +92,7 @@ def regeln_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Regel]:
     for i, person in enumerate(p.angehoerige, 1):
         pseudonym = vergabe.angehoerige(i, person)
         namensregeln(f"angehoerige{i}", person, pseudonym, Rolle.ANGEHOERIGE)
+        adressregeln(f"angehoerige{i}", person, Rolle.ANGEHOERIGE)
         for t in person.telefone:
             add(f"angehoerige{i}.telefon", v.telefon_muster(t), Art.TELEFON, "[Telefon]", 20,
                 Rolle.ANGEHOERIGE)
@@ -101,9 +107,7 @@ def regeln_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Regel]:
         for teil in v.nachname_teile(person.nachname):
             add(f"zuweiser{i}.nachname.teil", v.name_muster(teil), Art.NACHNAME, pseudonym, 10,
                 Rolle.ZUWEISER)
-        if person.strasse:
-            add(f"zuweiser{i}.strasse", v.adresse_muster(person.strasse), Art.ADRESSE,
-                "[Praxisanschrift]", 20, Rolle.ZUWEISER)
+        adressregeln(f"zuweiser{i}", person, Rolle.ZUWEISER)
         for t in person.telefone:
             add(f"zuweiser{i}.telefon", v.telefon_muster(t), Art.TELEFON, "[Telefon]", 20,
                 Rolle.ZUWEISER)

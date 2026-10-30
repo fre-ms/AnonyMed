@@ -20,8 +20,9 @@ _REST_MUSTER = [
     re.compile(rf"\bPatient(?:in|en)?\s+{_KENNUNG}(?![\w])"),
     re.compile(rf"\bAngehörige[nr]?\s+{_KENNUNG}-\d+(?!\d)"),
     re.compile(r"\bDr\.\s*Z\d+(?!\d)"),
-    re.compile(r"\[(?:geb\.|Alter|Wohnort|Telefon|E-Mail|Versichertennummer|Patienten-ID|"
-               r"Aktenzeichen|IBAN|Begriff|Geburtsdatum|Praxisanschrift)[^\]\n]{0,30}\]"),
+    re.compile(r"\[(?:geb\.|Alter|Wohnort|Straße|Strasse|PLZ Ort|Ort|Telefon|E-Mail|"
+               r"Versichertennummer|Patienten-ID|Aktenzeichen|IBAN|Begriff|Geburtsdatum|"
+               r"Praxisanschrift)[^\]\n]{0,30}\]"),
 ]
 
 
@@ -114,7 +115,7 @@ def rueckersetzen(
             if rest in verbleibend:
                 continue
             verbleibend.append(rest)
-            code = rest.split()[-1].split("-")[0]
+            code = rest.strip("[]").split()[-1].split("-")[0]
             if ist_hashkennung(code):
                 aehnlich = [k for k in (bekannte_kennungen or []) if _abstand_eins(code, k)]
                 if not kennung_gueltig(code):

@@ -290,7 +290,8 @@ def pruefen(
         except UnsichererAbgleich as e:
             _unsicher_melden(p, e)
             raise typer.Exit(code=4) from e
-    regeln = regeln_fuer(p, Pseudonymvergabe(p, kennung))
+        geheimnis = sp.geheimnis
+    regeln = regeln_fuer(p, Pseudonymvergabe(p, kennung, geheimnis=geheimnis))
     with pymupdf.open(datei) as doc:
         g = pruefe(doc, regeln)
     if g.bestanden:

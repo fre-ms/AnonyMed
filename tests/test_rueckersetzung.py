@@ -7,14 +7,29 @@ from anonymed.pseudonyme.rueckersetzung import rueckersetzen
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 
 
-def _zuordnung(patient: Patient) -> dict[str, str]:
-    v = Pseudonymvergabe(patient, "A")
+def _zuordnung(patient: Patient, geheimnis: bytes | None = None) -> dict[str, str]:
+    v = Pseudonymvergabe(patient, "A", geheimnis=geheimnis)
     v.hauptperson()
     v.geburtsdatum()
-    v.adresse()
+    v.strasse()
+    v.plz_ort()
     v.angehoerige(1, patient.angehoerige[0])
     v.zuweiser(1, patient.zuweiser[0])
     return v.zuordnung
+
+
+def test_adresscodes(patient: Patient) -> None:
+    z = _zuordnung(patient, geheimnis=bytes(32))
+    strasse = next(k for k in z if k.startswith("[Straße "))
+    plz_ort = next(k for k in z if k.startswith("[PLZ Ort "))
+    r = rueckersetzen(f"wohnhaft {strasse}, {plz_ort}.", z)
+    assert r.text == f"wohnhaft {patient.strasse}, {patient.plz} {patient.ort}."
+    assert r.verbleibend == []
+    code = strasse.split()[-1].rstrip("]")
+    falsch = code[1] + code[0] + code[2:]
+    r = rueckersetzen(f"wohnhaft [Straße {falsch}].", z, bekannte_kennungen=[])
+    assert r.verbleibend == [f"[Straße {falsch}]"]
+    assert "Prüfzeichen falsch" in r.hinweise[f"[Straße {falsch}]"]
 
 
 def test_vollname(patient: Patient) -> None:
