@@ -12,6 +12,8 @@ import typer
 
 from anonymed import __version__
 from anonymed.ablauf import Ablaufoptionen, anonymisiere
+from anonymed.dokument.ocr import OCRFehler, verfuegbare_backends
+from anonymed.erkennung.codes import verfuegbar as codes_verfuegbar
 from anonymed.kern.modell import Patient
 from anonymed.konfig import (
     UMGEBUNG_PASSWORT,
@@ -218,10 +220,19 @@ def anonymisieren(
     schema: SchemaOption = "hash",
     neu: NeuOption = False,
     gleich: GleichOption = None,
+    ocr: Annotated[str, typer.Option("--ocr", help="OCR für Scans/Fotos: auto, rapidocr,"
+                                                  " tesseract oder aus.")] = "auto",
+    codes: Annotated[bool, typer.Option("--codes/--keine-codes",
+                                        help="Barcodes und QR-Codes schwärzen.")] = True,
+    vorschau: Annotated[str, typer.Option("--vorschau", help="Vorschaubilder: auto (nur bei OCR),"
+                                                          " immer oder nie.")] = "auto",
 ) -> None:
     """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if datum not in ("jahr", "alter"):
         typer.echo("--datum muss 'jahr' oder 'alter' sein.", err=True)
+        raise typer.Exit(code=1)
+    if vorschau not in ("auto", "immer", "nie"):
+        typer.echo("--vorschau muss 'auto', 'immer' oder 'nie' sein.", err=True)
         raise typer.Exit(code=1)
     p = _patient_bestimmen(patient, vcf, kontakt, nr, konfig)
     if p.hinweise:
@@ -232,7 +243,7 @@ def anonymisieren(
         )
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
-        abgleich=_abgleich_entscheidung(neu, gleich),
+        abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True
@@ -243,11 +254,13 @@ def anonymisieren(
             except UnsichererAbgleich as e:
                 _unsicher_melden(p, e)
                 raise typer.Exit(code=4) from e
-            except (ValueError, NotImplementedError) as e:
+            except (ValueError, NotImplementedError, OCRFehler) as e:
                 typer.echo(f"{datei.name}: {e}", err=True)
                 alles_frei = False
                 continue
             typer.echo(als_text(erg.bericht))
+            if erg.vorschau:
+                typer.echo(f"Vorschau:    {erg.vorschau[0].parent} ({len(erg.vorschau)} Seiten)")
             if erg.freigegeben:
                 typer.echo(f"Freigegeben: {erg.ziel_pdf}")
                 if erg.ziel_txt:
@@ -384,6 +397,11 @@ def konfig(speicher: SpeicherOption = None) -> None:
 
     typer.echo(f"AnonyMed {__version__}")
     typer.echo(f"PyMuPDF {pymupdf.version[0]} (MuPDF {pymupdf.version[1]})")
+    backends = verfuegbare_backends()
+    typer.echo("OCR-Backends:        " + (", ".join(backends) if backends else
+                                          "keine (Extra 'ocr' installieren oder Tesseract)"))
+    typer.echo("Barcodes/QR:         " + ("zxing-cpp" if codes_verfuegbar() else
+                                          "nicht verfügbar (Extra 'codes')"))
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
     typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
                "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")

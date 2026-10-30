@@ -127,7 +127,10 @@ def finde_im_text(text: str, regeln: list[Regel]) -> list[tuple[int, int, Regel]
     kandidaten: list[tuple[int, int, Regel]] = []
     for regel in regeln:
         for m in regel.muster.finditer(text):
-            a, b = m.start(), m.end()
+            if "wert" in regel.muster.groupindex and m.group("wert"):
+                a, b = m.span("wert")
+            else:
+                a, b = m.start(), m.end()
             # trim surrounding whitespace the pattern may have swallowed
             while a < b and text[a].isspace():
                 a += 1

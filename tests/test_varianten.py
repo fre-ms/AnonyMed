@@ -140,7 +140,12 @@ def test_ort_keine_fehltreffer() -> None:
 def test_codes() -> None:
     assert _passt(v.exakt_muster("C815908301"), "Nr. c815908301,")
     assert _passt(v.exakt_muster("AZ 2023/171"), "Zeichen AZ  2023/171")
+    assert _passt(v.exakt_muster("AZ 2023/171"), "68202938AZ 2023/171")  # glued by OCR
+    assert _passt(v.exakt_muster("C815908301"), "C8I59O83O1")  # OCR confusions
+    assert not _passt(v.exakt_muster("AZ 2023/171"), "BAZ 2023/171")
     assert not _passt(v.exakt_muster("C815908301"), "C8159083012")
+    assert not _passt(v.exakt_muster("C815908301"), "XC815908301")
+    assert _passt(v.nummer_muster("68202938"), "ID 682O2938.")
     assert _passt(v.nummer_muster("68202938"), "ID 68202938.")
     assert not _passt(v.nummer_muster("68202938"), "168202938")
     assert v.nummer_muster("12") is None

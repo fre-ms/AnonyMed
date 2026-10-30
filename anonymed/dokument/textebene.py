@@ -32,6 +32,8 @@ class Seitentext:
     groessen: list[float] = field(default_factory=list)
     basislinien: list[float] = field(default_factory=list)
     zeilenboxen: dict[int, Box] = field(default_factory=dict)
+    quelle: str = "text"  # "text" (PDF text layer) or "ocr"
+    konfidenzen: list[float] = field(default_factory=list)  # OCR word confidences
 
     MIN_ZEICHEN_TEXTEBENE = 20
 
@@ -39,6 +41,11 @@ class Seitentext:
     def hat_textebene(self) -> bool:
         """True when the page carries enough real text to work without OCR."""
         return len("".join(self.text.split())) >= self.MIN_ZEICHEN_TEXTEBENE
+
+    @property
+    def unsichere_woerter(self) -> int:
+        """Number of OCR words below 60 % confidence (0 for a text layer)."""
+        return sum(1 for k in self.konfidenzen if k < 0.6)
 
     def rects(self, start: int, ende: int) -> list[pymupdf.Rect]:
         """Union of character boxes in ``[start, ende)``, one rectangle per line."""

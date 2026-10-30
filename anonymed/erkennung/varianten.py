@@ -208,21 +208,46 @@ def plz_ort_muster(plz: str, ort: str) -> str | None:
     return rf"(?<![\w])(?:D[\-\s])?{plz}\s*{alternative(formen(ort))}{R}"
 
 
+# Characters OCR engines confuse with each other; codes are matched tolerant to these.
+_OCR_VERWECHSLER = {
+    "0": "0OoDQ", "O": "O0Q", "D": "D0", "1": "1IlL|", "I": "I1l", "L": "L1", "5": "5S", "S": "S5",
+    "8": "8B", "B": "B8", "2": "2Z", "Z": "Z2", "6": "6G", "G": "G6", "4": "4A", "A": "A4",
+}
+
+
+def _tolerant(zeichen: str) -> str:
+    """Character class for one code character: both cases plus its OCR look-alikes."""
+    klasse = _OCR_VERWECHSLER.get(zeichen.upper(), "")
+    if not klasse and not zeichen.isalpha():
+        return re.escape(zeichen)
+    zeichen_menge = {*klasse, *klasse.lower(), zeichen.upper(), zeichen.lower()} - {"|"}
+    inhalt = "".join(sorted(zeichen_menge)).replace("\\", "\\\\").replace("]", "\\]")
+    return "[" + inhalt + ("|" if "|" in klasse else "") + "]"
+
+
 def exakt_muster(wert: str) -> str | None:
     """Alphanumeric code (insurance number, patient id, file number) as written,
-    tolerant to spaces inside and case."""
+    tolerant to spaces inside, case and the usual OCR confusions (0/O, 1/I, 5/S, 8/B).
+
+    Boundaries follow the character class at each end: a code starting with a
+    letter may follow a digit (OCR often glues "68202938AZ 2023/171"), a code
+    starting with a digit may follow a letter, and the same at the end.
+    """
     wert = wert.strip()
     if len(wert) < 4:
         return None
-    teile = [re.escape(t) for t in re.split(r"\s+", wert) if t]
-    return rf"(?<![\w])(?i:{r'\s*'.join(teile)})(?![\w])"
+    teile = ["".join(_tolerant(c) for c in t) for t in re.split(r"\s+", wert) if t]
+    links = r"(?<![^\W\d_])" if wert[0].isalpha() else r"(?<!\d)"
+    rechts = R if wert[-1].isalpha() else r"(?!\d)"
+    return rf"{links}{r'\s*'.join(teile)}{rechts}"
 
 
 def nummer_muster(wert: str) -> str | None:
+    """A numeric id, tolerant to OCR confusions of single digits."""
     ziffern = re.sub(r"\D", "", wert)
     if len(ziffern) < 4:
         return None
-    return rf"(?<!\d){ziffern}(?!\d)"
+    return rf"(?<![\dOoIl]){''.join(_tolerant(c) for c in ziffern)}(?![\dOoIl])"
 
 
 def begriff_muster(begriff: str) -> str | None:

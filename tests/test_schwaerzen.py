@@ -107,3 +107,24 @@ def test_bereinige_entfernt_struktur() -> None:
     assert doc.metadata["producer"].startswith("AnonyMed")
     assert doc.get_toc() == [] and doc.embfile_count() == 0
     assert list(doc[0].annots()) == []
+
+
+def test_ocr_treffer_loescht_bildpixel() -> None:
+    """A hit from OCR on an image-only page blanks the pixels and draws the pseudonym."""
+    quelle = _dokument()
+    pix = quelle[0].get_pixmap(dpi=150, alpha=False)
+    doc = pymupdf.open()
+    page = doc.new_page(width=quelle[0].rect.width, height=quelle[0].rect.height)
+    page.insert_image(page.rect, pixmap=pix)
+    s = lese_seite(quelle[0])
+    a = s.text.index("Flantz")
+    rect = s.rects(a, a + 6)[0]
+    vorher = page.get_pixmap(dpi=150, clip=rect).samples
+    f = Fundstelle(0, 0, 0, "Flantz", Art.NACHNAME, "ocr", "Patient A", rects=[tuple(rect)],
+                   schriftgroesse=10.0, quelle="ocr")
+    erg = schwaerze_seite(page, None, [f], Schwaerzoptionen())
+    assert erg.anzahl == 1 and erg.lage_intakt
+    nachher = page.get_pixmap(dpi=150, clip=rect).samples
+    assert vorher != nachher
+    assert "Patient A" in page.get_text()
+    assert len(page.get_images()) == 1

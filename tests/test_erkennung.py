@@ -64,3 +64,16 @@ def test_generische_muster_und_rollen() -> None:
     text = "KVNR X123456789, IBAN DE12 3456 7890 1234 5678 90, fremd@example.com"
     ids = sorted(r.id for _a, _b, r in finde_im_text(text, regeln))
     assert ids == ["muster.email", "muster.iban", "muster.versichertennummer"]
+
+
+def test_etikettregeln_treffen_nur_den_wert() -> None:
+    p = _patient()
+    regeln = regeln_fuer(p, Pseudonymvergabe(p, "A"))
+    text = ("Versicherten-Nr. 0181590830 Pat.-ID 99887766 AZ 2024/555, Fall-Nr.: K-2024-0012\n"
+            "Blutdruck 120/80 mmHg, Pat. wird vorgestellt.")
+    treffer = {text[a:b]: r.id for a, b, r in finde_im_text(text, regeln)}
+    assert treffer["0181590830"] == "muster.versichertennummer.etikett"
+    assert treffer["99887766"] == "muster.patienten_id.etikett"
+    assert treffer["2024/555"] == "muster.aktenzeichen.etikett"
+    assert treffer["K-2024-0012"] == "muster.aktenzeichen.etikett"
+    assert "120/80" not in treffer and "Versicherten-Nr." not in treffer

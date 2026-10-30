@@ -2,7 +2,7 @@
 
 Local de-identification of patient documents (PDF, later scans and photos) so that they can be handed to cloud language models for drafting letters. Identifiers are replaced by **stable pseudonyms** rather than black bars, so the text stays readable and consistent for the model; afterwards the clear data is put back locally. The pseudonym key never leaves the machine.
 
-Status (30 October 2026): milestones M0 (core), M1 (command line) and M2 (CardDAV address book) are done for documents **with a text layer**. Scans, photos and OCR follow in M3, the desktop GUI in M4. The design, open decisions and milestones are kept in the project's internal hand-over notes.
+Status (30 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV address book) and M3 (scans, photos, OCR, barcodes) are done. The desktop GUI (M4) and installers (M5) follow. The design, open decisions and milestones are kept in the project's internal hand-over notes.
 
 ## The round trip
 
@@ -53,7 +53,7 @@ uv run anonymed pseudonyme        # which identifier belongs to whom, with linke
 uv run anonymed konfig            # version, pseudonym database and key file (back the key up!)
 ```
 
-Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb. 1990]`; `--rastern` produces an image-only PDF; `--kein-text`, `--kein-bericht`, `--ohne-vermerk`; `--ziel DIR`; `--speicher FILE` for a different pseudonym database; `--konfig FILE` for a different configuration file.
+Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb. 1990]`; `--rastern` produces an image-only PDF; `--ocr auto|rapidocr|tesseract|aus`; `--keine-codes`; `--vorschau auto|immer|nie`; `--kein-text`, `--kein-bericht`, `--ohne-vermerk`; `--ziel DIR`; `--speicher FILE` for a different pseudonym database; `--konfig FILE` for a different configuration file.
 
 ### Address book
 
@@ -65,10 +65,16 @@ Options for the pseudonym store: `--schema hash` (default) or `--schema buchstab
 
 Exit codes: 0 released, 1 input error, 2 not released (check failed or page without text layer), 3 pseudonyms left unresolved after re-identification, 4 uncertain match in the pseudonym store (decide with `--gleich` or `--neu`).
 
+### Scans and photos
+
+Install the extras once: `uv sync --extra ocr --extra codes` (RapidOCR with bundled models, pillow-heif, zxing-cpp). Tesseract is used instead when it is installed and RapidOCR is not (`--ocr tesseract` forces it, `--ocr aus` disables OCR).
+
+Pages without a text layer, image files (JPEG, PNG, TIFF, HEIC) and pages whose area is largely covered by images are read by OCR. Hits are blanked **in the image pixels** and the pseudonym is written on top; the text file gets the OCR text as a separate block marked as unchecked; the output pages are OCR-read again and any leftover blocks the release. Barcodes and QR codes are blanked as `[Code]`. Preview images of every OCR page are written to `<name>_anonym_vorschau/` for the visual check that OCR cannot replace: **handwriting is not recognised**, and OCR misreads happen, so look at the previews before handing a scan to a model. Codes such as insurance numbers are matched tolerant to the usual OCR confusions (0/O, 1/I, 5/S, 8/B), and values behind labels like "Versicherten-Nr.", "Pat.-ID" or "AZ" are blanked even when misread.
+
 ## What it does not do yet
 
-* Pages without a text layer (scans, photos) are **not released**: OCR, pixel redaction and barcode blanking come with M3. Even then, handwriting is not recognised; the GUI (M4) will show every page for visual inspection.
 * No NER: unknown names (a relative not listed in the patient file) are not found. Add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`).
+* Handwriting and text inside photos of screens or odd angles are beyond OCR; the previews are there to catch that, the GUI (M4) will show them in place.
 
 ## Safety notes
 
@@ -85,7 +91,7 @@ uv run ruff check anonymed tests
 tests/e2e/nextcloud.sh         # optional: the same against a throwaway Nextcloud 35 in Docker
 ```
 
-Layout: `anonymed/kern` (data model), `dokument` (loading, text layer), `erkennung` (rules), `schwaerzen` (redaction, clean-up, rasterising), `pruefung` (re-check, report), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
+Layout: `anonymed/kern` (data model), `dokument` (loading incl. HEIC, text layer, OCR backends), `erkennung` (rules, generic and label patterns, barcodes), `schwaerzen` (redaction of text and pixels, clean-up, rasterising), `pruefung` (re-check incl. OCR, report, previews), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
 
 ## Licence
 

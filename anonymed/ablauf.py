@@ -1,4 +1,5 @@
-"""The pipeline shared by CLI and GUI: load, find, redact, clean, check, report."""
+"""The pipeline shared by CLI and GUI: load, read (text layer and/or OCR), find,
+redact, clean, check, report."""
 
 from __future__ import annotations
 
@@ -7,12 +8,15 @@ from pathlib import Path
 
 import pymupdf
 
+from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument.laden import oeffne
-from anonymed.dokument.textebene import lese_dokument
-from anonymed.erkennung.deterministisch import anonymisierter_text, finde, regeln_fuer
-from anonymed.kern.modell import Fundstelle, Patient, Pruefbericht
+from anonymed.dokument.textebene import Seitentext, lese_seite
+from anonymed.erkennung import codes as codemodul
+from anonymed.erkennung.deterministisch import Regel, anonymisierter_text, finde, regeln_fuer
+from anonymed.kern.modell import Fundstelle, Gegenprobe, Patient, Pruefbericht
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
 from anonymed.pruefung.gegenprobe import pruefe
+from anonymed.pruefung.vorschau import schreibe_vorschau
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 from anonymed.schwaerzen.pdf import (
@@ -33,6 +37,10 @@ class Ablaufoptionen:
     suffix: str = "_anonym"
     ziel_ordner: Path | None = None
     abgleich: str | None = None  # decision for an uncertain match: "neu" or "gleich:<KENNUNG>"
+    ocr: str = "auto"  # "auto", "rapidocr", "tesseract" or "aus"
+    ocr_dpi: int = ocrmodul.OCR_DPI
+    codes: bool = True  # blank barcodes and QR codes (extra "codes")
+    vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -42,6 +50,8 @@ class Ablaufoptionen:
             "rastern": self.schwaerzen.rastern,
             "dpi": self.schwaerzen.dpi if self.schwaerzen.rastern else None,
             "vermerk": self.schwaerzen.vermerk,
+            "ocr": self.ocr,
+            "codes": self.codes,
         }
 
 
@@ -54,6 +64,7 @@ class Ergebnis:
     ziel_pdf: Path | None = None
     ziel_txt: Path | None = None
     ziel_bericht: Path | None = None
+    vorschau: list[Path] = field(default_factory=list)
     text: str = ""
 
     @property
@@ -64,6 +75,73 @@ class Ergebnis:
 def zielpfad(quelle: Path, opt: Ablaufoptionen, endung: str = ".pdf") -> Path:
     ordner = opt.ziel_ordner or quelle.parent
     return ordner / f"{quelle.stem}{opt.suffix}{endung}"
+
+
+@dataclass
+class _Seite:
+    nummer: int
+    text: Seitentext
+    ocr: Seitentext | None = None
+    fundstellen: list[Fundstelle] = field(default_factory=list)
+
+
+def _lese_seiten(
+    doc: pymupdf.Document, regeln: list[Regel], opt: Ablaufoptionen,
+    backend: ocrmodul.OCRBackend | None,
+) -> tuple[list[_Seite], list[int]]:
+    """Text layer and, where needed and possible, OCR per page; returns the pages and
+    the numbers (1-based) of pages that needed OCR but got none."""
+    seiten: list[_Seite] = []
+    ohne_text: list[int] = []
+    for i, page in enumerate(doc):
+        textebene = lese_seite(page, i)
+        eintrag = _Seite(i, textebene)
+        eintrag.fundstellen = finde(textebene, regeln)
+        if ocrmodul.braucht_ocr(page, textebene):
+            if backend is None:
+                ohne_text.append(i + 1)
+            else:
+                eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, opt.ocr_dpi)
+                for f in finde(eintrag.ocr, regeln):
+                    f.quelle = "ocr"
+                    eintrag.fundstellen.append(f)
+        if opt.codes and codemodul.verfuegbar():
+            eintrag.fundstellen += codemodul.finde_codes(page, i)
+        seiten.append(eintrag)
+    return seiten, ohne_text
+
+
+def _text(seiten: list[_Seite]) -> str:
+    """Reading-order text with pseudonyms: text layer first, OCR text as its own block."""
+    teile = anonymisierter_text([s.text for s in seiten],
+                                [f for s in seiten for f in s.fundstellen if f.quelle == "text"])
+    ocr_seiten = [s for s in seiten if s.ocr is not None]
+    if ocr_seiten:
+        ocr_text = anonymisierter_text(
+            [s.ocr for s in ocr_seiten if s.ocr is not None],
+            [f for s in ocr_seiten for f in s.fundstellen if f.quelle == "ocr"],
+        )
+        teile = teile.rstrip("\n") + "\n\n--- Bildtext (OCR, ungeprüft) ---\n\n" + ocr_text
+    return teile
+
+
+def _gegenprobe_bilder(
+    doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel],
+    backend: ocrmodul.OCRBackend | None, opt: Ablaufoptionen, gegenprobe: Gegenprobe,
+) -> None:
+    """OCR the output pages that were read by OCR and look for leftovers; re-scan codes."""
+    for s in seiten:
+        if s.nummer >= len(doc):
+            continue
+        if s.ocr is not None and backend is not None:
+            nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, opt.ocr_dpi)
+            for f in finde(nachher, regeln):
+                eintrag = f.ohne_klartext()
+                eintrag["quelle"] = "ocr"
+                gegenprobe.resttreffer.append(eintrag)
+        if opt.codes and codemodul.verfuegbar():
+            for f in codemodul.finde_codes(doc[s.nummer], s.nummer):
+                gegenprobe.resttreffer.append(f.ohne_klartext())
 
 
 def anonymisiere(
@@ -90,25 +168,32 @@ def anonymisiere(
                 f"Patient dem vorhandenen Eintrag {a.kennung} zugeordnet"
                 f" (Abgleich {a.score:.2f}: {felder})."
             )
+        backend = ocrmodul.backend(opt.ocr)
 
         doc = oeffne(quelle)
         original = oeffne(quelle)
         try:
-            seiten = lese_dokument(doc)
-            ohne_text = [s.nummer + 1 for s in seiten if not s.hat_textebene]
+            seiten, ohne_text = _lese_seiten(doc, regeln, opt, backend)
             if ohne_text:
                 warnungen.append(
-                    "Seite(n) ohne Textebene: " + ", ".join(map(str, ohne_text))
-                    + " – OCR folgt in M3; Scans und Fotos nie ungeprüft weitergeben."
+                    "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
+                    + " – OCR-Backend installieren (Extra 'ocr' oder Tesseract) oder --ocr prüfen."
                 )
-            fundstellen = [f for s in seiten for f in finde(s, regeln)]
+            ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
+            if ocr_seiten:
+                unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
+                warnungen.append(
+                    f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
+                    f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter)."
+                    " Handschrift wird nicht erkannt; Vorschaubilder vor der Weitergabe prüfen."
+                )
+            fundstellen = [f for s in seiten for f in s.fundstellen]
             vergabe.registriere_treffer(fundstellen)
-            text = anonymisierter_text(seiten, fundstellen)
+            text = _text(seiten)
             for s in seiten:
-                eigene = [f for f in fundstellen if f.seite == s.nummer]
-                lage = schwaerze_seite(doc[s.nummer], s, eigene, opt.schwaerzen)
+                lage = schwaerze_seite(doc[s.nummer], s.text, s.fundstellen, opt.schwaerzen)
                 if not lage.lage_intakt:
-                    rastere_seite(doc, s.nummer, original, s, eigene, opt.schwaerzen)
+                    rastere_seite(doc, s.nummer, original, s.text, s.fundstellen, opt.schwaerzen)
                     warnungen.append(
                         f"Seite {s.nummer + 1}: Textlayout nach der Redaktion verschoben,"
                         " Seite deshalb gerastert (ohne Textebene)."
@@ -118,7 +203,7 @@ def anonymisiere(
             if opt.schwaerzen.rastern:
                 ausgabe = rastere(doc, opt.schwaerzen.dpi)
                 bereinige(ausgabe, vermerk=opt.schwaerzen.vermerk)
-                warnungen.append("Ausgabe gerastert; OCR-Gegenprobe folgt in M3.")
+                warnungen.append("Ausgabe gerastert.")
             ziel = zielpfad(quelle, opt)
             ziel.parent.mkdir(parents=True, exist_ok=True)
             speichere(ausgabe, ziel)
@@ -128,18 +213,20 @@ def anonymisiere(
             doc.close()
             original.close()
 
+        vorschau: list[Path] = []
         with pymupdf.open(ziel) as kontrolle:
             gegenprobe = pruefe(kontrolle, regeln, zusatztexte=[text] if opt.textdatei else [])
+            _gegenprobe_bilder(kontrolle, seiten, regeln, backend, opt, gegenprobe)
             seitenzahl = len(kontrolle)
+            if opt.vorschau == "immer" or (opt.vorschau == "auto" and ocr_seiten):
+                vorschau = schreibe_vorschau(kontrolle, zielpfad(quelle, opt, "_vorschau"))
 
         speicher.merke(patient, vergabe)
 
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
-                            kennung=kennung.kennung, text=text)
+                            kennung=kennung.kennung, text=text, vorschau=vorschau)
         if ohne_text:
-            gegenprobe.anmerkungen.append(
-                "Seiten ohne Textebene können bis zur OCR (M3) nicht geprüft werden"
-            )
+            gegenprobe.anmerkungen.append("Seiten ohne Textebene konnten nicht geprüft werden")
         if gegenprobe.bestanden and not ohne_text:
             ergebnis.ziel_pdf = ziel
             if opt.textdatei:
@@ -149,8 +236,8 @@ def anonymisiere(
             ziel.unlink(missing_ok=True)
             warnungen.append("Nicht freigegeben: Ausgabe verworfen.")
         ergebnis.bericht = erstelle_bericht(
-            quelle, ergebnis.ziel_pdf, seitenzahl, not ohne_text, fundstellen, gegenprobe,
-            opt.als_dict(), warnungen,
+            quelle, ergebnis.ziel_pdf, seitenzahl, not ocr_seiten and not ohne_text, fundstellen,
+            gegenprobe, opt.als_dict(), warnungen,
         )
         if opt.bericht:
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")

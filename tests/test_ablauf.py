@@ -140,24 +140,24 @@ def test_gegenprobe_blockiert(befund: Path, patient: Patient, speicher: Pseudony
     assert "NICHT bestanden" in als_text(erg.bericht)
 
 
-def test_scan_ohne_textebene_wird_nicht_freigegeben(tmp_path: Path, befund: Path, patient: Patient,
-                                                     speicher: Pseudonymspeicher) -> None:
+def test_scan_ohne_ocr_wird_nicht_freigegeben(tmp_path: Path, befund: Path, patient: Patient,
+                                               speicher: Pseudonymspeicher) -> None:
     with pymupdf.open(befund) as d:
         scan = rastere(d, dpi=72)
         scan_pfad = tmp_path / "scan.pdf"
         scan.save(scan_pfad)
         scan.close()
-    erg = anonymisiere(scan_pfad, patient, speicher=speicher)
+    erg = anonymisiere(scan_pfad, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert not erg.freigegeben
     assert not erg.bericht.textebene
     assert any("ohne Textebene" in w for w in erg.bericht.warnungen)
 
 
-def test_bild_als_eingabe(tmp_path: Path, befund: Path, patient: Patient,
-                          speicher: Pseudonymspeicher) -> None:
+def test_bild_ohne_ocr_wird_nicht_freigegeben(tmp_path: Path, befund: Path, patient: Patient,
+                                               speicher: Pseudonymspeicher) -> None:
     with pymupdf.open(befund) as d:
         bild = tmp_path / "foto.png"
         d[0].get_pixmap(dpi=72).save(bild)
-    erg = anonymisiere(bild, patient, speicher=speicher)
-    assert not erg.freigegeben  # no OCR yet (M3)
+    erg = anonymisiere(bild, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    assert not erg.freigegeben
     assert erg.bericht.seiten == 1

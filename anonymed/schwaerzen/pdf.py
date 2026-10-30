@@ -159,33 +159,42 @@ def rastere_seite(
     doc.delete_page(nummer + 1)
 
 
+OCR_RAND = 1.5  # points of padding around OCR word boxes before pixels are blanked
+
+
 def schwaerze_seite(
     page: pymupdf.Page,
-    seite: Seitentext,
+    seite: Seitentext | None,
     fundstellen: list[Fundstelle],
     opt: Schwaerzoptionen | None = None,
 ) -> Seitenergebnis:
-    """Apply all hits of one page.  Returns the number of boxes and whether the
-    remaining text kept its position; the caller rasterises the page if not."""
+    """Apply all hits of one page.  Text-layer hits (``quelle == "text"``) use the
+    clipped band and the layout check; OCR and code hits blank the image pixels
+    under a padded box.  Returns the number of boxes and whether the remaining
+    text kept its position; the caller rasterises the page if not."""
     opt = opt or Schwaerzoptionen()
     einblendungen: list[tuple[pymupdf.Rect, float, float, str]] = []
     anzahl = 0
+    texttreffer = [f for f in fundstellen if f.quelle == "text"]
     for f in fundstellen:
         if not f.rects:
             continue
         for k, roh in enumerate(f.rects):
             rect = pymupdf.Rect(roh)
-            if f.quelle == "text":
+            if f.quelle == "text" and seite is not None:
                 zeile = _zeile_von_rect(seite, f, rect)
                 band = _band(rect, zeile, seite) if zeile >= 0 else rect
             else:
-                band = rect
+                rect = pymupdf.Rect(rect.x0 - OCR_RAND, rect.y0 - OCR_RAND,
+                                    rect.x1 + OCR_RAND, rect.y1 + OCR_RAND) & page.rect
+                band = pymupdf.Rect(rect)
             fuell = pymupdf.Rect(rect)
             if k == 0:
-                basis = seite.basislinie(f.start, f.ende) if f.quelle == "text" else None
+                textquelle = f.quelle == "text" and seite is not None
+                basis = seite.basislinie(f.start, f.ende) if textquelle else None
                 if basis is None:
                     basis = rect.y1 - 0.22 * rect.height
-                frei = seite.freier_raum_rechts(f.ende) if f.quelle == "text" else rect.x1
+                frei = seite.freier_raum_rechts(f.ende) if textquelle else rect.x1
                 benoetigt = pymupdf.get_text_length(
                     f.pseudonym, fontname=opt.schrift, fontsize=f.schriftgroesse
                 ) + 2.0
@@ -200,9 +209,9 @@ def schwaerze_seite(
     page.apply_redactions(
         images=opt.bilder, graphics=opt.grafik, text=pymupdf.PDF_REDACT_TEXT_REMOVE
     )
-    intakt = lage_intakt(seite, lese_seite(page, seite.nummer), fundstellen)
-    if not intakt:
-        return Seitenergebnis(anzahl, False)
+    if seite is not None and texttreffer:
+        if not lage_intakt(seite, lese_seite(page, seite.nummer), texttreffer):
+            return Seitenergebnis(anzahl, False)
     for fuell, basis, groesse, pseudonym in einblendungen:
         _einblendung(page, fuell, basis, groesse, pseudonym, opt)
     return Seitenergebnis(anzahl, True)
