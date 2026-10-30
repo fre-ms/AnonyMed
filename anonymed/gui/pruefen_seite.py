@@ -79,6 +79,20 @@ class Seitenansicht(QGraphicsView):
                 self._szene.addItem(item)
                 self._items[id(item)] = f
 
+    def wheelEvent(self, event) -> None:  # noqa: N802
+        """Ctrl (Cmd) + wheel zooms, plain wheel scrolls."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            faktor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
+            self.scale(faktor, faktor)
+            return
+        super().wheelEvent(event)
+
+    def zoom(self, faktor: float) -> None:
+        self.scale(faktor, faktor)
+
+    def zoom_zuruecksetzen(self) -> None:
+        self.resetTransform()
+
     def mousePressEvent(self, event) -> None:  # noqa: N802
         pos = self.mapToScene(event.position().toPoint())
         for item in self._szene.items(pos):
@@ -145,6 +159,13 @@ class PruefenSeite(QWidget):
         self.verwerfen = QPushButton("Treffer verwerfen")
         self.verwerfen.clicked.connect(self.verwerfe)
         knoepfe.addWidget(self.verwerfen)
+        for text, aktion in (("+", lambda: self.ansicht.zoom(1.25)),
+                             ("−", lambda: self.ansicht.zoom(0.8)),
+                             ("1:1", self.ansicht.zoom_zuruecksetzen)):
+            k = QPushButton(text)
+            k.setMaximumWidth(40)
+            k.clicked.connect(aktion)
+            knoepfe.addWidget(k)
         r.addLayout(knoepfe)
         self.hinweis = QLabel("")
         self.hinweis.setWordWrap(True)

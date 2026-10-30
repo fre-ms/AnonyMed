@@ -8,6 +8,7 @@ build/
 dist/
 *.egg-info/
 *.spec
+!packaging/*.spec
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

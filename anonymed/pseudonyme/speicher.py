@@ -80,7 +80,10 @@ class Kennungsergebnis:
 
 
 def standardpfad() -> Path:
-    return user_data_path("AnonyMed", appauthor=False) / "pseudonyme.sqlite"
+    """Pseudonym database in the user data folder; ANONYMED_DATENORDNER overrides the folder."""
+    ordner = os.environ.get("ANONYMED_DATENORDNER")
+    basis = Path(ordner) if ordner else user_data_path("AnonyMed", appauthor=False)
+    return basis / "pseudonyme.sqlite"
 
 
 def schluesselpfad_zu(speicherpfad: Path) -> Path:

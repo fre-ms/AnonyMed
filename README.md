@@ -15,14 +15,18 @@ Status (31 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV a
 
 ## Install
 
-Requires Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
+**Packaged:** unpack the archive for your system (macOS: `AnonyMed.app`; Windows and Linux: the folder `AnonyMed` with `anonymed-gui` and the command line `anonymed`). The packages are built by `packaging/build.py` with PyInstaller and are not code-signed yet; macOS asks on first start (right-click, Open). A German manual is in `docs/anleitung.md`.
+
+**From source:** Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 git clone <repository> AnonyMed
 cd AnonyMed
-uv sync
+uv sync --extra ocr --extra codes --extra gui
 uv run anonymed --help
 ```
+
+On first start AnonyMed creates the pseudonym database and the secret key in the user data folder (`anonymed konfig` shows where; `ANONYMED_DATENORDNER` overrides the folder, for a portable installation on an encrypted stick for instance). Back the key up.
 
 ## Usage
 
@@ -100,7 +104,10 @@ OCR misreads are met in three ways: codes such as insurance numbers are matched 
 uv run pytest                  # synthetic documents and an in-process fake CardDAV server, nothing real
 uv run ruff check anonymed tests
 tests/e2e/nextcloud.sh         # optional: the same against a throwaway Nextcloud 35 in Docker
+uv run --group build python packaging/build.py   # folder distribution plus smoke test
 ```
+
+`.github/workflows/release.yml` builds the three platforms on a tag `v*` and uploads the archives as artefacts.
 
 Layout: `anonymed/kern` (data model), `dokument` (loading incl. HEIC, text layer, OCR backends), `erkennung` (rules, generic and label patterns, fuzzy OCR search, barcodes), `schwaerzen` (redaction of text and pixels, clean-up, rasterising), `pruefung` (re-check incl. OCR, report, previews), `gui` (PySide6 pages over a Qt-free session model), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
 

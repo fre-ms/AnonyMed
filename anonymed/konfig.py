@@ -37,7 +37,10 @@ class CardDAVKonfig:
 
 
 def konfigpfad() -> Path:
-    return user_config_path("AnonyMed", appauthor=False) / "konfig.toml"
+    """Configuration file in the user config folder; ANONYMED_DATENORDNER overrides the folder."""
+    ordner = os.environ.get("ANONYMED_DATENORDNER")
+    basis = Path(ordner) if ordner else user_config_path("AnonyMed", appauthor=False)
+    return basis / "konfig.toml"
 
 
 def lade_konfig(pfad: str | Path | None = None) -> CardDAVKonfig:

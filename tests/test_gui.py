@@ -106,3 +106,10 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert "nichts offen" in rs.hinweis.text()
     assert gefundene_klardaten(text, patient) == []  # the report shows no clear data
     fenster.close()
+
+
+def test_selbsttest(qapp: QApplication, capsys: pytest.CaptureFixture[str]) -> None:
+    from anonymed.gui.app import main
+
+    assert main(["--selbsttest"]) == 0
+    assert "Selbsttest bestanden" in capsys.readouterr().out

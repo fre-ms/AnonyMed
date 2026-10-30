@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from anonymed.cli import app
@@ -100,3 +101,9 @@ def test_fehlerhafte_eingaben(tmp_path: Path, befund: Path, patient: Patient) ->
     assert r.exit_code == 1
     r = runner.invoke(app, ["rueckersetzen", "--speicher", str(tmp_path / "s.sqlite")], input="x")
     assert r.exit_code == 1
+
+
+def test_datenordner_uebersteuerung(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    r = runner.invoke(app, ["konfig"])
+    assert r.exit_code == 0 and str(tmp_path / "daten") in r.output
