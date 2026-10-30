@@ -1,0 +1,39 @@
+# Python / uv
+__pycache__/
+*.pyc
+.venv/
+.uv/
+uv.lock.bak
+build/
+dist/
+*.egg-info/
+*.spec
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Modelle und Nutzerdaten gehören nicht ins Repo
+modelle/
+daten/
+eingang/
+ausgang/
+*.sqlite
+*.sqlite3
+*.zuordnung.json
+
+# Niemals Patientendokumente oder Kontakte einchecken; synthetische Fixtures ausgenommen
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.tif
+*.tiff
+*.vcf
+!tests/fixtures/**
+
+# Betriebssystem, Editoren
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
