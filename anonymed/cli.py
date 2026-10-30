@@ -23,7 +23,13 @@ from anonymed.konfig import (
     speichere_konfig,
 )
 from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, standardpfad
+from anonymed.pseudonyme.speicher import (
+    SCHEMATA,
+    Pseudonymspeicher,
+    UnsichererAbgleich,
+    schluesselpfad_zu,
+    standardpfad,
+)
 from anonymed.quellen.carddav import CardDAVClient, CardDAVFehler, Kontakt, passt
 from anonymed.schwaerzen.pdf import Schwaerzoptionen
 
@@ -54,10 +60,47 @@ KontaktOption = Annotated[
     typer.Option("--kontakt", "-k", help="Suchbegriff im CardDAV-Adressbuch (Name, Geburtsjahr)."),
 ]
 NrOption = Annotated[int | None, typer.Option("--nr", help="Nummer des Treffers bei mehreren.")]
+SchemaOption = Annotated[
+    str, typer.Option("--schema", help="Pseudonymschema: 'hash' (Standard) oder 'buchstabe'.")
+]
+NeuOption = Annotated[
+    bool, typer.Option("--neu", help="Bei unsicherem Abgleich als neue Person anlegen.")
+]
+GleichOption = Annotated[
+    str | None,
+    typer.Option("--gleich", help="Bei unsicherem Abgleich dieser Kennung zuordnen."),
+]
 
 
-def _speicher(pfad: Path | None) -> Pseudonymspeicher:
-    return Pseudonymspeicher(pfad)
+def _speicher(pfad: Path | None, schema: str = "hash") -> Pseudonymspeicher:
+    if schema not in SCHEMATA:
+        typer.echo(f"--schema muss eines von {', '.join(SCHEMATA)} sein.", err=True)
+        raise typer.Exit(code=1)
+    return Pseudonymspeicher(pfad, schema=schema)
+
+
+def _abgleich_entscheidung(neu: bool, gleich: str | None) -> str | None:
+    if neu and gleich:
+        typer.echo("Bitte nur --neu oder --gleich angeben.", err=True)
+        raise typer.Exit(code=1)
+    if neu:
+        return "neu"
+    return f"gleich:{gleich.strip().upper()}" if gleich else None
+
+
+def _unsicher_melden(p: Patient, fehler: UnsichererAbgleich) -> None:
+    typer.echo(
+        f"Unsicherer Abgleich für {p.nachname}, {p.vorname}:"
+        " ähnliche Einträge im Pseudonymspeicher:",
+        err=True,
+    )
+    for k in fehler.kandidaten:
+        felder = ", ".join(f"{n} {v:.2f}" for n, v in k.felder.items())
+        geb = k.geburtsdatum or "–"
+        typer.echo(f"  {k.kennung}  {k.nachname}, {k.vorname}  geb. {geb}  Score {k.score:.2f}"
+                   f" ({felder})", err=True)
+    typer.echo("Entscheiden mit --gleich KENNUNG (dieselbe Person) oder --neu (neue Person).",
+               err=True)
 
 
 def _patient_laden(pfad: Path) -> Patient:
@@ -99,10 +142,10 @@ def _kontakte_suchen(begriff: str, konfig: Path | None) -> list[Kontakt]:
         raise typer.Exit(code=1) from e
 
 
-def _zeile(nr: int, p: Patient, buchstabe: str | None = None) -> str:
+def _zeile(nr: int, p: Patient, kennung: str | None = None) -> str:
     geb = p.geburtsdatum.strftime("%d.%m.%Y") if p.geburtsdatum else "–"
     ort = " ".join(t for t in (p.plz, p.ort) if t)
-    pseudonym = f"  → {'Patientin' if p.weiblich else 'Patient'} {buchstabe}" if buchstabe else ""
+    pseudonym = f"  → {'Patientin' if p.weiblich else 'Patient'} {kennung}" if kennung else ""
     return f"{nr:>3}  {p.nachname}, {p.vorname}  geb. {geb}  {ort}{pseudonym}"
 
 
@@ -172,6 +215,9 @@ def anonymisieren(
     vermerk: Annotated[bool, typer.Option("--vermerk/--ohne-vermerk",
                                           help="Vermerk in den PDF-Metadaten.")] = True,
     speicher: SpeicherOption = None,
+    schema: SchemaOption = "hash",
+    neu: NeuOption = False,
+    gleich: GleichOption = None,
 ) -> None:
     """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if datum not in ("jahr", "alter"):
@@ -186,13 +232,17 @@ def anonymisieren(
         )
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
+        abgleich=_abgleich_entscheidung(neu, gleich),
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True
-    with _speicher(speicher) as sp:
+    with _speicher(speicher, schema) as sp:
         for datei in dateien:
             try:
                 erg = anonymisiere(datei, p, opt, speicher=sp)
+            except UnsichererAbgleich as e:
+                _unsicher_melden(p, e)
+                raise typer.Exit(code=4) from e
             except (ValueError, NotImplementedError) as e:
                 typer.echo(f"{datei.name}: {e}", err=True)
                 alles_frei = False
@@ -208,7 +258,7 @@ def anonymisieren(
             if erg.ziel_bericht:
                 typer.echo(f"Bericht:     {erg.ziel_bericht}")
             wort = "Patientin" if p.weiblich else "Patient"
-            typer.echo(f"Pseudonym der Hauptperson: {wort} {erg.buchstabe}\n")
+            typer.echo(f"Pseudonym der Hauptperson: {wort} {erg.kennung}\n")
     if not alles_frei:
         raise typer.Exit(code=2)
 
@@ -222,6 +272,9 @@ def pruefen(
     nr: NrOption = None,
     konfig: KonfigOption = None,
     speicher: SpeicherOption = None,
+    schema: SchemaOption = "hash",
+    neu: NeuOption = False,
+    gleich: GleichOption = None,
 ) -> None:
     """Gegenprobe an einer vorhandenen Datei: sind noch Identifikatoren enthalten?"""
     import pymupdf
@@ -231,9 +284,13 @@ def pruefen(
     from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 
     p = _patient_bestimmen(patient, vcf, kontakt, nr, konfig)
-    with _speicher(speicher) as sp:
-        buchstabe = sp.buchstabe_fuer(p)
-    regeln = regeln_fuer(p, Pseudonymvergabe(p, buchstabe))
+    with _speicher(speicher, schema) as sp:
+        try:
+            kennung = sp.kennung_fuer(p, _abgleich_entscheidung(neu, gleich)).kennung
+        except UnsichererAbgleich as e:
+            _unsicher_melden(p, e)
+            raise typer.Exit(code=4) from e
+    regeln = regeln_fuer(p, Pseudonymvergabe(p, kennung))
     with pymupdf.open(datei) as doc:
         g = pruefe(doc, regeln)
     if g.bestanden:
@@ -251,8 +308,8 @@ def pruefen(
 def rueckersetzen(
     textdatei: Annotated[Path | None, typer.Argument(
         help="Text des Sprachmodells (sonst Standardeingabe).")] = None,
-    buchstabe: Annotated[str | None, typer.Option("--buchstabe", "-b",
-                                                  help="Pseudonym-Buchstabe, z. B. A.")] = None,
+    kennung: Annotated[str | None, typer.Option(
+        "--kennung", "-k", "--buchstabe", help="Pseudonym-Kennung, z. B. K7Q4MX oder A.")] = None,
     suche: Annotated[str | None, typer.Option("--suche", "-s",
                                               help="Namensteil des Patienten.")] = None,
     form: Annotated[str, typer.Option("--form", help="'vollname' oder 'anrede'.")] = "vollname",
@@ -265,11 +322,11 @@ def rueckersetzen(
     if form not in ("vollname", "anrede"):
         typer.echo("--form muss 'vollname' oder 'anrede' sein.", err=True)
         raise typer.Exit(code=1)
-    if not buchstabe and not suche:
-        typer.echo("Bitte --buchstabe oder --suche angeben.", err=True)
+    if not kennung and not suche:
+        typer.echo("Bitte --kennung oder --suche angeben.", err=True)
         raise typer.Exit(code=1)
     with _speicher(speicher) as sp:
-        treffer = sp.finde(buchstabe_=buchstabe, suche=suche)
+        treffer = sp.finde(kennung_=kennung, suche=suche)
         if len(treffer) != 1:
             typer.echo(
                 f"{len(treffer)} Einträge gefunden; bitte eindeutig wählen (siehe 'pseudonyme').",
@@ -278,8 +335,9 @@ def rueckersetzen(
             raise typer.Exit(code=1)
         info = treffer[0]
         zuordnung = sp.zuordnung(info["schluessel"])
+        bekannte = sp.kennungen()
     text = textdatei.read_text(encoding="utf-8") if textdatei else sys.stdin.read()
-    r = _rueck(text, zuordnung, info, form=form)
+    r = _rueck(text, zuordnung, info, form=form, bekannte_kennungen=bekannte)
     if ausgabe:
         ausgabe.write_text(r.text, encoding="utf-8")
         typer.echo(f"{r.ersetzt} Ersetzungen, geschrieben nach {ausgabe}", err=True)
@@ -287,19 +345,27 @@ def rueckersetzen(
         typer.echo(r.text, nl=False)
     if r.verbleibend:
         typer.echo("Nicht aufgelöst: " + ", ".join(r.verbleibend), err=True)
+        for rest, hinweis in r.hinweise.items():
+            typer.echo(f"  {rest}: {hinweis}", err=True)
         raise typer.Exit(code=3)
 
 
 @app.command()
 def pseudonyme(speicher: SpeicherOption = None) -> None:
-    """Vergebene Buchstaben auflisten (nur lokal)."""
+    """Vergebene Kennungen auflisten, mit verknüpften Schreibweisen (nur lokal)."""
     with _speicher(speicher) as sp:
         eintraege = sp.finde()
+        aliasse = {e["schluessel"]: sp.aliasse(e["schluessel"]) for e in eintraege}
     if not eintraege:
         typer.echo("Noch keine Pseudonyme vergeben.")
         return
     for e in eintraege:
-        typer.echo(f"{e['buchstabe']:>3}  {e['nachname']}, {e['vorname']}  ({e['angelegt'][:10]})")
+        geb = e["geburtsdatum"] or "–"
+        typer.echo(f"{e['kennung']:>8}  {e['nachname']}, {e['vorname']}  geb. {geb}"
+                   f"  ({e['angelegt'][:10]})")
+        for a in aliasse[e["schluessel"]]:
+            typer.echo(f"{'':8}  = {a['nachname']}, {a['vorname']}  geb. {a['geburtsdatum'] or '–'}"
+                       f"  (Abgleich {a['score']:.2f})")
 
 
 @app.command()
@@ -318,6 +384,8 @@ def konfig(speicher: SpeicherOption = None) -> None:
     typer.echo(f"AnonyMed {__version__}")
     typer.echo(f"PyMuPDF {pymupdf.version[0]} (MuPDF {pymupdf.version[1]})")
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
+    typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
+               "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")
     k = lade_konfig()
     typer.echo(f"Konfiguration:       {konfigpfad()}")
     if k.vollstaendig:
@@ -396,7 +464,7 @@ def suchen(
     with _speicher(speicher) as sp:
         for i, kontakt in enumerate(kontakte, 1):
             info = sp.patient_info(kontakt.patient.schluessel())
-            typer.echo(_zeile(i, kontakt.patient, info["buchstabe"] if info else None))
+            typer.echo(_zeile(i, kontakt.patient, info["kennung"] if info else None))
 
 
 def _patient_text(p: Patient) -> str:

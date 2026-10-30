@@ -1,9 +1,10 @@
 """Assign pseudonyms for one patient and remember what they stand for.
 
-The main person becomes "Patient A" (or "Patientin A"), relatives
-"Angehörige A1", referring physicians "Dr. Z1"; other identifiers become
-bracketed placeholders such as "[geb. 1990]" or "[Wohnort]".  The letter is
-handed in by the store so that it stays stable across documents and sessions.
+The main person becomes "Patient K7Q4MX" (or "Patientin …"; with the letter
+scheme "Patient A"), relatives "Angehörige K7Q4MX-1", referring physicians
+"Dr. Z1"; other identifiers become bracketed placeholders such as
+"[geb. 1990]" or "[Wohnort]".  The identifier is handed in by the store so
+that it stays stable across documents, sessions and machines.
 """
 
 from __future__ import annotations
@@ -30,12 +31,12 @@ class Pseudonymvergabe:
     def __init__(
         self,
         patient: Patient,
-        buchstabe: str,
+        kennung: str,
         datumsform: str = "jahr",
         heute: dt.date | None = None,
     ) -> None:
         self.patient = patient
-        self.buchstabe = buchstabe
+        self.kennung = kennung
         self.datumsform = datumsform
         self.heute = heute or dt.date.today()
         self.zuordnung: dict[str, str] = {}
@@ -62,7 +63,7 @@ class Pseudonymvergabe:
     # -- the main person -----------------------------------------------------------------------
     def hauptperson(self) -> str:
         wort = "Patientin" if self.patient.weiblich else "Patient"
-        return self._merke(f"{wort} {self.buchstabe}", self.patient.vollname, Art.NAME)
+        return self._merke(f"{wort} {self.kennung}", self.patient.vollname, Art.NAME)
 
     def geburtsdatum(self) -> str:
         d = self.patient.geburtsdatum
@@ -105,7 +106,7 @@ class Pseudonymvergabe:
 
     # -- people around the patient -------------------------------------------------------------
     def angehoerige(self, nummer: int, person: Person) -> str:
-        return self._merke(f"Angehörige {self.buchstabe}{nummer}", person.vollname, Art.NAME)
+        return self._merke(f"Angehörige {self.kennung}-{nummer}", person.vollname, Art.NAME)
 
     def zuweiser(self, nummer: int, person: Person) -> str:
         klartext = " ".join(t for t in (person.titel, person.vollname) if t)

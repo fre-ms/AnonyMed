@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -53,10 +54,10 @@ def test_anonymisieren_aus_adressbuch(carddav_umgebung: FakeCardDAV, befund: Pat
     assert r.exit_code == 0, r.output
     assert "Gegenprobe: bestanden" in r.output
     txt = (befund.parent / "befund_anonym.txt").read_text(encoding="utf-8")
-    assert patient.nachname not in txt and "Patient A" in txt
-    # the letter is now visible in the search
+    assert patient.nachname not in txt and re.search(r"Patient [A-Z2-9]{6}", txt)
+    # the identifier is now visible in the search
     r = runner.invoke(app, ["kontakte", "suchen", patient.nachname, "--speicher", str(speicher)])
-    assert "→ Patient A" in r.output
+    assert re.search(r"→ Patient [A-Z2-9]{6}", r.output)
     r = runner.invoke(app, ["pruefen", str(befund.parent / "befund_anonym.pdf"), "--kontakt",
                             patient.nachname, "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
@@ -76,7 +77,7 @@ def test_mehrdeutig_und_nr(carddav_umgebung: FakeCardDAV, befund: Path, patient:
     r = runner.invoke(app, ["anonymisieren", str(befund), "--vcf", str(vcf), "--kontakt",
                             patientin.nachname, "--speicher", str(tmp_path / "s.sqlite")])
     assert r.exit_code == 0, r.output
-    assert "Patientin B" in r.output
+    assert re.search(r"Patientin [A-Z2-9]{6}", r.output)
     r = runner.invoke(app, ["anonymisieren", str(befund)])
     assert r.exit_code == 1 and "--patient, --vcf oder --kontakt" in r.output
 

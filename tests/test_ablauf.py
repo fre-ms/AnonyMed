@@ -14,6 +14,7 @@ from anonymed import ablauf
 from anonymed.ablauf import Ablaufoptionen, anonymisiere
 from anonymed.kern.modell import Patient
 from anonymed.pruefung.bericht import als_text
+from anonymed.pseudonyme.kennung import kennung_gueltig
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.schwaerzen.pdf import Schwaerzoptionen, Seitenergebnis, rastere
 from tests.synthetisch import datum_lang, erzeuge_befund
@@ -40,7 +41,8 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     erg = anonymisiere(befund, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert erg.bericht.bestanden
-    assert erg.buchstabe == "A"
+    k = erg.kennung
+    assert len(k) == 6 and kennung_gueltig(k)
     assert erg.ziel_pdf and erg.ziel_pdf.exists()
     assert erg.ziel_txt and erg.ziel_txt.exists()
     assert erg.ziel_bericht and erg.ziel_bericht.exists()
@@ -56,11 +58,12 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     txt = erg.ziel_txt.read_text(encoding="utf-8")
     assert gefundene_klardaten(txt, patient) == []
     # the actual content stays untouched
-    for erwartet in ("Patient A", f"[geb. {patient.geburtsdatum.year}]", "[Wohnort]", "Dr. Z1",
-                     "Angehörige A1", "[Versichertennummer]", "max. 3 Tabletten", "Ramipril 5 mg",
+    for erwartet in (f"Patient {k}", f"[geb. {patient.geburtsdatum.year}]", "[Wohnort]", "Dr. Z1",
+                     f"Angehörige {k}-1", "[Versichertennummer]", "max. 3 Tabletten",
+                     "Ramipril 5 mg",
                      "Sehr geehrte Frau Kollegin Dr. Z1,", "=== Seite 2 ==="):
         assert erwartet in txt, erwartet
-    assert "Patient A" in pdf_text and "Ramipril 5 mg" in pdf_text
+    assert f"Patient {k}" in pdf_text and "Ramipril 5 mg" in pdf_text
     # the report carries no clear data
     bericht = erg.ziel_bericht.read_text(encoding="utf-8")
     assert gefundene_klardaten(bericht, patient) == []
@@ -69,17 +72,35 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     assert len(daten["fundstellen"]) >= 15
     # the key is in the local store only
     z = speicher.zuordnung(patient.schluessel())
-    assert z["Patient A"] == patient.vollname
+    assert z[f"Patient {k}"] == patient.vollname
     assert z["[E-Mail]"] == patient.emails[0]
 
 
-def test_zweiter_patient_bekommt_b(tmp_path: Path, patient: Patient, patientin: Patient,
-                                   speicher: Pseudonymspeicher) -> None:
+def test_kennungen_je_person(tmp_path: Path, patient: Patient, patientin: Patient,
+                             speicher: Pseudonymspeicher) -> None:
     a = anonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
     b = anonymisiere(erzeuge_befund(tmp_path / "b.pdf", patientin), patientin, speicher=speicher)
     a2 = anonymisiere(erzeuge_befund(tmp_path / "a2.pdf", patient), patient, speicher=speicher)
-    assert (a.buchstabe, b.buchstabe, a2.buchstabe) == ("A", "B", "A")
-    assert "Patientin B" in b.text and "Patient A" in a2.text
+    assert a.kennung == a2.kennung != b.kennung
+    assert f"Patientin {b.kennung}" in b.text and f"Patient {a.kennung}" in a2.text
+
+
+def test_buchstabenschema_im_ablauf(befund: Path, patient: Patient,
+                                    buchstabenspeicher: Pseudonymspeicher) -> None:
+    erg = anonymisiere(befund, patient, speicher=buchstabenspeicher)
+    assert erg.kennung == "A" and "Patient A" in erg.text and "Angehörige A-1" in erg.text
+
+
+def test_schreibvariante_bekommt_gleiche_kennung(tmp_path: Path, patient: Patient,
+                                                 speicher: Pseudonymspeicher) -> None:
+    import dataclasses
+
+    erg = anonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
+    variante = dataclasses.replace(patient, nachname=patient.nachname + "z",
+                                   vorname=patient.vorname.upper())
+    erg2 = anonymisiere(erzeuge_befund(tmp_path / "b.pdf", variante), variante, speicher=speicher)
+    assert erg2.kennung == erg.kennung
+    assert any("zugeordnet" in w for w in erg2.bericht.warnungen)
 
 
 def test_alter_statt_jahr(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:

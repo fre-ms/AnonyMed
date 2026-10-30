@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -11,6 +12,12 @@ from anonymed.cli import app
 from anonymed.kern.modell import Patient
 
 runner = CliRunner()
+
+
+def _kennung(output: str) -> str:
+    m = re.search(r"Pseudonym der Hauptperson: Patient(?:in)? ([A-Z2-9]+)", output)
+    assert m, output
+    return m.group(1)
 
 
 def _patientendatei(tmp_path: Path, p: Patient) -> Path:
@@ -36,9 +43,10 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
                             "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
     assert "Gegenprobe: bestanden" in r.output
+    k = _kennung(r.output)
     assert (tmp_path / "befund_anonym.pdf").exists()
     txt = (tmp_path / "befund_anonym.txt").read_text(encoding="utf-8")
-    assert patient.nachname not in txt and "Patient A" in txt
+    assert patient.nachname not in txt and f"Patient {k}" in txt
 
     r = runner.invoke(app, ["pruefen", str(tmp_path / "befund_anonym.pdf"), "--patient",
                             str(pdatei), "--speicher", str(speicher)])
@@ -48,12 +56,12 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
     assert r.exit_code == 2 and "NICHT bestanden" in r.output
 
     r = runner.invoke(app, ["pseudonyme", "--speicher", str(speicher)])
-    assert r.exit_code == 0 and f"A  {patient.nachname}, {patient.vorname}" in r.output
+    assert r.exit_code == 0 and f"{k}  {patient.nachname}, {patient.vorname}" in r.output
 
     brief = tmp_path / "brief.txt"
     jahr = patient.geburtsdatum.year
-    brief.write_text(f"Patient A, [geb. {jahr}], wurde von Dr. Z1 vorgestellt.", encoding="utf-8")
-    r = runner.invoke(app, ["rueckersetzen", str(brief), "--buchstabe", "A", "--form", "anrede",
+    brief.write_text(f"Patient {k}, [geb. {jahr}], wurde von Dr. Z1 vorgestellt.", encoding="utf-8")
+    r = runner.invoke(app, ["rueckersetzen", str(brief), "--kennung", k, "--form", "anrede",
                             "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
     assert f"Herr {patient.nachname}" in r.output
@@ -61,9 +69,16 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
     assert patient.zuweiser[0].nachname in r.output
 
     r = runner.invoke(app, ["rueckersetzen", "--suche", patient.nachname[:3], "--speicher",
-                            str(speicher)], input="Patient A und Patient Q.")
+                            str(speicher)], input=f"Patient {k} und Patient Q.")
     assert r.exit_code == 3
     assert patient.vollname in r.output and "Patient Q" in r.output
+    falsch = k[1] + k[0] + k[2:]
+    r = runner.invoke(app, ["rueckersetzen", "--kennung", k, "--speicher", str(speicher)],
+                      input=f"Patient {falsch} kam.")
+    assert r.exit_code == 3 and "Prüfzeichen falsch" in r.output and k in r.output
+    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei),
+                            "--speicher", str(speicher), "--schema", "buchstabe"])
+    assert r.exit_code == 0 and _kennung(r.output) == k  # existing entry wins over the scheme
 
 
 def test_vorlage_und_konfig(tmp_path: Path) -> None:

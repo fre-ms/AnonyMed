@@ -28,9 +28,18 @@ def befund(tmp_path: Path, patient: Patient) -> Path:
     return erzeuge_befund(tmp_path / "befund.pdf", patient)
 
 
+TESTSCHLUESSEL = bytes(range(32))
+
+
 @pytest.fixture
 def speicher() -> Iterator[Pseudonymspeicher]:
-    with Pseudonymspeicher(":memory:") as s:
+    with Pseudonymspeicher(":memory:", geheimnis=TESTSCHLUESSEL) as s:
+        yield s
+
+
+@pytest.fixture
+def buchstabenspeicher() -> Iterator[Pseudonymspeicher]:
+    with Pseudonymspeicher(":memory:", schema="buchstabe") as s:
         yield s
 
 

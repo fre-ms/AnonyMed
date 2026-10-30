@@ -75,8 +75,8 @@ class Person:
 
     @property
     def vornamen(self) -> list[str]:
-        """Individual first names ("Max Peter" -> ["Max", "Peter"])."""
-        return [v for v in re.split(r"[\s]+", self.vorname.strip()) if v]
+        """Individual first names ("Max Peter" and "Max-Peter" -> ["Max", "Peter"])."""
+        return [v for v in re.split(r"[\s\-‐‑–]+", self.vorname.strip()) if v]
 
     @property
     def weiblich(self) -> bool:

@@ -7,11 +7,11 @@ Status (30 October 2026): milestones M0 (core), M1 (command line) and M2 (CardDA
 ## The round trip
 
 1. The patient's identifiers (name, date of birth, address, phone, e-mail, insurance number, relatives, referring physicians, file numbers) come from the CardDAV address book of your Nextcloud, a local vCard file or a patient file.
-2. Every occurrence in the document is removed from the PDF content stream (real redaction with PyMuPDF) and the pseudonym is written into the gap: `Patient A`, `[geb. 1959]`, `[Wohnort]`, `Angehörige A1`, `Dr. Z1` …
+2. Every occurrence in the document is removed from the PDF content stream (real redaction with PyMuPDF) and the pseudonym is written into the gap: `Patient K7Q4MX`, `[geb. 1959]`, `[Wohnort]`, `Angehörige K7Q4MX-1`, `Dr. Z1` … The identifier is a keyed hash of the phonetically normalised name and the date of birth, so the same person gets the same code on every machine that holds the key, and spelling variants do not matter; an error-tolerant record linkage in the manner of the Mainzelliste recognises people already in the local store (see `docs/pseudonyme.md`).
 3. Metadata, XMP, bookmarks, annotations, form fields and attachments are stripped.
 4. The result is re-read and checked against the same rules; nothing is released if a single identifier survives.
 5. The language model writes the letter using the pseudonyms.
-6. `anonymed rueckersetzen` puts the clear data back, including German case forms ("Patient A" → "Herr X", "Patienten A" → "Herrn X").
+6. `anonymed rueckersetzen` puts the clear data back, including German case forms ("Patient K7Q4MX" → "Herr X", "Patienten K7Q4MX" → "Herrn X"), and flags codes the model mangled (check character).
 
 ## Install
 
@@ -46,11 +46,11 @@ uv run anonymed anonymisieren befund.pdf --patient patient.json       # from a p
 uv run anonymed pruefen befund_anonym.pdf --patient patient.json
 
 # 4. put the clear data back into the model's answer
-uv run anonymed rueckersetzen brief.txt --buchstabe A --form anrede
+uv run anonymed rueckersetzen brief.txt --kennung K7Q4MX --form anrede
 
 # housekeeping
-uv run anonymed pseudonyme        # which letter belongs to whom (local only)
-uv run anonymed konfig            # version and path of the pseudonym database
+uv run anonymed pseudonyme        # which identifier belongs to whom, with linked spellings (local only)
+uv run anonymed konfig            # version, pseudonym database and key file (back the key up!)
 ```
 
 Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb. 1990]`; `--rastern` produces an image-only PDF; `--kein-text`, `--kein-bericht`, `--ohne-vermerk`; `--ziel DIR`; `--speicher FILE` for a different pseudonym database; `--konfig FILE` for a different configuration file.
@@ -61,7 +61,9 @@ Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb
 
 Cards written by DoctoNext and hand-made cards are both understood: `N` (salutation prefix gives Herr/Frau), `GENDER`, `BDAY`, `TEL`, `EMAIL`, `ADR`, `X-MAIDENNAME`, `X-DOCTOLIB-PATIENT-ID`, and an insurance number found in `NOTE` or `X-KVNR`. Relatives or referrers mentioned in a note are **not** derived automatically: export the card and add them to the patient file.
 
-Exit codes: 0 released, 1 input error, 2 not released (check failed or page without text layer), 3 pseudonyms left unresolved after re-identification.
+Options for the pseudonym store: `--schema hash` (default) or `--schema buchstabe` (running letters, `Patient A`); when the patient resembles a stored person without a clear match, the command stops and asks for `--gleich KENNUNG` or `--neu`.
+
+Exit codes: 0 released, 1 input error, 2 not released (check failed or page without text layer), 3 pseudonyms left unresolved after re-identification, 4 uncertain match in the pseudonym store (decide with `--gleich` or `--neu`).
 
 ## What it does not do yet
 
@@ -71,7 +73,7 @@ Exit codes: 0 released, 1 input error, 2 not released (check failed or page with
 ## Safety notes
 
 * All processing is local; the only network connection is the CardDAV request to your own Nextcloud.
-* Reports and logs contain no clear data; the key lives in an SQLite file in the user data folder (`anonymed konfig` shows where).
+* Reports and logs contain no clear data; the mapping lives in an SQLite file in the user data folder next to the secret key for the identifiers (`anonymed konfig` shows where). Back up both; the key alone reproduces the identifiers, the database alone does not.
 * Names are matched in their written, capitalised and transliterated forms (Müller, MÜLLER, Mueller, Muller, Müllers) but not in lower case, so that surnames which are also words do not fire in running text. Longest match wins, so "Max Müller" becomes one `Patient A`.
 * PyMuPDF is pinned below 2.0: that release shifts the glyphs after a redaction (see `docs/pymupdf-redaction-shift.md`). A layout check after every redaction rasterises any page where text moved.
 

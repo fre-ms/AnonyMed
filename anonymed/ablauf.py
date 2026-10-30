@@ -32,6 +32,7 @@ class Ablaufoptionen:
     bericht: bool = True  # write <name>_anonym.bericht.json
     suffix: str = "_anonym"
     ziel_ordner: Path | None = None
+    abgleich: str | None = None  # decision for an uncertain match: "neu" or "gleich:<KENNUNG>"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -49,7 +50,7 @@ class Ergebnis:
     quelle: Path
     bericht: Pruefbericht
     fundstellen: list[Fundstelle]
-    buchstabe: str
+    kennung: str
     ziel_pdf: Path | None = None
     ziel_txt: Path | None = None
     ziel_bericht: Path | None = None
@@ -77,10 +78,17 @@ def anonymisiere(
     eigener_speicher = speicher is None
     speicher = speicher or Pseudonymspeicher()
     try:
-        buchstabe = speicher.buchstabe_fuer(patient)
-        vergabe = Pseudonymvergabe(patient, buchstabe, opt.datumsform)
+        kennung = speicher.kennung_fuer(patient, opt.abgleich)
+        vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform)
         regeln = regeln_fuer(patient, vergabe)
         warnungen: list[str] = []
+        if kennung.verknuepft and kennung.abgleich is not None:
+            a = kennung.abgleich
+            felder = ", ".join(f"{k} {v:.2f}" for k, v in a.felder.items())
+            warnungen.append(
+                f"Patient dem vorhandenen Eintrag {a.kennung} zugeordnet"
+                f" (Abgleich {a.score:.2f}: {felder})."
+            )
 
         doc = oeffne(quelle)
         original = oeffne(quelle)
@@ -126,7 +134,7 @@ def anonymisiere(
         speicher.merke(patient, vergabe)
 
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
-                            buchstabe=buchstabe, text=text)
+                            kennung=kennung.kennung, text=text)
         if ohne_text:
             gegenprobe.anmerkungen.append(
                 "Seiten ohne Textebene können bis zur OCR (M3) nicht geprüft werden"

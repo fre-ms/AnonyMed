@@ -21,7 +21,7 @@ def test_vollname(patient: Patient) -> None:
     z = _zuordnung(patient)
     geb = patient.geburtsdatum
     text = (f"Patient A, [geb. {geb.year}], aus [Wohnort], wurde von Dr. Z1 überwiesen. "
-            f"Die Anamnese des Patienten A ergab mit Angehörige A1 ... Pat. A ist orientiert.")
+            f"Die Anamnese des Patienten A ergab mit Angehörige A-1 ... Pat. A ist orientiert.")
     r = rueckersetzen(text, z)
     assert patient.vollname in r.text
     assert geb.strftime("%d.%m.%Y") in r.text
@@ -52,3 +52,21 @@ def test_verbleibende_pseudonyme(patient: Patient) -> None:
     assert "[geb. 1888]" in r.verbleibend
     assert "Dr. Z9" in r.verbleibend
     assert "Patient A" not in r.verbleibend
+
+
+def test_hashkennung_und_pruefzeichen(patient: Patient) -> None:
+    from anonymed.pseudonyme.kennung import hash_kennung
+
+    k = hash_kennung(bytes(32), "657|47|1959-07-21")
+    v = Pseudonymvergabe(patient, k)
+    v.hauptperson()
+    v.angehoerige(1, patient.angehoerige[0])
+    text = f"Patient {k} kam mit Angehörige {k}-1. Später hieß es Patientin {k}."
+    r = rueckersetzen(text, v.zuordnung)
+    assert r.ersetzt == 3 and k not in r.text
+    # a mangled code (two neighbours swapped) is reported with a hint
+    falsch = k[1] + k[0] + k[2:]
+    r = rueckersetzen(f"Patient {falsch} kam.", v.zuordnung, bekannte_kennungen=[k])
+    assert r.verbleibend == [f"Patient {falsch}"]
+    assert "Prüfzeichen falsch" in r.hinweise[f"Patient {falsch}"]
+    assert k in r.hinweise[f"Patient {falsch}"]
