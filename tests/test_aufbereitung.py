@@ -185,3 +185,19 @@ def test_ausrichtung(befund: Path) -> None:
         kopf = cv2.rotate(bild, cv2.ROTATE_180)
         assert auf.schaetze_ausrichtung(kopf, backend) == 180
         assert auf.schaetze_ausrichtung(bild, backend) == 0
+
+
+def test_winkel_trotz_dunklem_rand(befund: Path) -> None:
+    """A dark border that is tilted along with the page must not fool the estimate;
+    cleaning runs before and after straightening."""
+    import cv2
+
+    bild, _ = auf.rendere(_seite(befund), 100)
+    h, w = bild.shape[:2]
+    bild[:, :20] = 25  # scanner border, then the whole thing is tilted
+    m = cv2.getRotationMatrix2D((w / 2, h / 2), -2.5, 1.0)
+    schief = cv2.warpAffine(bild, m, (w, h), borderValue=(255, 255, 255))
+    assert abs(auf.schaetze_winkel(schief) - 2.5) <= 0.4
+    assert auf.raender_dunkel(schief)
+    gerade = auf.wende_an(schief, auf.Aufbereitung(begradigen=True, winkel=2.5, raender=True))
+    assert gerade[h // 2 - 100:h // 2 + 100, :12].min() == 255  # the wedge is gone

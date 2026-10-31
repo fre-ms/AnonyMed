@@ -117,6 +117,7 @@ def schaetze_winkel(bild: Any, maximal: float = 10.0) -> float:
 
     grau, _ = _verkleinert(_grau(bild), 800)
     _, bw = cv2.threshold(grau, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    bw = _nur_text(bw)
     h, w = bw.shape
     mitte = (w / 2, h / 2)
 
@@ -138,6 +139,28 @@ def schaetze_winkel(bild: Any, maximal: float = 10.0) -> float:
     # ``beste`` is the counter-clockwise correction; the tilt itself has the same sign
     # (content turned clockwise by 2° needs 2° counter-clockwise)
     return round(beste, 2) if abs(beste) >= 0.05 else 0.0
+
+
+def _nur_text(bw: Any) -> Any:
+    """Drop what is not text from a binary image: borders, bars, stamps, photos (large
+    or very elongated connected components), so that the line profile is not fooled."""
+    import cv2
+    import numpy as np
+
+    h, w = bw.shape
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(bw, connectivity=8)
+    if n <= 1:
+        return bw
+    breiten = stats[:, cv2.CC_STAT_WIDTH]
+    hoehen = stats[:, cv2.CC_STAT_HEIGHT]
+    flaechen = stats[:, cv2.CC_STAT_AREA]
+    schlecht = (breiten > 0.25 * w) | (hoehen > 0.12 * h) | (flaechen > 0.01 * w * h)
+    schlecht[0] = False  # the background label
+    if not schlecht.any():
+        return bw
+    aus = bw.copy()
+    aus[np.isin(labels, np.flatnonzero(schlecht))] = 0
+    return aus if aus.any() else bw
 
 
 def finde_ecken(bild: Any, skala: float = 1.0) -> list[Ecke] | None:
@@ -175,14 +198,15 @@ def finde_ecken(bild: Any, skala: float = 1.0) -> list[Ecke] | None:
 
 
 def raender_dunkel(bild: Any, breite: float = 0.04, grenze: int = 90) -> bool:
-    """A dark frame around the page (scanner lid, photographed table edge)."""
+    """A dark frame around the page (scanner lid, photographed table edge), also when
+    it runs at a slant: enough of the edge strip is dark."""
     import numpy as np
 
     grau, _ = _verkleinert(_grau(bild), 600)
     h, w = grau.shape
     r = max(2, int(min(h, w) * breite))
     streifen = [grau[:r, :], grau[-r:, :], grau[:, :r], grau[:, -r:]]
-    return any(float(np.mean(s)) < grenze for s in streifen)
+    return any(float(np.mean(s)) < grenze or float(np.mean(s < 60)) > 0.3 for s in streifen)
 
 
 def farbanteil(bild: Any) -> float:
@@ -497,6 +521,8 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
         aus = _entzerre(aus, a.ecken, skala)
     if a.begradigen and abs(a.winkel) >= 0.05:
         aus = _drehe(aus, a.winkel)  # counter-clockwise by the tilt
+        if a.raender:  # a border that was tilted is straight now
+            aus = _raender_saeubern(aus)
     if a.farbe_entfernen:
         aus = _farbe_entfernen(aus)
     if a.entrauschen:
