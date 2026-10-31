@@ -16,6 +16,7 @@ from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
 from anonymed.erkennung import fachbegriffe as fachmodul
 from anonymed.erkennung import ner as nermodul
+from anonymed.erkennung import zahlwoerter
 from anonymed.erkennung.deterministisch import (
     Regel,
     anonymisierter_text,
@@ -513,9 +514,11 @@ def _vorbereiten_text(
     eigener_speicher: bool, r: _Ruestzeug,
 ) -> Textvorbereitung:
     """Rules, vocabulary, fuzzy search and NER over one text file, in that order: a
-    misspelt known name must get the patient's pseudonym, not a NER code."""
+    misspelt known name must get the patient's pseudonym, not a NER code.  Number
+    words are rewritten as digits first; hits touching them are widened to the words."""
     text, endung = textmodul.lese_quelle(quelle)
-    seite = textmodul.textseite(textmodul.analysetext(text, endung))
+    norm = zahlwoerter.normalisiere(textmodul.analysetext(text, endung))
+    seite = textmodul.textseite(norm.text)
     eintrag = _Seite(0, seite)
     eintrag.fundstellen = finde(seite, r.regeln)
     if r.fachbegriffe is not None:
@@ -527,6 +530,7 @@ def _vorbereiten_text(
     if r.ner is not None:
         eintrag.fundstellen += nermodul.finde_ner(seite, r.ner, r.vergabe, eintrag.fundstellen,
                                                   "text", r.fachbegriffe, verschont)
+    eintrag.fundstellen = _auf_zahlwoerter_erweitert(eintrag.fundstellen, norm)
     warnungen = list(r.warnungen)
     hinweis = _ner_warnung(r, eintrag.fundstellen, verschont)
     if hinweis:
@@ -543,6 +547,26 @@ def _vorbereiten_text(
     )
 
 
+def _auf_zahlwoerter_erweitert(fundstellen: list[Fundstelle],
+                               norm: zahlwoerter.Normalisiert) -> list[Fundstelle]:
+    """A hit on "21. Juli 1959" that stands for "einundzwanzigsten Juli neunzehnhundert-
+    neunundfünfzig" must cover all those words; after widening, overlapping hits are
+    reduced to the longest."""
+    for f in fundstellen:
+        if f.ende > f.start:
+            a, b = norm.erweitere(f.start, f.ende)
+            if (a, b) != (f.start, f.ende):
+                f.start, f.ende, f.text = a, b, norm.text[a:b]
+    belegt: list[tuple[int, int]] = []
+    behalten: list[Fundstelle] = []
+    for f in sorted(fundstellen, key=lambda f: (-(f.ende - f.start), f.start)):
+        if f.ende > f.start and any(f.start < y and f.ende > x for x, y in belegt):
+            continue
+        belegt.append((f.start, f.ende))
+        behalten.append(f)
+    return sorted(behalten, key=lambda f: f.start)
+
+
 def gegenprobe_text(
     text: str, endung: str, regeln: list[Regel], ziele: list[Ziel] | None = None,
     fachbegriffe: fachmodul.Fachbegriffe | None = None,
@@ -550,7 +574,7 @@ def gegenprobe_text(
 ) -> Gegenprobe:
     """Re-run the rules (and, with ``ziele``, the fuzzy search) over an anonymised text."""
     toleriert = toleriert or set()
-    analyse = textmodul.analysetext(text, endung)
+    analyse = zahlwoerter.normalisiere(textmodul.analysetext(text, endung)).text
     seite = textmodul.textseite(analyse)
     spannen = pseudonymspannen(analyse, pseudonyme or [])
     genau = finde(seite, regeln)

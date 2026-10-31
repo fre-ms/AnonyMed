@@ -316,3 +316,53 @@ def test_eml_nur_html(tmp_path: Path, patient: Patient, speicher: Pseudonymspeic
     quelle.write_bytes(_mail(patient, html_nur=True))
     erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben and gefundene_klardaten(erg.text, patient) == []
+
+
+def test_zahlwoerter_im_transkript(tmp_path: Path, patient: Patient,
+                                   speicher: Pseudonymspeicher) -> None:
+    """Spoken numbers: date of birth, house number, postcode as words."""
+    from anonymed.erkennung.zahlwoerter import kardinal
+    from tests.synthetisch import MONATE
+
+    geb = patient.geburtsdatum
+    assert geb is not None
+    tag = {1: "ersten", 2: "zweiten", 3: "dritten", 7: "siebten", 8: "achten"}.get(
+        geb.day, f"{_zahlwort(geb.day)}{'sten' if geb.day >= 20 else 'ten'}")
+    jahr = f"neunzehnhundert{_zahlwort(geb.year % 100)}" if geb.year < 2000 else _zahlwort(geb.year)
+    monat = MONATE[geb.month - 1]
+    strasse, nummer = patient.strasse.rsplit(" ", 1)
+    plz = " ".join(_zahlwort(int(z)) for z in patient.plz)
+    text = (f"Arzt: Wann sind Sie geboren?\nPatient: Am {tag} {monat} {jahr}.\n"
+            f"Arzt: Und Ihre Anschrift?\nPatient: {strasse} {_zahlwort(int(nummer))}, "
+            f"Postleitzahl {plz} {patient.ort}.\nArzt: Sie nehmen zwei Tabletten Ramipril.\n")
+    assert kardinal(jahr) == geb.year
+    quelle = tmp_path / "zahlen.txt"
+    quelle.write_text(text, encoding="utf-8")
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    aus = erg.ziel.read_text(encoding="utf-8")
+    assert f"Patient: Am [geb. {geb.year}].\n" in aus, aus
+    assert "Patient: [Straße " in aus and ", Postleitzahl [PLZ Ort " in aus, aus
+    assert strasse not in aus and patient.ort not in aus and jahr not in aus and tag not in aus
+    assert "zwei Tabletten Ramipril" in aus
+    assert gefundene_klardaten(aus, patient) == []
+
+
+def _zahlwort(n: int) -> str:
+    einer = ["null", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun",
+             "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn", "siebzehn",
+             "achtzehn", "neunzehn"]
+    zehner = {2: "zwanzig", 3: "dreißig", 4: "vierzig", 5: "fünfzig", 6: "sechzig", 7: "siebzig",
+              8: "achtzig", 9: "neunzig"}
+    if n == 1:
+        return "eins"
+    if n < 20:
+        return einer[n]
+    if n < 100:
+        z, e = divmod(n, 10)
+        return (f"{einer[e]}und" if e else "") + zehner[z]
+    if n < 1000:
+        h, r = divmod(n, 100)
+        return f"{einer[h]}hundert" + (_zahlwort(r).replace("eins", "eins") if r else "")
+    t, r = divmod(n, 1000)
+    return f"{einer[t]}tausend" + (_zahlwort(r) if r else "")
