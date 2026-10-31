@@ -1,5 +1,7 @@
 # AnonyMed
 
+[![Tests](https://github.com/fre-ms/AnonyMed/actions/workflows/tests.yml/badge.svg)](https://github.com/fre-ms/AnonyMed/actions/workflows/tests.yml)
+
 Local de-identification of patient documents (PDF, later scans and photos) so that they can be handed to cloud language models for drafting letters. Identifiers are replaced by **stable pseudonyms** rather than black bars, so the text stays readable and consistent for the model; afterwards the clear data is put back locally. The pseudonym key never leaves the machine.
 
 Status (31 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV address book), M3 (scans, photos, OCR, barcodes) and M4 (desktop interface) are done. Installers (M5) follow. The design, open decisions and milestones are kept in the project's internal hand-over notes.
