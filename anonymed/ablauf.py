@@ -338,7 +338,8 @@ def _gegenprobe_bilder(
                 if in_pseudonym(f.start, f.ende, spannen):
                     continue
                 if toleranzschluessel(f.regel, f.text) in toleriert:
-                    gegenprobe.belassen.append(f.regel)
+                    if not opt.schwaerzen.textebene:  # else the text layer counted it
+                        gegenprobe.belassen.append(f.regel)
                     continue
                 eintrag = f.ohne_klartext()
                 eintrag["quelle"] = "ocr"
