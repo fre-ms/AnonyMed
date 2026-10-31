@@ -7,7 +7,7 @@ import datetime as dt
 import pymupdf
 
 from anonymed.dokument.textebene import lese_seite
-from anonymed.erkennung.deterministisch import finde, finde_im_text, regeln_fuer
+from anonymed.erkennung.deterministisch import Regel, finde, finde_im_text, regeln_fuer
 from anonymed.kern.modell import Patient
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 
@@ -94,3 +94,17 @@ def test_etikett_nicht_in_codes() -> None:
     assert treffer["0181590830"] == "muster.versichertennummer.etikett"  # label any case
     assert not any("2Q4W" in t for t in treffer)  # "AZ" inside a code is not a label
     assert "Sehr" not in treffer and "MUSTER" not in treffer  # values need a digit
+
+
+def test_gegenprobe_schuetzt_verlesene_pseudonyme() -> None:
+    """OCR reads "[Ort AZT63Z]" back as "(Ort AZT63Z)" or "Ort AZT632": the code inside
+    must still count as a pseudonym, never as a file number."""
+    from anonymed.erkennung.muster import GLOBALE_MUSTER
+    from anonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen_tolerant
+
+    regeln = [Regel(id_, m, art, "[x]", 5, None) for id_, m, art in GLOBALE_MUSTER]
+    text = "Wohnhaft in (Ort AZT63Z), früher Ort AZT632, Akte AZ 2023/171."
+    spannen = pseudonymspannen_tolerant(text, ["[Ort AZT63Z]", "Patient K7Q4MX"])
+    treffer = [(text[a:b].rstrip("."), r.id) for a, b, r in finde_im_text(text, regeln)
+               if not in_pseudonym(a, b, spannen)]
+    assert treffer == [("2023/171", "muster.aktenzeichen.etikett")], treffer

@@ -6,12 +6,14 @@ Any hit here means the export must not be released.  OCR of the result
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 import pymupdf
 
 from anonymed.dokument.textebene import lese_dokument
 from anonymed.erkennung.deterministisch import Regel, finde, finde_im_text
+from anonymed.erkennung.varianten import exakt_muster
 from anonymed.kern.modell import Gegenprobe
 from anonymed.schwaerzen.pdf import ERLAUBTE_METADATEN, VERMERK_PRAEFIX
 
@@ -40,6 +42,24 @@ def pseudonymspannen(text: str, pseudonyme: Iterable[str]) -> list[tuple[int, in
 
 def in_pseudonym(a: int, b: int, spannen: list[tuple[int, int]]) -> bool:
     return any(a < y and b > x for x, y in spannen)
+
+
+_CODE = re.compile(r"\b[A-Z2-9]{6}(?:-\d+)?\b")
+
+
+def pseudonymspannen_tolerant(text: str, pseudonyme: Iterable[str]) -> list[tuple[int, int]]:
+    """Like :func:`pseudonymspannen`, for text that OCR read back: the codes inside the
+    pseudonyms are also matched with the usual OCR confusions and regardless of the
+    brackets and words around them, so that a re-read "(Ort AZT63Z)" still counts as
+    the pseudonym and not as a file number."""
+    pseudonyme = [p for p in pseudonyme if p]
+    spannen = pseudonymspannen(text, pseudonyme)
+    codes = {m.group(0) for p in pseudonyme for m in _CODE.finditer(p)}
+    for code in codes:
+        muster = exakt_muster(code)
+        if muster:
+            spannen += [(m.start(), m.end()) for m in re.finditer(muster, text)]
+    return spannen
 
 
 def pruefe(

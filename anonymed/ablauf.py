@@ -32,6 +32,7 @@ from anonymed.pruefung.gegenprobe import (
     in_pseudonym,
     pruefe,
     pseudonymspannen,
+    pseudonymspannen_tolerant,
     toleranzschluessel,
 )
 from anonymed.pruefung.vorschau import schreibe_vorschau
@@ -328,7 +329,7 @@ def _gegenprobe_bilder(
         if s.ocr is not None and backend is not None:
             nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, s.ocr_dpi,
                                              max_pixel=s.ocr_max_pixel)
-            spannen = pseudonymspannen(nachher.text, pseudonyme)
+            spannen = pseudonymspannen_tolerant(nachher.text, pseudonyme)
             genau = finde(nachher, regeln)
             fach = fachmodul.standard() if opt.fachbegriffe else None
             for f in genau + finde_unscharf(nachher, ziele, genau, fach):

@@ -28,6 +28,7 @@ from anonymed.kern.modell import Patient, normalisiere
 from anonymed.pseudonyme.phonetik import koelner_phonetik
 
 ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # 32 symbols, no 0/O/1/I
+VERBOTENE_ANFAENGE = ("AZ",)  # a code must never look like the label of a file number
 _INDEX = {c: i for i, c in enumerate(ALPHABET)}
 STANDARDLAENGE = 5  # payload characters; one check character is appended
 _PARTIKEL = {"von", "van", "der", "den", "de", "zu", "zur", "zum", "da", "dos", "del", "la", "le"}
@@ -92,14 +93,17 @@ def hash_kennung(geheimnis: bytes, identitaet: str, laenge: int = STANDARDLAENGE
     different people share a canonical identity.
     """
     nachricht = identitaet if variante == 0 else f"{identitaet}#{variante}"
-    digest = hmac.new(geheimnis, nachricht.encode("utf-8"), hashlib.sha256).digest()
-    bits = int.from_bytes(digest, "big")
-    zeichen = []
-    for _ in range(laenge):
-        zeichen.append(ALPHABET[bits & 31])
-        bits >>= 5
-    code = "".join(zeichen)
-    return code + pruefzeichen(code)
+    while True:
+        digest = hmac.new(geheimnis, nachricht.encode("utf-8"), hashlib.sha256).digest()
+        bits = int.from_bytes(digest, "big")
+        zeichen = []
+        for _ in range(laenge):
+            zeichen.append(ALPHABET[bits & 31])
+            bits >>= 5
+        code = "".join(zeichen)
+        if not code.startswith(VERBOTENE_ANFAENGE):
+            return code + pruefzeichen(code)
+        nachricht += "~"  # would read like a file-number label ("AZ 2023/1"): derive again
 
 
 def geheimnis_laden(pfad: Path, erzeugen: bool = True) -> bytes:
