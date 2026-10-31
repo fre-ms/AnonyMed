@@ -123,7 +123,8 @@ def ziele_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Ziel]:
     if p.geburtsdatum:
         d = p.geburtsdatum
         pseudo = vergabe.geburtsdatum()
-        for form in (d.strftime("%d.%m.%Y"), d.strftime("%-d.%-m.%Y"), d.strftime("%d.%m.%y")):
+        # no "%-d": that strftime flag is a glibc/BSD extension and raises on Windows
+        for form in (d.strftime("%d.%m.%Y"), f"{d.day}.{d.month}.{d.year}", d.strftime("%d.%m.%y")):
             ziele.append(Ziel([form], pseudo, Art.GEBURTSDATUM, "datum.geburtsdatum",
                               Rolle.PATIENT))
         monat = _MONATE[d.month - 1]
