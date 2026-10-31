@@ -49,7 +49,7 @@ Nicht geschwärzt: Diagnosen, Medikamente, Messwerte, Befundtexte, Termine. Nich
 
 ## NER
 
-Named-Entity-Recognition ist ein statistisches Modell (spaCy, trainiert auf deutschen Nachrichten), das Personen- und Ortsnamen im Fließtext ohne Liste erkennt. Es findet die Angehörige oder den Kollegen, die niemand eingetragen hat, aber es rät: Es kann ein Medikament oder eine Abteilung für eine Person halten und einen Namen übersehen. Deshalb ist es standardmäßig aus, seine Treffer erscheinen im Prüfschritt in eigener Farbe, medizinische Eponyme (Alzheimer, Parkinson, Babinski …) sind ausgenommen, und es entscheidet nie über die Freigabe. Installation:
+Named-Entity-Recognition ist ein statistisches Modell (spaCy, trainiert auf deutschen Nachrichten), das Personen- und Ortsnamen im Fließtext ohne Liste erkennt. Es findet die Angehörige oder den Kollegen, die niemand eingetragen hat, aber es rät: Es kann ein Medikament oder eine Abteilung für eine Person halten und einen Namen übersehen. Deshalb erscheinen seine Treffer im Prüfschritt in eigener Farbe, medizinische Eponyme (Alzheimer, Parkinson, Babinski …) und alles, was das Fachvokabular markiert, sind ausgenommen, gewöhnliche Wörter, die nur am Satzanfang großgeschrieben sind („Überwiesen hat Sie …“), werden verworfen, und es entscheidet nie über die Freigabe. Die Oberfläche schaltet es nach der Fachbegriff-Markierung standardmäßig ein, sobald das Extra installiert ist; auf der Kommandozeile bleibt es Zuwahl (`--ner`). Installation:
 
 ```sh
 uv sync --extra ner

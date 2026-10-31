@@ -124,3 +124,10 @@ def test_import_und_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     r = CliRunner().invoke(app, ["fachbegriffe", "importieren", str(liste), "--name", "zwei"])
     assert r.exit_code == 0 and "2 Begriffe" in r.output
     fachmodul.standard.cache_clear()
+
+
+def test_kurze_woerter_nur_grossgeschrieben() -> None:
+    fb = fachmodul.standard()
+    text = "Er hat Schmerzen im Arm und am Ohr; der Test HAT war positiv."
+    woerter = {text[a:b] for a, b in fb.spannen(text)}
+    assert "hat" not in woerter and {"Arm", "Ohr", "HAT"} <= woerter

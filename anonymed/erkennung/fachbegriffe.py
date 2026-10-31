@@ -149,8 +149,11 @@ class Fachbegriffe:
                         belegt[i + k] = True
                     break
         for i, (a, b, w) in enumerate(tokens):
-            if not belegt[i] and self.ist_fachbegriff(w):
-                ergebnis.append((a, b))
+            if belegt[i] or not self.ist_fachbegriff(w):
+                continue
+            if len(w) <= 3 and not w[:1].isupper():
+                continue  # "hat" is a verb here; "Ohr", "Arm", "HAT" are terms
+            ergebnis.append((a, b))
         ergebnis.sort()
         return ergebnis
 

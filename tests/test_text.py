@@ -156,6 +156,11 @@ def test_ner_in_textdatei(tmp_path: Path, patient: Patient, speicher: Pseudonyms
     assert "Erika Hoffmann" not in aus and "Dresden" not in aus
     assert "Morbus Parkinson" in aus and "Babinski" in aus
     assert any(f.regel == "ner.person" for f in erg.fundstellen)
+    quelle.write_text("Überwiesen hat Sie die Hausärztin. Geboren ist er in Dresden.\n",
+                      encoding="utf-8")
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(ner=True), speicher=speicher)
+    aus = erg.ziel.read_text(encoding="utf-8")
+    assert aus.startswith("Überwiesen hat") and "Dresden" not in aus  # a verb is not a place
 
 
 def test_cli_textdatei(tmp_path: Path, patient: Patient) -> None:

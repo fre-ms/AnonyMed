@@ -73,12 +73,31 @@ class NER:
         if not name:
             raise RuntimeError("Kein deutsches spaCy-Modell installiert (de_core_news_md).")
         self.name = name
-        self.nlp = spacy.load(name, exclude=["parser", "lemmatizer", "attribute_ruler",
-                                             "morphologizer", "tagger"])
+        # the morphologizer stays: its part of speech tells a sentence-initial verb
+        # ("Überwiesen hat Sie …") from a place name
+        self.nlp = spacy.load(name, exclude=["parser", "lemmatizer", "attribute_ruler", "tagger"])
         self.nlp.max_length = 2_000_000
 
     def entitaeten(self, text: str) -> list[tuple[int, int, str, str]]:
-        return [(e.start_char, e.end_char, e.label_, e.text) for e in self.nlp(text).ents]
+        """Entities of the model minus two kinds of noise: heads tagged as verbs or
+        function words, and ordinary words that are only capitalised because they
+        start a sentence ("Überwiesen hat Sie …"): the model knows their lower-case
+        form as a word but not the capitalised one, whereas names and places are
+        known capitalised."""
+        vokabular = self.nlp.vocab
+        ergebnis = []
+        for e in self.nlp(text).ents:
+            kopf = e.root
+            if kopf.pos_ in _KEIN_NAME:
+                continue
+            if kopf.text[:1].isupper() and not vokabular.has_vector(kopf.text) \
+                    and vokabular.has_vector(kopf.text.lower()):
+                continue
+            ergebnis.append((e.start_char, e.end_char, e.label_, e.text))
+        return ergebnis
+
+
+_KEIN_NAME = {"VERB", "AUX", "ADJ", "ADV", "ADP", "DET", "PRON", "SCONJ", "CCONJ", "PART"}
 
 
 def _personenkern(text: str) -> str:

@@ -49,7 +49,7 @@ Not redacted: diagnoses, medication, measurements, findings, appointment dates. 
 
 ## NER
 
-Named-entity recognition is a statistical model (spaCy, trained on German news) that tags person and place names in free text without a list. It catches the relative or colleague nobody entered, but it guesses: it may tag a drug or a department as a person, and it may miss a name. Therefore its hits are shown in their own colour in the review step, medical eponyms (Alzheimer, Parkinson, Babinski …) and everything the medical vocabulary marks are excluded, and it never decides about the release. The graphical interface runs it by default once the extra is installed, after the vocabulary has marked the page; on the command line it stays opt-in (`--ner`). Install with
+Named-entity recognition is a statistical model (spaCy, trained on German news) that tags person and place names in free text without a list. It catches the relative or colleague nobody entered, but it guesses: it may tag a drug or a department as a person, and it may miss a name. Therefore its hits are shown in their own colour in the review step, medical eponyms (Alzheimer, Parkinson, Babinski …) and everything the medical vocabulary marks are excluded, ordinary words that are only capitalised because they start a sentence ("Überwiesen hat Sie …") are dropped, and it never decides about the release. The graphical interface runs it by default once the extra is installed, after the vocabulary has marked the page; on the command line it stays opt-in (`--ner`). Install with
 
 ```sh
 uv sync --extra ner
