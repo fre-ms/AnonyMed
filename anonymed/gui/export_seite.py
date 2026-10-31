@@ -93,6 +93,8 @@ class ExportSeite(QWidget):
         self._warteschlange = [d for d in self.sitzung.dokumente
                                if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen]
         if not self._warteschlange:
+            if self.synchron:
+                raise RuntimeError("Keine analysierten Dokumente.")
             QMessageBox.information(self, self.tr("Export"),
                                     self.tr("Keine analysierten Dokumente."))
             return

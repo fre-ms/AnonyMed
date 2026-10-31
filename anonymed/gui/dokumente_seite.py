@@ -181,14 +181,17 @@ class DokumenteSeite(QWidget):
         o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"
         o.ner = self.ner.isChecked()
 
+    def _melde(self, titel: str, text: str) -> None:
+        if self.synchron:
+            raise RuntimeError(text)
+        QMessageBox.information(self, titel, text)
+
     def analysieren(self) -> None:
         if self.sitzung.patient is None:
-            QMessageBox.information(self, self.tr("Analysieren"),
-                                    self.tr("Bitte zuerst einen Patienten übernehmen."))
+            self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst einen Patienten übernehmen."))
             return
         if not self.sitzung.dokumente:
-            QMessageBox.information(self, self.tr("Analysieren"),
-                                    self.tr("Bitte zuerst Dokumente hinzufügen."))
+            self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst Dokumente hinzufügen."))
             return
         self._optionen_uebernehmen()
         self._warteschlange = [d for d in self.sitzung.dokumente
@@ -224,6 +227,8 @@ class DokumenteSeite(QWidget):
         self._naechstes()
 
     def _fehler(self, e: Exception, d: Dokument) -> None:
+        if self.synchron:  # tests: never block on a modal dialog
+            raise e
         if isinstance(e, UnsichererAbgleich):
             entscheidung = self.unsicher_dialog(e)
             if entscheidung is None:
