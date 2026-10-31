@@ -250,7 +250,8 @@ class Pruefbericht:
     pseudonyme: list[str] = field(default_factory=list)
     gegenprobe: Gegenprobe | None = None
     optionen: dict[str, Any] = field(default_factory=dict)
-    warnungen: list[str] = field(default_factory=list)
+    warnungen: list[str] = field(default_factory=list)  # things that need attention
+    hinweise: list[str] = field(default_factory=list)  # what was done, for the record
 
     @property
     def bestanden(self) -> bool:

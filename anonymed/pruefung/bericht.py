@@ -20,6 +20,7 @@ def erstelle_bericht(
     gegenprobe: Gegenprobe | None,
     optionen: dict[str, Any] | None = None,
     warnungen: list[str] | None = None,
+    hinweise: list[str] | None = None,
 ) -> Pruefbericht:
     pseudonyme = sorted({f.pseudonym for f in fundstellen})
     return Pruefbericht(
@@ -34,6 +35,7 @@ def erstelle_bericht(
         gegenprobe=gegenprobe,
         optionen=optionen or {},
         warnungen=list(warnungen or []),
+        hinweise=list(hinweise or []),
     )
 
 
@@ -72,6 +74,9 @@ def als_text(b: Pruefbericht) -> str:
             zeilen.append(f"  Seite {r['seite']}: {r['regel']} ({r['quelle']})")
     if g and g.anmerkungen:
         zeilen.extend(f"  Anmerkung: {a}" for a in g.anmerkungen)
+    if b.hinweise:
+        zeilen.append("Hinweise (durchgeführte Schritte):")
+        zeilen.extend(f"  - {h}" for h in b.hinweise)
     if b.warnungen:
         zeilen.append("Warnungen:")
         zeilen.extend(f"  - {w}" for w in b.warnungen)

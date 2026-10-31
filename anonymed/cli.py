@@ -12,6 +12,7 @@ import typer
 
 from anonymed import __version__
 from anonymed.ablauf import Ablaufoptionen, anonymisiere
+from anonymed.dokument.laden import papierformat
 from anonymed.dokument.ocr import OCRFehler, verfuegbare_backends
 from anonymed.dokument.textdatei import ist_textdatei
 from anonymed.erkennung.codes import verfuegbar as codes_verfuegbar
@@ -250,8 +251,23 @@ def anonymisieren(
     aufbereiten: Annotated[str, typer.Option(
         "--aufbereiten", help="Scans und Fotos vor der OCR aufbereiten (begradigen, Hintergrund,"
                               " Hochskalieren): auto oder aus.")] = "auto",
+    papier: Annotated[str, typer.Option(
+        "--papier", help="Seitengröße für Fotos und Bilder: a4, a5, a3, letter, legal oder bild"
+                         " (so groß wie das Bild).")] = "a4",
+    tabellen: Annotated[bool, typer.Option(
+        "--tabellen/--keine-tabellen",
+        help="Tesseract: Tabellengitter erkennen und die Zellen ohne Linien erneut lesen.")]
+    = True,
+    vokabular: Annotated[bool, typer.Option(
+        "--vokabular/--kein-vokabular",
+        help="Verworfene Rate-Treffer als <name>_anonym.vokabular.txt schreiben.")] = True,
 ) -> None:
     """Dokumente und Texte schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
+    try:
+        papierformat(papier)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
     if unlesbar not in ("schwaerzen", "lassen"):
         typer.echo("--unlesbar muss 'schwaerzen' oder 'lassen' sein.", err=True)
         raise typer.Exit(code=1)
@@ -276,7 +292,8 @@ def anonymisieren(
         ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
-        aufbereiten=aufbereiten,
+        aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
+        vokabular=vokabular,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,
                                     textebene=textebene),
     )
@@ -519,6 +536,25 @@ def fachbegriffe_pruefen(
         spannen = fb.spannen(w)
         ganz = bool(spannen) and fb.geschuetzt(w, 0, len(w), spannen, ganz=True)
         typer.echo(f"{w}: {'geschützt' if ganz else ('teilweise' if spannen else 'frei')}")
+
+
+@fachbegriffe_app.command("ergaenzen")
+def fachbegriffe_ergaenzen(
+    datei: Annotated[Path, typer.Argument(exists=True, help="Liste, ein Begriff je Zeile, z. B."
+                                                           " eine <name>_anonym.vokabular.txt.")],
+    name: Annotated[str, typer.Option("--name", help="Eigene Liste im Datenordner.")]
+    = "nutzervokabular",
+) -> None:
+    """Begriffe in das Nutzervokabular übernehmen (zusammenführen statt ersetzen)."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+
+    try:
+        ziel, neu = fachmodul.ergaenze(datei, name)
+    except OSError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(f"{neu} neue Begriffe nach {ziel} übernommen; jetzt {fachmodul.standard().anzahl}"
+               " geschützte Begriffe")
 
 
 @fachbegriffe_app.command("importieren")

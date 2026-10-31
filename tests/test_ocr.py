@@ -77,7 +77,7 @@ def test_scan_wird_gelesen_und_geschwaerzt(tmp_path: Path, befund: Path, patient
     erg = anonymisiere(scan, patient, Ablaufoptionen(ocr=backend), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert not erg.bericht.textebene
-    assert any("per OCR gelesen" in w for w in erg.bericht.warnungen)
+    assert any("per OCR gelesen" in w for w in erg.bericht.hinweise)
     assert sum(1 for f in erg.fundstellen if f.quelle == "ocr") >= 10
     assert erg.vorschau and all(p.exists() for p in erg.vorschau)
     assert "--- Bildtext (OCR" in erg.text
@@ -336,12 +336,12 @@ def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient
     assert lade(befund).kandidaten == []  # a text layer needs no clean-up
     erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
-    assert any("aufbereitet" in w and "begradigt" in w for w in erg.bericht.warnungen)
+    assert any("aufbereitet" in w and "begradigt" in w for w in erg.bericht.hinweise)
     assert erg.bericht.optionen["aufbereitung"]["1"]["begradigen"] is True
     assert gefundene_klardaten(erg.text, patient) == [] and "Ramipril" in erg.text
     ohne = anonymisiere(scan, patient, Ablaufoptionen(aufbereiten="aus", suffix="_roh"),
                         speicher=speicher)
-    assert not any("aufbereitet" in w for w in ohne.bericht.warnungen)
+    assert not any("aufbereitet" in w for w in ohne.bericht.hinweise)
     assert "aufbereitung" not in ohne.bericht.optionen
     # an explicit choice wins over the suggestion
     from anonymed.ablauf import abschliessen, vorbereiten
@@ -416,3 +416,69 @@ def _patient_aus(befund: Path):
     from tests.synthetisch import synthetischer_patient
 
     return synthetischer_patient(7, "m")
+
+
+ZELLEN = [("Medikament", "Dosis", "morgens", "mittags", "abends"),
+          ("Methylphenidat ret.", "20 mg", "1", "0", "0"),
+          ("Sertralin", "50 mg", "1", "0", "0"),
+          ("Melatonin", "2 mg", "0", "0", "1"),
+          ("Pantoprazol", "40 mg", "1", "0", "0"),
+          ("Amlodipin", "5 mg", "1", "0", "0")]
+
+
+def _tabellenseite(pfad: Path, dpi: int = 200) -> Path:
+    """Letter with a bordered medication table (thick rules, grey header), as an image."""
+    doc = pymupdf.open()
+    p = doc.new_page(width=595, height=842)
+    y = 80
+    for t in ("Sehr geehrte Frau Kollegin,", "wir berichten über die Patientin.", "",
+              "Aktuelle Medikation:"):
+        p.insert_text((60, y), t, fontsize=11, fontname="helv")
+        y += 16
+    x0, y0, breiten, zh = 60, y + 10, (170, 70, 70, 70, 70), 18
+    for r, zeile in enumerate(ZELLEN):
+        x = x0
+        for c, text in enumerate(zeile):
+            rect = pymupdf.Rect(x, y0 + r * zh, x + breiten[c], y0 + (r + 1) * zh)
+            p.draw_rect(rect, color=(0, 0, 0), width=2.0,
+                        fill=(0.85, 0.85, 0.85) if r == 0 else None)
+            p.insert_text((x + 3, y0 + r * zh + 13), text, fontsize=9, fontname="helv")
+            x += breiten[c]
+    scan = rastere(doc, dpi=dpi)
+    scan.save(pfad)
+    scan.close()
+    doc.close()
+    return pfad
+
+
+def _zellenwoerter(text: str) -> int:
+    woerter = text.split()
+    gefunden = 0
+    for zelle in (w for zeile in ZELLEN for z in zeile for w in [z]):
+        for w in zelle.split():
+            if w in woerter:
+                woerter.remove(w)
+                gefunden += 1
+    return gefunden
+
+
+@pytest.mark.skipif("tesseract" not in BACKENDS or not aufmodul.verfuegbar(),
+                    reason="Tesseract oder OpenCV fehlt")
+def test_tesseract_liest_tabellen(tmp_path: Path, befund: Path) -> None:
+    """Tesseract's page segmentation drops the cells of a bordered table; the second
+    pass on the line-free grid gets them back.  Pages without a grid are untouched."""
+    scan = _tabellenseite(tmp_path / "tabelle.pdf")
+    with pymupdf.open(scan) as d:
+        bild, _skala = aufmodul.rendere(d[0], 200)
+        bereiche = aufmodul.gitterbereiche(bild)
+        assert len(bereiche) == 1
+        x0, y0, x1, y1 = bereiche[0]
+        assert x1 - x0 > bild.shape[1] * 0.6 and y1 - y0 > bild.shape[0] * 0.1
+        ohne = ocrmodul.erkenne_seite(d[0], ocrmodul.TesseractBackend(tabellen=False))
+        mit = ocrmodul.erkenne_seite(d[0], ocrmodul.TesseractBackend(tabellen=True))
+    assert _zellenwoerter(mit.text) >= 25
+    assert _zellenwoerter(mit.text) >= _zellenwoerter(ohne.text) + 10
+    assert "Kollegin," in mit.text  # the running text is still there
+    with pymupdf.open(befund) as d:
+        bild, _skala = aufmodul.rendere(d[0], 150)
+        assert aufmodul.gitterbereiche(bild) == []

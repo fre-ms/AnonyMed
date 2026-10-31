@@ -79,25 +79,47 @@ class NER:
         self.nlp.max_length = 2_000_000
 
     def entitaeten(self, text: str) -> list[tuple[int, int, str, str]]:
-        """Entities of the model minus two kinds of noise: heads tagged as verbs or
-        function words, and ordinary words that are only capitalised because they
-        start a sentence ("Überwiesen hat Sie …"): the model knows their lower-case
-        form as a word but not the capitalised one, whereas names and places are
-        known capitalised."""
+        """Entities of the model minus the noise German clinical prose produces.
+
+        Dropped: heads tagged as verbs or function words; ordinary words that are
+        only capitalised because they start a sentence ("Überwiesen hat Sie …", known
+        lower-case but not capitalised); single words the tagger calls common nouns
+        ("Konzentration: gut"); and single words the model has never seen (compound
+        nouns such as "Nierenlager", "Strichgang") unless the context says person or
+        place: a salutation or title before a person, a preposition before a place.
+        A lone unknown surname without such context is left to the rules, which
+        know the patient's names anyway.
+        """
         vokabular = self.nlp.vocab
         ergebnis = []
         for e in self.nlp(text).ents:
             kopf = e.root
             if kopf.pos_ in _KEIN_NAME:
                 continue
-            if kopf.text[:1].isupper() and not vokabular.has_vector(kopf.text) \
-                    and vokabular.has_vector(kopf.text.lower()):
+            bekannt_gross = vokabular.has_vector(kopf.text)
+            bekannt_klein = vokabular.has_vector(kopf.text.lower())
+            if kopf.text[:1].isupper() and not bekannt_gross and bekannt_klein:
                 continue
+            if len(e) == 1 and e.label_ in ("PER", "LOC", "GPE"):
+                if kopf.pos_ == "NOUN":
+                    continue
+                if not bekannt_gross and not bekannt_klein:
+                    davor = text[max(0, e.start_char - 30):e.start_char]
+                    muster = _PERSONENKONTEXT if e.label_ == "PER" else _ORTSKONTEXT
+                    if not muster.search(davor):
+                        continue
             ergebnis.append((e.start_char, e.end_char, e.label_, e.text))
         return ergebnis
 
 
 _KEIN_NAME = {"VERB", "AUX", "ADJ", "ADV", "ADP", "DET", "PRON", "SCONJ", "CCONJ", "PART"}
+# what must stand right before a lone unknown word for it to count as a person or a place
+_PERSONENKONTEXT = re.compile(
+    r"(?:\b(?:Herrn?|Frau|Hr\.|Fr\.|Dr\.|Prof\.|PD|med\.|Dipl\.|Patient(?:in)?|Pat\.|Kolleg(?:e|in)"
+    r"|Schwester|Pfleger(?:in)?|Ehemann|Ehefrau|Mutter|Vater|Tochter|Sohn|Bruder|Schwester"
+    r"|Betreuer(?:in)?|Familie|Fam\.)\s*$)|(?:[A-ZÄÖÜ][a-zäöüß]+\s+$)", re.IGNORECASE)
+_ORTSKONTEXT = re.compile(r"\b(?:in|aus|nach|bei|von|wohnhaft in|Ort|Wohnort|Stadt|Gemeinde|PLZ"
+                          r"|\d{5})\s*$", re.IGNORECASE)
 
 
 def _personenkern(text: str) -> str:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import functools
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -73,6 +74,9 @@ class Ablaufoptionen:
     verworfene_merken: bool = False  # remember discarded hits per patient in the store
     aufbereitung: dict[int, aufmodul.Aufbereitung] | None = None  # explicit choice per page
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
+    papierformat: str = "a4"  # page size for photos and images: a4, a5, a3, letter, legal, bild
+    ocr_tabellen: bool = True  # Tesseract: second pass for sparse text (tables), merged in
+    vokabular: bool = True  # write <name>_anonym.vokabular.txt with the discarded guesses
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -91,6 +95,8 @@ class Ablaufoptionen:
             "fachbegriffe": self.fachbegriffe,
             "unscharf_text": self.unscharf_text,
             "aufbereiten": self.aufbereiten,
+            "papierformat": self.papierformat,
+            "ocr_tabellen": self.ocr_tabellen,
         }
 
 
@@ -104,6 +110,7 @@ class Ergebnis:
     ziel_txt: Path | None = None
     ziel_md: Path | None = None
     ziel_bericht: Path | None = None
+    ziel_vokabular: Path | None = None  # discarded guesses, one term per line
     vorschau: list[Path] = field(default_factory=list)
     text: str = ""
     ist_text: bool = False  # the source was a text file; ``ziel_txt`` is the output itself
@@ -121,6 +128,41 @@ class Ergebnis:
 def zielpfad(quelle: Path, opt: Ablaufoptionen, endung: str = ".pdf") -> Path:
     ordner = opt.ziel_ordner or quelle.parent
     return ordner / f"{quelle.stem}{opt.suffix}{endung}"
+
+
+def vokabular_aus(verworfen: Iterable[Fundstelle]) -> list[str]:
+    """Terms for the user's vocabulary: the texts of the discarded guesses (NER, fuzzy
+    search), one per entry.  Discarded hits of the fixed rules are left out on purpose:
+    their text is one of the patient's own identifiers and must not land in a side file."""
+    gesehen: dict[str, str] = {}
+    for f in verworfen:
+        if not (f.regel.startswith(("ner.", "unscharf.")) or f.quelle == "unscharf"):
+            continue
+        begriff = " ".join(f.text.split())
+        if len(begriff) < 3 or not any(c.isalpha() for c in begriff):
+            continue
+        gesehen.setdefault(begriff.casefold(), begriff)
+    return sorted(gesehen.values(), key=str.casefold)
+
+
+VOKABULAR_KOPF = ("# AnonyMed: im Prüfschritt verworfene Rate-Treffer (NER, unscharfe Suche),"
+                  " ein Begriff je Zeile.\n# In „4 Analysieren“ als Nutzervokabular importierbar;"
+                  " Zeilen mit # werden überlesen.\n")
+
+
+def _vokabular_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
+                         hinweise: list[str]) -> None:
+    if not v.opt.vokabular:
+        return
+    begriffe = vokabular_aus(v.verworfen)
+    if not begriffe:
+        return
+    ziel = zielpfad(v.quelle, v.opt, ".vokabular.txt")
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    ziel.write_text(VOKABULAR_KOPF + "\n".join(begriffe) + "\n", encoding="utf-8")
+    ergebnis.ziel_vokabular = ziel
+    hinweise.append(f"{len(begriffe)} verworfene Rate-Treffer als Vokabular geschrieben"
+                    f" ({ziel.name}); in „4 Analysieren“ importierbar.")
 
 
 @dataclass
@@ -164,7 +206,7 @@ def lade(pfad: str | Path, opt: Ablaufoptionen | None = None) -> Vorlage:
     """Open a PDF or image and find the pages worth cleaning up before OCR."""
     opt = opt or Ablaufoptionen()
     quelle = Path(pfad)
-    doc = oeffne(quelle)
+    doc = oeffne(quelle, opt.papierformat)
     foto = quelle.suffix.lower() in BILDENDUNGEN | HEIC_ENDUNGEN
     kandidaten = [i for i, page in enumerate(doc) if not lese_seite(page, i).hat_textebene]
     vorschlaege: dict[int, aufmodul.Aufbereitung] = {}
@@ -431,6 +473,7 @@ class Vorbereitung:
     seiten: list[_Seite]
     ohne_text: list[int]
     warnungen: list[str] = field(default_factory=list)
+    hinweise: list[str] = field(default_factory=list)
     verworfen: list[Fundstelle] = field(default_factory=list)
     aufbereitet: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
     abgeschlossen: bool = False
@@ -632,6 +675,7 @@ class Lesung:
     ohne_text: list[int]
     plan: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
     warnungen: list[str] = field(default_factory=list)
+    hinweise: list[str] = field(default_factory=list)
     verbraucht: bool = False
 
     @property
@@ -685,9 +729,9 @@ def lese(
     """Reading phase for a PDF or image: clean-up, text layer, OCR.  No patient needed."""
     opt = opt or Ablaufoptionen()
     quelle = Path(pfad)
-    backend = ocrmodul.backend(opt.ocr, opt.ocr_sprachen)
-    doc = oeffne(quelle)
-    original = oeffne(quelle)
+    backend = ocrmodul.backend(opt.ocr, opt.ocr_sprachen, tabellen=opt.ocr_tabellen)
+    doc = oeffne(quelle, opt.papierformat)
+    original = oeffne(quelle, opt.papierformat)
     try:
         plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
         for nummer in sorted(plan):
@@ -698,9 +742,10 @@ def lese(
         original.close()
         raise
     warnungen: list[str] = []
+    hinweise: list[str] = []
     for nummer in sorted(plan):
-        warnungen.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
-                         f" {aufmodul.beschreibung(plan[nummer])}.")
+        hinweise.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
+                        f" {aufmodul.beschreibung(plan[nummer])}.")
     if ohne_text:
         warnungen.append(
             "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
@@ -709,13 +754,15 @@ def lese(
     ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
     if ocr_seiten:
         unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
-        warnungen.append(
+        hinweise.append(
             f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
             f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter)."
-            " Handschrift wird nicht erkannt; erkannten Text und Vorschaubilder prüfen."
         )
+        warnungen.append("OCR-Seiten: Handschrift wird nicht erkannt; erkannten Text und"
+                         " Vorschaubilder vor der Weitergabe prüfen.")
     return Lesung(quelle=quelle, opt=opt, doc=doc, original=original, backend=backend,
-                  seiten=seiten, ohne_text=ohne_text, plan=plan, warnungen=warnungen)
+                  seiten=seiten, ohne_text=ohne_text, plan=plan, warnungen=warnungen,
+                  hinweise=hinweise)
 
 
 def analysiere(
@@ -744,22 +791,23 @@ def analysiere(
     lesung.verbraucht = True
     seiten = lesung.seiten
     warnungen = list(r.warnungen) + list(lesung.warnungen)
+    hinweise = list(lesung.hinweise)
     hinweis = _ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont)
     if hinweis:
-        warnungen.append(hinweis)
+        hinweise.append(hinweis)
     unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
     if unlesbar:
         warnungen.append(f"{unlesbar} unlesbare OCR-Zeile(n) vorsorglich geschwärzt.")
     verworfen = _gemerkte_verwerfen(seiten, speicher.verworfene(patient))
     if verworfen:
-        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
-                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
+        hinweise.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
+                        " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
     return Vorbereitung(
         quelle=lesung.quelle, patient=patient, opt=opt, speicher=speicher,
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
         regeln=r.regeln, ziele=r.ziele, backend=lesung.backend, doc=lesung.doc,
         original=lesung.original, seiten=seiten, ohne_text=lesung.ohne_text,
-        warnungen=warnungen, aufbereitet=lesung.plan, verworfen=verworfen,
+        warnungen=warnungen, hinweise=hinweise, aufbereitet=lesung.plan, verworfen=verworfen,
     )
 
 
@@ -828,6 +876,7 @@ class Textvorbereitung:
     ausgabe_endung: str = ".txt"  # the input's own for text and subtitles, .txt for JSON/e-mail
     ohne_text: list[int] = field(default_factory=list)
     warnungen: list[str] = field(default_factory=list)
+    hinweise: list[str] = field(default_factory=list)
     verworfen: list[Fundstelle] = field(default_factory=list)
     abgeschlossen: bool = False
     version: int = 0
@@ -924,22 +973,23 @@ def _vorbereiten_text(
                                                   "text", r.fachbegriffe, verschont)
     eintrag.fundstellen = _auf_zahlwoerter_erweitert(eintrag.fundstellen, norm)
     warnungen = list(r.warnungen)
+    hinweise: list[str] = []
     hinweis = _ner_warnung(r, eintrag.fundstellen, verschont)
     if hinweis:
-        warnungen.append(hinweis)
+        hinweise.append(hinweis)
     unscharfe = sum(1 for f in eintrag.fundstellen if f.quelle == "unscharf")
     if unscharfe:
         warnungen.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"
                          " (Transkript, Tippfehler); im Prüfschritt ansehen.")
     verworfen = _gemerkte_verwerfen([eintrag], speicher.verworfene(patient))
     if verworfen:
-        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
-                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
+        hinweise.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
+                        " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
     return Textvorbereitung(
         quelle=quelle, patient=patient, opt=opt, speicher=speicher,
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
         regeln=r.regeln, ziele=r.ziele, text=text, seiten=[eintrag], ausgabe_endung=endung,
-        warnungen=warnungen, verworfen=verworfen,
+        warnungen=warnungen, hinweise=hinweise, verworfen=verworfen,
     )
 
 
@@ -999,7 +1049,7 @@ def gegenprobe_textdatei(pfad: str | Path, regeln: list[Regel],
 
 def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis:
     """Phase two for a text file: replace, check, write, report."""
-    opt, quelle, warnungen = v.opt, v.quelle, list(v.warnungen)
+    opt, quelle, warnungen, hinweise = v.opt, v.quelle, list(v.warnungen), list(v.hinweise)
     try:
         fundstellen = v.fundstellen
         v.vergabe.registriere_treffer(fundstellen)
@@ -1022,10 +1072,11 @@ def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis
             if opt.markdown and ziel.suffix.lower() != ".md":
                 ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
                 ergebnis.ziel_md.write_text(ausgabe, encoding="utf-8")
+            _vokabular_schreiben(v, ergebnis, hinweise)
         else:
             warnungen.append("Nicht freigegeben: keine Ausgabe geschrieben.")
         ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
-                                            gegenprobe, opt.als_dict(), warnungen)
+                                            gegenprobe, opt.als_dict(), warnungen, hinweise)
         if opt.bericht:
             ziel.parent.mkdir(parents=True, exist_ok=True)
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")
@@ -1075,7 +1126,8 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
         raise RuntimeError("Diese Vorbereitung wurde bereits abgeschlossen.")
     if isinstance(v, Textvorbereitung):
         return _abschliessen_text(v, endgueltig)
-    opt, quelle, seiten, warnungen = v.opt, v.quelle, v.seiten, list(v.warnungen)
+    opt, quelle, seiten = v.opt, v.quelle, v.seiten
+    warnungen, hinweise = list(v.warnungen), list(v.hinweise)
     try:
         fundstellen = v.fundstellen + v.korrektur_treffer
         v.vergabe.registriere_treffer(fundstellen)
@@ -1103,7 +1155,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
                     _textebene_einbetten(ausgabe, seiten, {s.nummer for s in seiten},
                                          opt.schwaerzen)
                 bereinige(ausgabe, vermerk=opt.schwaerzen.vermerk)
-                warnungen.append("Ausgabe gerastert.")
+                hinweise.append("Ausgabe gerastert.")
             ziel = zielpfad(quelle, opt)
             ziel.parent.mkdir(parents=True, exist_ok=True)
             speichere(ausgabe, ziel)
@@ -1142,6 +1194,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
             if opt.markdown:
                 ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
                 ergebnis.ziel_md.write_text(markdown_aus_text(text), encoding="utf-8")
+            _vokabular_schreiben(v, ergebnis, hinweise)
         else:
             ziel.unlink(missing_ok=True)
             warnungen.append("Nicht freigegeben: Ausgabe verworfen.")
@@ -1150,7 +1203,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
             optionen["aufbereitung"] = {str(n + 1): a.als_dict() for n, a in v.aufbereitet.items()}
         ergebnis.bericht = erstelle_bericht(
             quelle, ergebnis.ziel_pdf, seitenzahl, not ocr_seiten and not v.ohne_text,
-            fundstellen, gegenprobe, optionen, warnungen,
+            fundstellen, gegenprobe, optionen, warnungen, hinweise,
         )
         if opt.bericht:
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")

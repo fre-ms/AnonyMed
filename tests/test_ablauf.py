@@ -128,7 +128,7 @@ def test_rastern(befund: Path, patient: Patient, speicher: Pseudonymspeicher) ->
         texte = [p.get_text("text") for p in d]
         assert all(t.strip() for t in texte) and len(d) == 2
         assert gefundene_klardaten("\n".join(texte), patient) == []
-    assert any("gerastert" in w for w in erg.bericht.warnungen)
+    assert any("gerastert" in w for w in erg.bericht.hinweise)
 
 
 def test_gegenprobe_blockiert(befund: Path, patient: Patient, speicher: Pseudonymspeicher,
@@ -190,7 +190,7 @@ def test_zwei_phasen_mit_verwerfen_und_kasten(befund: Path, patient: Patient,
         text = d[0].get_text()
         assert "[Diagnose]" in text and "Leichte kognitive Störung" not in text
         assert "ICD-10 F06.7" in text  # the rest of the line survived the manual box
-    assert not any("gerastert" in w for w in erg.bericht.warnungen)
+    assert not any("gerastert" in w for w in erg.bericht.hinweise)
     with pytest.raises(RuntimeError):
         abschliessen(v)
 
@@ -327,7 +327,7 @@ def test_verworfene_treffer_merken(befund: Path, patient: Patient) -> None:
         v2 = vorbereiten(befund, patient, Ablaufoptionen(verworfene_merken=True), speicher=sp)
         assert any(x.regel == "zuweiser1.name" and x.text == f.text for x in v2.verworfen)
         assert not any(x.text == f.text for x in v2.fundstellen)  # other spellings stay hits
-        assert any("gespeicherter Entscheidung" in w for w in v2.warnungen)
+        assert any("gespeicherter Entscheidung" in w for w in v2.hinweise)
         g = next(x for x in v2.verworfen if x.regel == "zuweiser1.name")
         v2.wiederherstelle(g)
         assert v2.version == 1 and v2.wiederhergestellt
@@ -368,3 +368,36 @@ def test_kasten_knapp_unter_der_zeile(befund: Path, patient: Patient,
     assert neue and neue[0].text.startswith("Sehr geehrte"), [n.text for n in neue]
     erg = abschliessen(v)
     assert erg.freigegeben and "[Anrede]" in erg.text and "Sehr geehrte" not in erg.text
+
+
+def test_vokabular_nur_aus_rate_treffern() -> None:
+    """Discarded guesses (NER, fuzzy) become vocabulary; discarded rule hits carry the
+    patient's own identifiers and stay out."""
+    from anonymed.ablauf import vokabular_aus
+    from anonymed.kern.modell import Art, Fundstelle
+
+    def f(regel: str, text: str, quelle: str = "text") -> Fundstelle:
+        return Fundstelle(seite=0, start=0, ende=len(text), text=text, art=Art.NAME,
+                          regel=regel, pseudonym="[X]", quelle=quelle)
+
+    verworfen = [f("ner.person", "Konzentration"), f("ner.ort", "Nierenlager"),
+                 f("unscharf.name.nachname", "Bauch", "unscharf"),
+                 f("ner.person", "konzentration"), f("name.nachname", "Bauer"),
+                 f("muster.email", "max@example.org"), f("ner.person", "A1"),
+                 f("ner.person", "  Klinikum   Süd ")]
+    assert vokabular_aus(verworfen) == ["Bauch", "Klinikum Süd", "Konzentration", "Nierenlager"]
+
+
+def test_bericht_trennt_hinweise_von_warnungen(tmp_path: Path) -> None:
+    from anonymed.pruefung.bericht import erstelle_bericht
+
+    b = erstelle_bericht(tmp_path / "q.pdf", tmp_path / "q_anonym.pdf", 1, False, [], None,
+                         warnungen=["OCR-Seiten: Handschrift wird nicht erkannt."],
+                         hinweise=["Seite 1 vor der OCR aufbereitet: begradigt (1,5°)."])
+    text = als_text(b)
+    assert "Hinweise (durchgeführte Schritte):" in text and "Warnungen:" in text
+    assert text.index("aufbereitet") < text.index("Warnungen:")
+    assert text.index("Hinweise") < text.index("aufbereitet")
+    ohne = erstelle_bericht(tmp_path / "q.pdf", None, 1, True, [], None,
+                            hinweise=["Ausgabe gerastert."])
+    assert "Warnungen:" not in als_text(ohne) and "gerastert" in als_text(ohne)

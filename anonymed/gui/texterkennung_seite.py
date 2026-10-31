@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -61,6 +62,11 @@ class TexterkennungSeite(QWidget):
         self.sprachen_hinweis = QLabel("")
         self.sprachen_hinweis.setWordWrap(True)
         form.addRow(self.sprachen_hinweis)
+        self.tabellen = QCheckBox(self.tr(
+            "Tabellen: Gitter erkennen und die Zellen ohne Linien in einem zweiten Durchgang"
+            " lesen (Tesseract)"))
+        self.tabellen.setChecked(True)
+        form.addRow(self.tabellen)
         zeile = QHBoxLayout()
         self.fortschritt = QProgressBar()
         self.fortschritt.setRange(0, 1)
@@ -123,8 +129,11 @@ class TexterkennungSeite(QWidget):
     # -- settings ----------------------------------------------------------------------------------
     def _engine_gewechselt(self, _i: int = 0) -> None:
         name = self.engine.currentData()
-        if name == "tesseract" or (name == "auto" and ocrmodul.verfuegbare_backends()[:1]
-                                   == ["tesseract"]):
+        tesseract = name == "tesseract" or (name == "auto"
+                                            and ocrmodul.verfuegbare_backends()[:1]
+                                            == ["tesseract"])
+        self.tabellen.setEnabled(tesseract)
+        if tesseract:
             programm = ocrmodul.tesseract_programm()
             installiert = ocrmodul.tesseract_sprachen(programm) if programm else []
             self.sprachen.setPlaceholderText("deu+eng")
@@ -143,6 +152,7 @@ class TexterkennungSeite(QWidget):
         o = self.sitzung.optionen
         o.ocr = self.engine.currentData()
         o.ocr_sprachen = self.sprachen.text().strip()
+        o.ocr_tabellen = self.tabellen.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:
         if self.synchron:

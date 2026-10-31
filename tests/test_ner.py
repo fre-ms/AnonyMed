@@ -66,7 +66,7 @@ def test_ner_im_ablauf(tmp_path: Path, patient: Patient, speicher: Pseudonymspei
     assert mit.freigegeben, als_text(mit.bericht)
     assert patient.angehoerige[0].vorname not in mit.text
     assert any(f.regel == "ner.person" for f in mit.fundstellen)
-    assert any("NER (" in w for w in mit.bericht.warnungen)
+    assert any("NER (" in w for w in mit.bericht.hinweise)
     person = next(f for f in mit.fundstellen if f.regel == "ner.person"
                   and patient.angehoerige[0].nachname in f.text)
     z = speicher.zuordnung(allein.schluessel())
@@ -79,3 +79,25 @@ def test_ohne_modell_warnung(tmp_path: Path, befund: Path, patient: Patient,
     monkeypatch.setattr(nermodul, "verfuegbar", lambda: False)
     erg = anonymisiere(befund, patient, Ablaufoptionen(ner=True), speicher=speicher)
     assert erg.freigegeben and any("NER gewünscht" in w for w in erg.bericht.warnungen)
+
+
+def test_alltagssubstantive_sind_keine_namen() -> None:
+    """Findings prose and lists: common and compound nouns are not people or places,
+    salutations and prepositions still make unknown words count."""
+    import pytest
+
+    from anonymed.erkennung import ner as nermodul
+
+    if not nermodul.verfuegbar():
+        pytest.skip("Extra 'ner' nicht installiert")
+    n = nermodul.NER()
+    liste = "Konzentration: gut.\nHaltung: aufrecht.\nNierenlager: frei.\nStrichgang: unsicher."
+    assert n.entitaeten(liste) == []
+    prosa = ("Befund: Konzentration und Aufmerksamkeit regelrecht, Haltung aufrecht,"
+             " Nierenlager frei, Strichgang unsicher.")
+    assert n.entitaeten(prosa) == []
+    namen = "Herr Flantz kam mit Frau Erika Hoffmann aus Dresden; sie wohnen in Riesa."
+    texte = {e[3] for e in n.entitaeten(namen)}
+    assert {"Erika Hoffmann", "Dresden"} <= texte
+    assert "Flantz" in texte or "Herr Flantz" in texte  # unknown surname, salutation before
+    assert any("Riesa" in t for t in texte)

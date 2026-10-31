@@ -138,6 +138,7 @@ class Sitzung:
         if d.vorlage is not None:
             d.vorlage.schliessen()
         d.vorlage, d.aufbereitung, d.vorbereitung, d.ergebnis, d.fehler = None, {}, None, None, ""
+        d.lesung, d.vorpruefung = None, None
         if ist_textdatei(d.pfad):
             return
         try:
@@ -213,7 +214,7 @@ class Sitzung:
             kopie = Ergebnis(quelle=quelle.quelle, bericht=quelle.bericht,
                              fundstellen=quelle.fundstellen, kennung=quelle.kennung,
                              text=quelle.text, ist_text=quelle.ist_text)
-            for feld in ("ziel_pdf", "ziel_txt", "ziel_md", "ziel_bericht"):
+            for feld in ("ziel_pdf", "ziel_txt", "ziel_md", "ziel_bericht", "ziel_vokabular"):
                 pfad = getattr(quelle, feld)
                 if pfad is not None:
                     neu = ziel_ordner / pfad.name

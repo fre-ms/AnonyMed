@@ -144,3 +144,15 @@ def test_koerperteile_sind_fachbegriffe() -> None:
     woerter = {text[a:b] for a, b in fb.spannen(text)}
     assert {"linken", "Hand", "rechten", "Oberbauch", "Knie"} <= woerter
     assert "Körperteile" in [q for q, _n in fb.quellen] if hasattr(fb, "quellen") else True
+
+
+def test_befundbegriffe_sind_fachbegriffe() -> None:
+    """Terms of the clinical examination that stand at the start of findings lines."""
+    fb = fachmodul.standard()
+    for w in ("Konzentration", "Haltung", "Nierenlager", "Strichgang", "Gangbild",
+              "Merkfähigkeit", "Darmgeräusche", "Procedere", "Finger-Nase-Versuch"):
+        assert fb.ist_fachbegriff(w), w
+    assert "Befundbegriffe" in [q for q, _n in fb.quellen]
+    text = "Konzentration: gut. Nierenlager: frei. Erika Hoffmann wohnt in Riesa."
+    woerter = {text[a:b] for a, b in fb.spannen(text)}
+    assert {"Konzentration", "Nierenlager"} <= woerter and "Riesa" not in woerter

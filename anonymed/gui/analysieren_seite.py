@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -18,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from anonymed.erkennung import fachbegriffe as fachmodul
 from anonymed.erkennung import ner as nermodul
 from anonymed.gui.arbeiter import Arbeiter
 from anonymed.gui.sitzung import Dokument, Sitzung
@@ -66,6 +70,19 @@ class AnalysierenSeite(QWidget):
         form.addRow(self.ner)
         aussen.addWidget(optionen)
 
+        vokabular = QGroupBox(self.tr("Fachvokabular (geschützt vor NER und unscharfer Suche)"))
+        vz = QHBoxLayout(vokabular)
+        self.vokabular_info = QLabel("")
+        self.vokabular_info.setWordWrap(True)
+        vz.addWidget(self.vokabular_info, 1)
+        self.vokabular_knopf = QPushButton(self.tr("Vokabular importieren …"))
+        self.vokabular_knopf.setToolTip(self.tr(
+            "Textdatei mit einem Begriff je Zeile, z. B. die beim Export geschriebene"
+            " .vokabular.txt; die Begriffe kommen ins Nutzervokabular."))
+        self.vokabular_knopf.clicked.connect(self.vokabular_waehlen)
+        vz.addWidget(self.vokabular_knopf)
+        aussen.addWidget(vokabular)
+
         aussen.addWidget(QLabel(self.tr("Dokumente dieser Sitzung:")))
         self.liste = QListWidget()
         aussen.addWidget(self.liste, 1)
@@ -89,6 +106,35 @@ class AnalysierenSeite(QWidget):
         self.liste.clear()
         for d in self.sitzung.dokumente:
             self.liste.addItem(f"{d.pfad.name}  –  {d.zustand}")
+        self._vokabular_anzeigen()
+
+    # -- vocabulary --------------------------------------------------------------------------------
+    def _vokabular_anzeigen(self) -> None:
+        fb = fachmodul.standard()
+        quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
+        self.vokabular_info.setText(self.tr(
+            "{gesamt} geschützte Begriffe ({quellen}). Eigene Listen: {ordner}").format(
+            gesamt=fb.anzahl, quellen=quellen, ordner=fachmodul.datenordner()))
+
+    def vokabular_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Vokabular importieren"), "",
+            self.tr("Textdateien (*.txt);;Alle Dateien (*)"))
+        if pfad:
+            self.vokabular_importieren(Path(pfad))
+
+    def vokabular_importieren(self, pfad: Path) -> int:
+        """Merge a one-term-per-line file into the user's vocabulary; returns the new terms."""
+        try:
+            ziel, neu = fachmodul.ergaenze(pfad)
+        except OSError as e:
+            self._melde(self.tr("Vokabular"), str(e))
+            return 0
+        self._vokabular_anzeigen()
+        self.status.setText(self.tr(
+            "{n} neue Begriffe aus {name} ins Nutzervokabular übernommen ({ziel}).").format(
+            n=neu, name=pfad.name, ziel=ziel))
+        return neu
 
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen

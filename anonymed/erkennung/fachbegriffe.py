@@ -37,6 +37,7 @@ from platformdirs import user_data_path
 
 BASIS = Path(__file__).resolve().parent.parent / "daten" / "fachbegriffe_de.txt.gz"
 KOERPERTEILE = Path(__file__).resolve().parent.parent / "daten" / "koerperteile_de.txt"
+BEFUNDBEGRIFFE = Path(__file__).resolve().parent.parent / "daten" / "befundbegriffe_de.txt"
 _TOKEN = re.compile(r"[^\W\d_][\w\-]*|\d+[\w\-]*")
 _SUFFIXE = ("ern", "en", "es", "er", "em", "e", "n", "s")
 _TRANS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -193,6 +194,8 @@ def laden(zusatz: Iterable[Path] = (), mit_basis: bool = True,
         fb.fuege_hinzu(_lies_liste(BASIS), f"Basis ({BASIS.name})")
     if mit_basis and KOERPERTEILE.exists():
         fb.fuege_hinzu(_lies_liste(KOERPERTEILE), "Körperteile")
+    if mit_basis and BEFUNDBEGRIFFE.exists():
+        fb.fuege_hinzu(_lies_liste(BEFUNDBEGRIFFE), "Befundbegriffe")
     fb.fuege_hinzu((e for e in EPONYME if len(e) >= 4), "Eponyme")
     pfade = list(zusatz)
     if mit_nutzerdaten and datenordner().is_dir():
@@ -226,6 +229,25 @@ def begriffe_aus_csv(pfad: Path, spalte: int, trennzeichen: str = ";") -> Iterat
         for zeile in csv.reader(f, delimiter=trennzeichen):
             if len(zeile) > spalte and zeile[spalte].strip():
                 yield zeile[spalte].strip()
+
+
+NUTZERLISTE = "nutzervokabular"
+
+
+def ergaenze(pfad: Path, name: str = NUTZERLISTE) -> tuple[Path, int]:
+    """Merge the terms of ``pfad`` (one per line, # comments) into the user's own list
+    ``<name>.txt`` in the vocabulary folder; returns the file and how many were new.
+    This is what the import in the analysis step and the exported ``.vokabular.txt``
+    files are for: the vocabulary grows with every review."""
+    ziel = datenordner() / f"{name}.txt"
+    vorhanden = set(_lies_liste(ziel)) if ziel.exists() else set()
+    neue = {b for b in _lies_liste(pfad) if len(b) >= 3} - vorhanden
+    alle = sorted(vorhanden | neue, key=str.casefold)
+    ziel.parent.mkdir(parents=True, exist_ok=True)
+    ziel.write_text("# Nutzervokabular: im Prüfschritt verworfene Begriffe und eigene Ergänzungen,"
+                    " ein Begriff je Zeile\n" + "\n".join(alle) + "\n", encoding="utf-8")
+    standard.cache_clear()
+    return ziel, len(neue)
 
 
 def importiere(pfad: Path, name: str, format_: str = "liste", spalte: int = 0,

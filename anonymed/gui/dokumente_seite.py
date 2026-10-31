@@ -8,6 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from anonymed.dokument.laden import BILDENDUNGEN, HEIC_ENDUNGEN
 from anonymed.gui.arbeiter import Arbeiter
 from anonymed.gui.aufbereiten_seite import AufbereitenSeite
 from anonymed.gui.sitzung import Dokument, Sitzung
@@ -74,6 +76,17 @@ class DokumenteSeite(QWidget):
         entfernen.clicked.connect(self.entfernen)
         knoepfe.addWidget(hinzu)
         knoepfe.addWidget(entfernen)
+        knoepfe.addWidget(QLabel(self.tr("Papierformat für Fotos und Bilder")))
+        self.papier = QComboBox()
+        for name, wert in ((self.tr("A4"), "a4"), (self.tr("A5"), "a5"), (self.tr("A3"), "a3"),
+                           (self.tr("US Letter"), "letter"), (self.tr("US Legal"), "legal"),
+                           (self.tr("wie das Bild"), "bild")):
+            self.papier.addItem(name, wert)
+        self.papier.setToolTip(self.tr(
+            "Seitengröße der PDF-Ausgabe für Fotos und Bilder; Hoch- oder Querformat folgt"
+            " dem Bild, das Bild wird eingepasst. Gilt für alle Bilder dieser Sitzung."))
+        self.papier.currentIndexChanged.connect(self._papier_gewechselt)
+        knoepfe.addWidget(self.papier)
         knoepfe.addStretch(1)
         oben.addLayout(knoepfe)
         aussen.addLayout(oben)
@@ -117,6 +130,19 @@ class DokumenteSeite(QWidget):
         if neue:
             laeuft = self.laedt
             self._warteschlange += neue
+            if not laeuft:
+                self._naechstes()
+
+    def _papier_gewechselt(self, _i: int = 0) -> None:
+        """Images are opened on the new paper: reload those that are already in."""
+        self.sitzung.optionen.papierformat = self.papier.currentData()
+        bilder = [d for d in self.sitzung.dokumente
+                  if d.pfad.suffix.lower() in BILDENDUNGEN | HEIC_ENDUNGEN
+                  and d not in self._warteschlange]
+        if bilder:
+            laeuft = self.laedt
+            self._warteschlange += bilder
+            self.aktualisiere()
             if not laeuft:
                 self._naechstes()
 

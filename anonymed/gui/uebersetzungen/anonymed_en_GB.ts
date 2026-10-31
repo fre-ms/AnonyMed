@@ -1,122 +1,163 @@
 <?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE TS>
 <TS version="2.1" language="en_GB" sourcelanguage="de_DE">
 <context>
     <name>AnalysierenSeite</name>
     <message>
-        <location filename="../analysieren_seite.py" line="40" />
+        <location filename="../analysieren_seite.py" line="44" />
         <source>Erkennung der Identifikatoren</source>
         <translation>Detection of identifiers</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="43" />
+        <location filename="../analysieren_seite.py" line="47" />
         <source>Geburtsjahr [geb. 1990]</source>
         <translation>Year of birth [geb. 1990]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="44" />
+        <location filename="../analysieren_seite.py" line="48" />
         <source>Alter [Alter 36]</source>
         <translation>Age [Alter 36]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="45" />
+        <location filename="../analysieren_seite.py" line="49" />
         <source>Geburtsdatum als</source>
         <translation>Date of birth as</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="46" />
+        <location filename="../analysieren_seite.py" line="50" />
         <source>Barcodes und QR-Codes schwärzen</source>
         <translation>Redact barcodes and QR codes</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="49" />
+        <location filename="../analysieren_seite.py" line="53" />
         <source>Unlesbare OCR-Zeilen schwärzen</source>
         <translation>Redact unreadable OCR lines</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="53" />
+        <location filename="../analysieren_seite.py" line="57" />
         <source>Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen</source>
         <translation>Mark medical terms and protect them from NER and the fuzzy OCR search</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="57" />
+        <location filename="../analysieren_seite.py" line="61" />
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="60" />
+        <location filename="../analysieren_seite.py" line="64" />
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="65" />
+        <location filename="../analysieren_seite.py" line="69" />
         <source>Extra 'ner' und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra 'ner' and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="69" />
+        <location filename="../analysieren_seite.py" line="73" />
+        <source>Fachvokabular (geschützt vor NER und unscharfer Suche)</source>
+        <translation>Medical vocabulary (shielded from NER and fuzzy search)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="78" />
+        <source>Vokabular importieren …</source>
+        <translation>Import vocabulary …</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="80" />
+        <source>Textdatei mit einem Begriff je Zeile, z. B. die beim Export geschriebene .vokabular.txt; die Begriffe kommen ins Nutzervokabular.</source>
+        <translation>Text file with one term per line, e.g. the .vokabular.txt written on export; the terms go into your own vocabulary.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="86" />
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="80" />
-        <location filename="../analysieren_seite.py" line="110" />
-        <location filename="../analysieren_seite.py" line="113" />
-        <location filename="../analysieren_seite.py" line="116" />
+        <location filename="../analysieren_seite.py" line="97" />
+        <location filename="../analysieren_seite.py" line="156" />
+        <location filename="../analysieren_seite.py" line="159" />
+        <location filename="../analysieren_seite.py" line="162" />
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="110" />
+        <location filename="../analysieren_seite.py" line="116" />
+        <source>{gesamt} geschützte Begriffe ({quellen}). Eigene Listen: {ordner}</source>
+        <translation>{gesamt} protected terms ({quellen}). Your own lists: {ordner}</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="121" />
+        <source>Vokabular importieren</source>
+        <translation>Import vocabulary</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="122" />
+        <source>Textdateien (*.txt);;Alle Dateien (*)</source>
+        <translation>Text files (*.txt);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="131" />
+        <source>Vokabular</source>
+        <translation>Vocabulary</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="135" />
+        <source>{n} neue Begriffe aus {name} ins Nutzervokabular übernommen ({ziel}).</source>
+        <translation>{n} new terms from {name} added to your vocabulary ({ziel}).</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="156" />
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="113" />
+        <location filename="../analysieren_seite.py" line="159" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="117" />
+        <location filename="../analysieren_seite.py" line="163" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="132" />
+        <location filename="../analysieren_seite.py" line="178" />
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="140" />
+        <location filename="../analysieren_seite.py" line="186" />
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="168" />
+        <location filename="../analysieren_seite.py" line="214" />
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="181" />
+        <location filename="../analysieren_seite.py" line="227" />
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="185" />
+        <location filename="../analysieren_seite.py" line="231" />
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="186" />
+        <location filename="../analysieren_seite.py" line="232" />
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="188" />
+        <location filename="../analysieren_seite.py" line="234" />
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="190" />
+        <location filename="../analysieren_seite.py" line="236" />
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -317,92 +358,132 @@
 <context>
     <name>DokumenteSeite</name>
     <message>
-        <location filename="../dokumente_seite.py" line="71" />
+        <location filename="../dokumente_seite.py" line="73" />
         <source>Dateien hinzufügen …</source>
         <translation>Add files …</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="73" />
+        <location filename="../dokumente_seite.py" line="75" />
         <source>Entfernen</source>
         <translation>Remove</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="63" />
+        <location filename="../dokumente_seite.py" line="65" />
         <source>Dateien hierher ziehen oder hinzufügen (PDF, Fotos, Texte, Whisper-JSON, E-Mails). Scans und Fotos erscheinen darunter zum Aufbereiten vor der Texterkennung.</source>
         <translation>Drag files here or add them (PDF, photos, texts, Whisper JSON, e-mails). Scans and photos appear below for the clean-up before text recognition.</translation>
     </message>
     <message>
+        <location filename="../dokumente_seite.py" line="79" />
+        <source>Papierformat für Fotos und Bilder</source>
+        <translation>Paper size for photos and images</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="81" />
+        <source>A4</source>
+        <translation>A4</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="81" />
+        <source>A5</source>
+        <translation>A5</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="81" />
+        <source>A3</source>
+        <translation>A3</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="82" />
+        <source>US Letter</source>
+        <translation>US Letter</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="82" />
+        <source>US Legal</source>
+        <translation>US Legal</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="83" />
+        <source>wie das Bild</source>
+        <translation>as large as the image</translation>
+    </message>
+    <message>
         <location filename="../dokumente_seite.py" line="86" />
+        <source>Seitengröße der PDF-Ausgabe für Fotos und Bilder; Hoch- oder Querformat folgt dem Bild, das Bild wird eingepasst. Gilt für alle Bilder dieser Sitzung.</source>
+        <translation>Page size of the PDF output for photos and images; portrait or landscape follows the image, which is scaled to fit. Applies to all images of this session.</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="99" />
         <source>Weiter: Texterkennung</source>
         <translation>Next: text recognition</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="99" />
+        <location filename="../dokumente_seite.py" line="112" />
         <source>Dokumente</source>
         <translation>Documents</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="100" />
+        <location filename="../dokumente_seite.py" line="113" />
         <source>Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt *.json *.eml)</source>
         <translation>Documents (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt *.json *.eml)</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="143" />
+        <location filename="../dokumente_seite.py" line="169" />
         <source>Fehler: {fehler}</source>
         <translation>Error: {fehler}</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="146" />
+        <location filename="../dokumente_seite.py" line="172" />
         <source>freigegeben</source>
         <translation>released</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="147" />
+        <location filename="../dokumente_seite.py" line="173" />
         <source>nicht freigegeben</source>
         <translation>not released</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="150" />
+        <location filename="../dokumente_seite.py" line="176" />
         <source>Text, {treffer} Treffer</source>
         <translation>Text, {treffer} hits</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="152" />
+        <location filename="../dokumente_seite.py" line="178" />
         <source>analysiert, {treffer} Treffer</source>
         <translation>analysed, {treffer} hits</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="157" />
+        <location filename="../dokumente_seite.py" line="183" />
         <source>{seiten} Seite(n), {n} ohne Textebene: unten aufbereiten</source>
         <translation>{seiten} page(s), {n} without text layer: clean up below</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="159" />
+        <location filename="../dokumente_seite.py" line="185" />
         <source>{seiten} Seite(n) mit Textebene</source>
         <translation>{seiten} page(s) with text layer</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="161" />
+        <location filename="../dokumente_seite.py" line="187" />
         <source>wird geladen …</source>
         <translation>loading …</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="162" />
+        <location filename="../dokumente_seite.py" line="188" />
         <source>Textdatei</source>
         <translation>Text file</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="172" />
+        <location filename="../dokumente_seite.py" line="198" />
         <source>{n} Dokument(e)</source>
         <translation>{n} document(s)</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="174" />
+        <location filename="../dokumente_seite.py" line="200" />
         <source>, {offen} mit Seiten zum Aufbereiten</source>
         <translation>, {offen} with pages to clean up</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="176" />
+        <location filename="../dokumente_seite.py" line="202" />
         <source> – lade …</source>
         <translation> – loading …</translation>
     </message>
@@ -421,7 +502,7 @@
     </message>
     <message>
         <location filename="../export_seite.py" line="69" />
-        <location filename="../export_seite.py" line="107" />
+        <location filename="../export_seite.py" line="111" />
         <source>Zielordner</source>
         <translation>Target folder</translation>
     </message>
@@ -471,108 +552,118 @@
         <translation>Always write preview images</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="95" />
+        <location filename="../export_seite.py" line="85" />
+        <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „4 Analysieren“ importierbar)</source>
+        <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “4 Analyse”)</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="99" />
         <source>Zielordner öffnen</source>
         <translation>Open target folder</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="98" />
+        <location filename="../export_seite.py" line="102" />
         <source>Exportieren</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="104" />
+        <location filename="../export_seite.py" line="108" />
         <source>Noch nicht geprüft.</source>
         <translation>Not checked yet.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="149" />
-        <location filename="../export_seite.py" line="190" />
+        <location filename="../export_seite.py" line="154" />
+        <location filename="../export_seite.py" line="195" />
         <source>Erneute Prüfung läuft …</source>
         <translation>Re-check running …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="165" />
+        <location filename="../export_seite.py" line="170" />
         <source>Abbruch: Bei der erneuten Prüfung wurden noch Daten aus „1 Patient“ gefunden. Es wird nichts exportiert. Bitte im Prüfschritt nacharbeiten (Kasten oder Maske) und erneut prüfen.</source>
         <translation>Aborted: the re-check still found data from “1 Patient”. Nothing is exported. Please rework in the review step (box or mask) and check again.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="170" />
+        <location filename="../export_seite.py" line="175" />
         <source>Export nicht möglich</source>
         <translation>Export not possible</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="172" />
+        <location filename="../export_seite.py" line="177" />
         <source>Bereit; bitte die Warnungen lesen.</source>
         <translation>Ready; please read the warnings.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="174" />
+        <location filename="../export_seite.py" line="179" />
         <source>Bereit zum Export.</source>
         <translation>Ready to export.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="183" />
+        <location filename="../export_seite.py" line="188" />
         <source>Export</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="184" />
+        <location filename="../export_seite.py" line="189" />
         <source>Keine analysierten Dokumente.</source>
         <translation>No analysed documents.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="207" />
+        <location filename="../export_seite.py" line="212" />
         <source>Fertig.</source>
         <translation>Done.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="217" />
+        <location filename="../export_seite.py" line="222" />
         <source>Prüfe {name} …</source>
         <translation>Checking {name} …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="218" />
+        <location filename="../export_seite.py" line="223" />
         <source>Exportiere {name} …</source>
         <translation>Exporting {name} …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="237" />
+        <location filename="../export_seite.py" line="242" />
         <source>Erneute Prüfung bestanden; Export möglich.</source>
         <translation>Re-check passed; export possible.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="238" />
+        <location filename="../export_seite.py" line="243" />
         <source>Erneute Prüfung NICHT bestanden; Export gesperrt.</source>
         <translation>Re-check NOT passed; export blocked.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="240" />
+        <location filename="../export_seite.py" line="245" />
         <source>Freigegeben: {pfad}</source>
         <translation>Released: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="242" />
+        <location filename="../export_seite.py" line="247" />
         <source>Text: {pfad}</source>
         <translation>Text: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="244" />
+        <location filename="../export_seite.py" line="249" />
         <source>Markdown: {pfad}</source>
         <translation>Markdown: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="248" />
+        <location filename="../export_seite.py" line="251" />
+        <source>Vokabular: {pfad}</source>
+        <translation>Vocabulary: {pfad}</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="255" />
         <source>NICHT freigegeben.</source>
         <translation>NOT released.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="246" />
+        <location filename="../export_seite.py" line="253" />
         <source>Vorschau: {pfad}</source>
         <translation>Preview: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="255" />
+        <location filename="../export_seite.py" line="262" />
         <source>{name}: Fehler: {fehler}</source>
         <translation>{name}: error: {fehler}</translation>
     </message>
@@ -580,53 +671,53 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="36" />
+        <location filename="../hauptfenster.py" line="37" />
         <source>1 Patient</source>
         <translation>1 Patient</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="37" />
+        <location filename="../hauptfenster.py" line="38" />
         <source>2 Dokumente</source>
         <translation>2 Documents</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="38" />
+        <location filename="../hauptfenster.py" line="39" />
         <source>3 Texterkennung</source>
         <translation>3 Text recognition</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="39" />
+        <location filename="../hauptfenster.py" line="40" />
         <source>4 Analysieren</source>
         <translation>4 Analyse</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="40" />
+        <location filename="../hauptfenster.py" line="41" />
         <source>5 Prüfen</source>
         <translation>5 Review</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="41" />
+        <location filename="../hauptfenster.py" line="42" />
         <source>6 Exportieren</source>
         <translation>6 Export</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="42" />
+        <location filename="../hauptfenster.py" line="43" />
         <source>7 Rückersetzen</source>
         <translation>7 Re-identify</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="53" />
+        <location filename="../hauptfenster.py" line="62" />
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="57" />
-        <location filename="../hauptfenster.py" line="67" />
+        <location filename="../hauptfenster.py" line="66" />
+        <location filename="../hauptfenster.py" line="76" />
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="68" />
+        <location filename="../hauptfenster.py" line="77" />
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
     </message>
@@ -1064,138 +1155,143 @@
 <context>
     <name>TexterkennungSeite</name>
     <message>
-        <location filename="../texterkennung_seite.py" line="50" />
+        <location filename="../texterkennung_seite.py" line="51" />
         <source>Texterkennung (OCR) für Scans und Fotos</source>
         <translation>Text recognition (OCR) for scans and photos</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="53" />
+        <location filename="../texterkennung_seite.py" line="54" />
         <source>automatisch</source>
         <translation>automatic</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="56" />
+        <location filename="../texterkennung_seite.py" line="57" />
         <source>aus (nur Textebene)</source>
         <translation>off (text layer only)</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="58" />
+        <location filename="../texterkennung_seite.py" line="59" />
         <source>OCR-Programm</source>
         <translation>OCR engine</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="60" />
+        <location filename="../texterkennung_seite.py" line="61" />
         <source>Sprachpakete</source>
         <translation>Language packs</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="70" />
+        <location filename="../texterkennung_seite.py" line="66" />
+        <source>Tabellen: Gitter erkennen und die Zellen ohne Linien in einem zweiten Durchgang lesen (Tesseract)</source>
+        <translation>Tables: detect grids and read the cells without their rules in a second pass (Tesseract)</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="76" />
         <source>Texterkennung starten</source>
         <translation>Start text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="82" />
+        <location filename="../texterkennung_seite.py" line="88" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="92" />
+        <location filename="../texterkennung_seite.py" line="98" />
         <source>Erkannter Text</source>
         <translation>Recognised text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="98" />
+        <location filename="../texterkennung_seite.py" line="104" />
         <source>Text übernehmen</source>
         <translation>Apply text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="100" />
+        <location filename="../texterkennung_seite.py" line="106" />
         <source>Auf OCR-Text zurücksetzen</source>
         <translation>Reset to OCR text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="115" />
+        <location filename="../texterkennung_seite.py" line="121" />
         <source>Weiter: Analysieren</source>
         <translation>Next: analyse</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="132" />
+        <location filename="../texterkennung_seite.py" line="141" />
         <source>Installierte Tesseract-Sprachen: {liste}</source>
         <translation>Installed Tesseract languages: {liste}</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="136" />
+        <location filename="../texterkennung_seite.py" line="145" />
         <source>Es wird nur die Textebene der PDFs gelesen.</source>
         <translation>Only the text layer of PDFs is read.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="140" />
+        <location filename="../texterkennung_seite.py" line="149" />
         <source>RapidOCR: Sprachtyp de (Standard), en, latin, ch …; Modelle sind im Paket.</source>
         <translation>RapidOCR: language type de (default), en, latin, ch …; the models are in the package.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="156" />
-        <location filename="../texterkennung_seite.py" line="159" />
+        <location filename="../texterkennung_seite.py" line="166" />
+        <location filename="../texterkennung_seite.py" line="169" />
         <source>Texterkennung</source>
         <translation>Text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="156" />
+        <location filename="../texterkennung_seite.py" line="166" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="160" />
+        <location filename="../texterkennung_seite.py" line="170" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="173" />
+        <location filename="../texterkennung_seite.py" line="183" />
         <source>Gelesen: {n} Dokument(e).</source>
         <translation>Read: {n} document(s).</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="181" />
+        <location filename="../texterkennung_seite.py" line="191" />
         <source>Lese {nummer} von {gesamt}: {name} …</source>
         <translation>Reading {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="219" />
+        <location filename="../texterkennung_seite.py" line="229" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="220" />
+        <location filename="../texterkennung_seite.py" line="230" />
         <source> (OCR)</source>
         <translation> (OCR)</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="229" />
+        <location filename="../texterkennung_seite.py" line="239" />
         <source>{n} Dokument(e) noch nicht gelesen</source>
         <translation>{n} document(s) not read yet</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="231" />
+        <location filename="../texterkennung_seite.py" line="241" />
         <source>{n} Textdatei(en) brauchen keine Texterkennung</source>
         <translation>{n} text file(s) need no text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="270" />
+        <location filename="../texterkennung_seite.py" line="280" />
         <source>Erkannter Text (OCR), von Hand korrigierbar. Die Korrektur gilt für Textdatei, Markdown und die Textebene; die Schwärzung im Bild folgt den OCR-Kästen.</source>
         <translation>Recognised text (OCR), editable by hand. The correction applies to the text file, the Markdown and the text layer; the redaction in the image follows the OCR boxes.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="273" />
+        <location filename="../texterkennung_seite.py" line="283" />
         <source>korrigiert</source>
         <translation>corrected</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="274" />
+        <location filename="../texterkennung_seite.py" line="284" />
         <source>OCR-Text unverändert</source>
         <translation>OCR text unchanged</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="276" />
+        <location filename="../texterkennung_seite.py" line="286" />
         <source>Text der Textebene (nicht veränderbar)</source>
         <translation>Text of the text layer (not editable)</translation>
     </message>

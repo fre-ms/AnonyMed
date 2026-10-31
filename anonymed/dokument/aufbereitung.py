@@ -485,6 +485,40 @@ def _linien_entfernen(bild: Any) -> Any:
     return aus
 
 
+def gitterbereiche(bild: Any) -> list[tuple[int, int, int, int]]:
+    """Pixel boxes of table grids: connected long horizontal and vertical rules that
+    together span at least 15 % of the width and 2 % of the height.  Tesseract's page
+    segmentation treats such a grid as graphics and drops the cells; the OCR reads the
+    boxes again without their lines (:class:`~anonymed.dokument.ocr.TesseractBackend`)."""
+    import cv2
+
+    grau = _grau(bild)
+    h, w = grau.shape
+    _, bw = cv2.threshold(grau, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    waag = cv2.morphologyEx(bw, cv2.MORPH_OPEN, cv2.getStructuringElement(
+        cv2.MORPH_RECT, (max(20, w // 25), 1)))
+    senk = cv2.morphologyEx(bw, cv2.MORPH_OPEN, cv2.getStructuringElement(
+        cv2.MORPH_RECT, (1, max(20, h // 40))))
+    linien = cv2.dilate(cv2.bitwise_or(waag, senk), cv2.getStructuringElement(
+        cv2.MORPH_RECT, (5, 5)))
+    n, _labels, stats, _ = cv2.connectedComponentsWithStats(linien, connectivity=8)
+    bereiche: list[tuple[int, int, int, int]] = []
+    for i in range(1, n):
+        x, y, bb, bh, _area = (int(v) for v in stats[i])
+        if bb < w * 0.15 or bh < h * 0.02:
+            continue
+        if not cv2.countNonZero(waag[y:y + bh, x:x + bb]) or \
+                not cv2.countNonZero(senk[y:y + bh, x:x + bb]):
+            continue  # a lone rule or a bar, not a grid
+        bereiche.append((x, y, x + bb, y + bh))
+    return bereiche
+
+
+def ohne_linien(bild: Any) -> Any:
+    """Public wrapper: the image with long rules removed (see :func:`_linien_entfernen`)."""
+    return _linien_entfernen(bild)
+
+
 def _hintergrund(bild: Any) -> Any:
     """Divide by the blurred background: shadows and grey paper become white, ink stays."""
     import cv2

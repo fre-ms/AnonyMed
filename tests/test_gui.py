@@ -108,7 +108,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert sitzung.patient is not None and sitzung.patient.vollname == patient.vollname
     assert sitzung.patient.strasse == patient.strasse  # street and number joined again
     assert sitzung.patient.zuweiser[0].nachname == patient.zuweiser[0].nachname
-    assert fenster.tabs.currentWidget() is fenster.dokumente
+    assert fenster.aktuelle_seite() is fenster.dokumente
 
     # 2 documents: opened at once; a text-layer PDF has nothing to clean up
     fenster.dokumente.hinzufuegen([befund])
@@ -117,7 +117,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert d.vorlage is not None and d.vorlage.kandidaten == [] and not fenster.dokumente.laedt
     assert "nichts aufzubereiten" in fenster.dokumente.aufbereiten.hinweis.text()
     fenster.dokumente.weiter_knopf.click()
-    assert fenster.tabs.currentWidget() is fenster.texterkennung
+    assert fenster.aktuelle_seite() is fenster.texterkennung
 
     # 3 text recognition: a text-layer PDF is read without OCR, its text is shown read-only
     te = fenster.texterkennung
@@ -127,13 +127,13 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert d.lesung is not None and d.lesung.ocr_seiten == [] and te.text.isReadOnly()
     assert "Diagnosen" in te.text.toPlainText()
     te.weiter_knopf.click()
-    assert fenster.tabs.currentWidget() is fenster.analysieren
+    assert fenster.aktuelle_seite() is fenster.analysieren
 
     # 4 analyse with the settings of that step
     fenster.analysieren.analysieren()
     qapp.processEvents()
     assert d.vorbereitung is not None and d.vorbereitung.fundstellen and d.lesung is None
-    assert fenster.tabs.currentWidget() is fenster.pruefen
+    assert fenster.aktuelle_seite() is fenster.pruefen
     assert "Fertig" in fenster.analysieren.status.text()
 
     # 5 review: drop one hit, draw one box; medical terms are marked by default
@@ -223,7 +223,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
         assert any(r == "zuweiser1.name" for r, _t in sp.verworfene(patient))
 
     # 7 re-identify
-    fenster.tabs.setCurrentWidget(fenster.rueckersetzen)
+    fenster.zeige_seite(fenster.rueckersetzen)
     rs = fenster.rueckersetzen
     assert rs.person.count() == 1
     k = d.ergebnis.kennung
@@ -236,12 +236,18 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     fenster.close()
 
 
-def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient) -> None:
-    """A transcript goes through the same five steps; the review shows text, not a page."""
+def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient,
+                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transcript goes through the same five steps; the review shows text, not a page.
+    The discarded guess ends up in the exported vocabulary, which the analysis step
+    imports into the user's own list."""
     from PySide6.QtGui import QTextCursor
 
+    from anonymed.erkennung import fachbegriffe as fachmodul
     from tests.synthetisch import erzeuge_transkript, verschrieben
 
+    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    fachmodul.standard.cache_clear()
     quelle = erzeuge_transkript(tmp_path / "gespraech.txt", patient)
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
@@ -302,6 +308,38 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient)
     aus = ziel.read_text(encoding="utf-8")
     assert "[Symptom]" in aus and verschrieben(patient.nachname) in aus  # discarded = kept
     assert patient.nachname not in aus and gefundene_klardaten(protokoll, patient) == []
+    # the discarded fuzzy hit is a guess, so it went into the vocabulary file …
+    vokabular = tmp_path / "aus" / "gespraech_anonym.vokabular.txt"
+    assert d.ergebnis.ziel_vokabular == vokabular and "Vokabular:" in protokoll
+    zeilen = [z for z in vokabular.read_text(encoding="utf-8").splitlines()
+              if z and not z.startswith("#")]
+    assert zeilen == [unscharf.text] and patient.nachname not in zeilen
+    # … which the analysis step merges into the user's own list
+    assert not fachmodul.standard().ist_fachbegriff(unscharf.text)
+    assert fenster.analysieren.vokabular_importieren(vokabular) == 1
+    assert fachmodul.standard().ist_fachbegriff(unscharf.text)
+    assert "Nutzervokabular" in fenster.analysieren.status.text()
+    assert "nutzervokabular.txt" in fenster.analysieren.vokabular_info.text()
+    assert fenster.analysieren.vokabular_importieren(vokabular) == 0  # already known
+    fenster.close()
+    fachmodul.standard.cache_clear()
+
+
+def test_fenster_laesst_sich_verkleinern(qapp: QApplication, tmp_path: Path) -> None:
+    """Every step sits in a scroll area, so the window shrinks instead of refusing."""
+    sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
+    fenster = Hauptfenster(sitzung)
+    fenster.show()
+    qapp.processEvents()
+    assert fenster.minimumSizeHint().width() <= 720
+    fenster.resize(720, 480)
+    qapp.processEvents()
+    assert fenster.width() <= 720 and fenster.height() <= 480
+    for i in range(fenster.tabs.count()):
+        fenster.tabs.setCurrentIndex(i)
+        qapp.processEvents()
+        assert fenster.width() <= 720, fenster.tabs.tabText(i)
+    assert fenster.aktuelle_seite() is fenster.rueckersetzen
     fenster.close()
 
 
@@ -410,10 +448,10 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     fenster.analysieren.analysieren()
     qapp.processEvents()
     assert d.vorbereitung is not None and d.vorlage is None and d.lesung is None
-    assert fenster.tabs.currentWidget() is fenster.pruefen
+    assert fenster.aktuelle_seite() is fenster.pruefen
     assert d.vorbereitung.seiten[0].korrektur is not None
     assert d.vorbereitung.aufbereitet and 0 in d.vorbereitung.aufbereitet
-    assert any("aufbereitet" in w for w in d.vorbereitung.warnungen)
+    assert any("aufbereitet" in w for w in d.vorbereitung.hinweise)
     assert len(d.vorbereitung.fundstellen) > 5
     fenster.export.ziel.setText(str(tmp_path / "aus"))
     fenster.export.aktualisiere()

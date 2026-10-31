@@ -500,7 +500,7 @@ class PruefenSeite(QWidget):
             if f is self.gewaehlt:
                 self.tabelle.selectRow(zeile)
         self.tabelle.blockSignals(False)
-        warnungen = [w for w in v.warnungen
+        warnungen = [w for w in v.warnungen + v.hinweise
                      if "OCR" in w or "Textebene" in w or w.startswith("Unscharfe Suche")]
         hinweis = self.tr("{n} Fachbegriffe markiert").format(n=v.fachbegriffe_anzahl)
         self.hinweis.setText(" · ".join([hinweis] + warnungen[:1]))

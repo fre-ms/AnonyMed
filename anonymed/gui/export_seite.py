@@ -81,8 +81,12 @@ class ExportSeite(QWidget):
         self.rastern = QCheckBox(self.tr(
             "PDF vollständig rastern (nur Bild; die Textebene wird danach unsichtbar ergänzt)"))
         self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
-        for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vermerk,
-                  self.rastern, self.vorschau):
+        self.vokabular = QCheckBox(self.tr(
+            "Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile;"
+            " in „4 Analysieren“ importierbar)"))
+        self.vokabular.setChecked(True)
+        for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vokabular,
+                  self.vermerk, self.rastern, self.vorschau):
             form.addRow(w)
         aussen.addWidget(optionen)
 
@@ -115,6 +119,7 @@ class ExportSeite(QWidget):
         o.markdown = self.markdown.isChecked()
         o.schwaerzen.textebene = self.textebene.isChecked()
         o.bericht = self.bericht.isChecked()
+        o.vokabular = self.vokabular.isChecked()
         o.schwaerzen.vermerk = self.vermerk.isChecked()
         o.schwaerzen.rastern = self.rastern.isChecked()
         o.vorschau = "immer" if self.vorschau.isChecked() else "auto"
@@ -242,6 +247,8 @@ class ExportSeite(QWidget):
                 text += self.tr("Text: {pfad}").format(pfad=ergebnis.ziel_txt) + "\n"
             if ergebnis.ziel_md:
                 text += self.tr("Markdown: {pfad}").format(pfad=ergebnis.ziel_md) + "\n"
+            if ergebnis.ziel_vokabular:
+                text += self.tr("Vokabular: {pfad}").format(pfad=ergebnis.ziel_vokabular) + "\n"
             if ergebnis.vorschau:
                 text += self.tr("Vorschau: {pfad}").format(pfad=ergebnis.vorschau[0].parent) + "\n"
         else:

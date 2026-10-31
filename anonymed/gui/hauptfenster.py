@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QScrollArea, QTabWidget
 
 from anonymed import WERKZEUG
 from anonymed.gui.analysieren_seite import AnalysierenSeite
@@ -33,6 +33,7 @@ class Hauptfenster(QMainWindow):
         self.pruefen = PruefenSeite(self.sitzung)
         self.export = ExportSeite(self.sitzung)
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
+        self._seiten: list = []
         for seite, titel in ((self.patient, self.tr("1 Patient")),
                              (self.dokumente, self.tr("2 Dokumente")),
                              (self.texterkennung, self.tr("3 Texterkennung")),
@@ -40,12 +41,20 @@ class Hauptfenster(QMainWindow):
                              (self.pruefen, self.tr("5 Prüfen")),
                              (self.export, self.tr("6 Exportieren")),
                              (self.rueckersetzen, self.tr("7 Rückersetzen"))):
-            self.tabs.addTab(seite, titel)
+            # a scroll area per step: the window shrinks below a step's natural size
+            # and shows scrollbars instead of refusing to get smaller
+            rahmen = QScrollArea()
+            rahmen.setWidgetResizable(True)
+            rahmen.setFrameShape(QScrollArea.Shape.NoFrame)
+            rahmen.setWidget(seite)
+            self.tabs.addTab(rahmen, titel)
+            self._seiten.append(seite)
         self.setCentralWidget(self.tabs)
-        self.patient.uebernommen.connect(lambda _p: self.tabs.setCurrentWidget(self.dokumente))
-        self.dokumente.weiter.connect(lambda: self.tabs.setCurrentWidget(self.texterkennung))
+        self.setMinimumSize(720, 480)
+        self.patient.uebernommen.connect(lambda _p: self.zeige_seite(self.dokumente))
+        self.dokumente.weiter.connect(lambda: self.zeige_seite(self.texterkennung))
         self.dokumente.geladen.connect(self.texterkennung.aktualisiere)
-        self.texterkennung.weiter.connect(lambda: self.tabs.setCurrentWidget(self.analysieren))
+        self.texterkennung.weiter.connect(lambda: self.zeige_seite(self.analysieren))
         self.texterkennung.gelesen.connect(self.analysieren.aktualisiere)
         self.analysieren.analysiert.connect(self._nach_analyse)
         self.tabs.currentChanged.connect(self._tab_gewechselt)
@@ -70,16 +79,27 @@ class Hauptfenster(QMainWindow):
     def _nach_analyse(self) -> None:
         self.dokumente.aktualisiere()
         self.pruefen.aktualisiere()
-        self.tabs.setCurrentWidget(self.pruefen)
+        self.zeige_seite(self.pruefen)
+
+    def seite(self, index: int):
+        """The step widget inside the scroll area of tab ``index``."""
+        return self._seiten[index] if 0 <= index < len(self._seiten) else None
+
+    def aktuelle_seite(self):
+        return self.seite(self.tabs.currentIndex())
+
+    def zeige_seite(self, seite) -> None:
+        self.tabs.setCurrentIndex(self._seiten.index(seite))
 
     def _tab_gewechselt(self, index: int) -> None:
-        if self.tabs.widget(index) is self.rueckersetzen:
+        seite = self.seite(index)
+        if seite is self.rueckersetzen:
             self.rueckersetzen.aktualisiere()
-        elif self.tabs.widget(index) is self.analysieren:
+        elif seite is self.analysieren:
             self.analysieren.aktualisiere()
-        elif self.tabs.widget(index) is self.texterkennung:
+        elif seite is self.texterkennung:
             self.texterkennung.aktualisiere()
-        elif self.tabs.widget(index) is self.export:
+        elif seite is self.export:
             self.export.aktualisiere()
 
     def closeEvent(self, event) -> None:  # noqa: N802
