@@ -47,10 +47,18 @@ def app_plist_richten() -> None:
     if not plist.exists():
         return
     daten = plistlib.loads(plist.read_bytes())
+    geaendert = False
     if daten.get("CFBundleExecutable") != "anonymed-gui":
         daten["CFBundleExecutable"] = "anonymed-gui"
-        plist.write_bytes(plistlib.dumps(daten))
+        geaendert = True
         print("Info.plist: CFBundleExecutable auf anonymed-gui gesetzt")
+    # PyInstaller derives LSBackgroundOnly from the console program in the same folder;
+    # a background-only app starts without a window, so the key must go
+    if daten.pop("LSBackgroundOnly", None) is not None:
+        geaendert = True
+        print("Info.plist: LSBackgroundOnly entfernt")
+    if geaendert:
+        plist.write_bytes(plistlib.dumps(daten))
 
 
 def rauchtest() -> None:
@@ -59,7 +67,9 @@ def rauchtest() -> None:
         import plistlib
 
         plist = WURZEL / "dist" / "AnonyMed.app" / "Contents" / "Info.plist"
-        assert plistlib.loads(plist.read_bytes())["CFBundleExecutable"] == "anonymed-gui"
+        daten = plistlib.loads(plist.read_bytes())
+        assert daten["CFBundleExecutable"] == "anonymed-gui"
+        assert "LSBackgroundOnly" not in daten, "App wäre ein unsichtbarer Hintergrundprozess"
     with tempfile.TemporaryDirectory() as ordner:
         daten = Path(ordner)
         umgebung["ANONYMED_DATENORDNER"] = str(daten)
