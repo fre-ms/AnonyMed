@@ -6,6 +6,7 @@ Build with ``uv run --group build pyinstaller packaging/anonymed.spec`` or via
 part of the rapidocr wheel and travel as data; nothing is downloaded at run time.
 """
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -20,6 +21,14 @@ for paket in ("rapidocr", "onnxruntime", "pymupdf"):
     datas += d
     binaries += b
     hiddenimports += h
+datas += [(str(wurzel / "anonymed" / "gui" / "uebersetzungen"), "anonymed/gui/uebersetzungen")]
+# NER travels only when the build environment has spaCy and a German model (extra "ner").
+for paket in ("spacy", "thinc", "de_core_news_lg", "de_core_news_md", "de_core_news_sm"):
+    if importlib.util.find_spec(paket) is not None:
+        d, b, h = collect_all(paket)
+        datas += d
+        binaries += b
+        hiddenimports += h
 binaries += collect_dynamic_libs("pillow_heif")
 binaries += collect_dynamic_libs("zxingcpp")
 hiddenimports += collect_submodules("anonymed")
