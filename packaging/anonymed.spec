@@ -111,5 +111,11 @@ if sys.platform == "darwin":
             "CFBundleShortVersionString": "0.1.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "12.0",
+            # shown in the macOS privacy prompt when a file in a protected folder is opened
+            "NSDesktopFolderUsageDescription": "AnonyMed liest die Dokumente, die Sie zum Anonymisieren auswählen.",
+            "NSDocumentsFolderUsageDescription": "AnonyMed liest die Dokumente, die Sie zum Anonymisieren auswählen.",
+            "NSDownloadsFolderUsageDescription": "AnonyMed liest die Dokumente, die Sie zum Anonymisieren auswählen.",
+            "NSRemovableVolumesUsageDescription": "AnonyMed liest Dokumente und schreibt Ergebnisse auf externe Datenträger, wenn Sie sie dort ablegen.",
+            "NSNetworkVolumesUsageDescription": "AnonyMed liest Dokumente und schreibt Ergebnisse auf Netzlaufwerken, wenn Sie sie dort ablegen.",
         },
     )

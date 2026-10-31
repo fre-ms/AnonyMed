@@ -59,6 +59,20 @@ def app_plist_richten() -> None:
         print("Info.plist: LSBackgroundOnly entfernt")
     if geaendert:
         plist.write_bytes(plistlib.dumps(daten))
+    app_signieren(plist.parent.parent)
+
+
+def app_signieren(app: Path) -> None:
+    """Ad-hoc signature for the whole bundle (no Apple account needed).
+
+    Editing Info.plist breaks PyInstaller's seal, and macOS gives an unsigned or
+    broken app no access to Desktop, Documents or Downloads: TCC cannot build a
+    code requirement for it and refuses silently, without the usual prompt.  An
+    ad-hoc signature restores a stable identity; Gatekeeper is a separate matter.
+    """
+    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
+    print("App ad hoc signiert")
 
 
 def rauchtest() -> None:
@@ -70,6 +84,8 @@ def rauchtest() -> None:
         daten = plistlib.loads(plist.read_bytes())
         assert daten["CFBundleExecutable"] == "anonymed-gui"
         assert "LSBackgroundOnly" not in daten, "App wäre ein unsichtbarer Hintergrundprozess"
+        subprocess.run(["codesign", "--verify", "--deep", "--strict",
+                        str(WURZEL / "dist" / "AnonyMed.app")], check=True)
     with tempfile.TemporaryDirectory() as ordner:
         daten = Path(ordner)
         umgebung["ANONYMED_DATENORDNER"] = str(daten)
