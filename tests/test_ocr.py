@@ -14,7 +14,7 @@ from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument.laden import oeffne
 from anonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
 from anonymed.erkennung import codes as codemodul
-from anonymed.kern.modell import Patient
+from anonymed.kern.modell import Art, Patient
 from anonymed.pruefung.bericht import als_text
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.schwaerzen.pdf import Schwaerzoptionen, rastere
@@ -285,3 +285,33 @@ def test_scan_bekommt_textebene(tmp_path: Path, befund: Path, patient: Patient,
     with pymupdf.open(ohne.ziel_pdf) as d:
         text2 = "\n".join(p.get_text("text") for p in d)
     assert "Ramipril" not in text2 and f"Patient {erg.kennung}" in text2
+
+
+@braucht_backend
+def test_ocr_text_korrigieren(tmp_path: Path, befund: Path, patient: Patient,
+                              speicher: Pseudonymspeicher) -> None:
+    """The user corrects the recognised text; the correction feeds the text file and
+    the text layer and is searched again, the image redaction keeps the OCR boxes."""
+    from anonymed.ablauf import abschliessen, vorbereiten
+
+    scan = _scan(befund, tmp_path / "scan.pdf")
+    v = vorbereiten(scan, patient, Ablaufoptionen(), speicher=speicher)
+    assert v.seiten[0].ocr is not None
+    ocr = v.ocr_text(0)
+    assert "Diagnosen" in ocr
+    neu = ocr.rstrip("\n") + f"\nZusatz: {patient.vorname} {patient.nachname} aus {patient.ort}.\n"
+    treffer = v.setze_ocr_text(0, neu)
+    assert treffer and all(f.quelle == "korrektur" and not f.rects for f in treffer)
+    assert {f.art for f in treffer} >= {Art.NAME, Art.ORT}
+    assert v.ocr_text(0) == neu and v.korrektur_treffer
+    assert v.setze_ocr_text(0, ocr) == [] and v.seiten[0].korrektur is None  # back to OCR
+    v.setze_ocr_text(0, neu)
+    erg = abschliessen(v)
+    assert erg.freigegeben, als_text(erg.bericht)
+    txt = erg.ziel_txt.read_text(encoding="utf-8")
+    assert f"Zusatz: Patient {erg.kennung} aus [Ort " in txt, txt
+    assert gefundene_klardaten(txt, patient) == []
+    with pymupdf.open(erg.ziel_pdf) as d:
+        text = d[0].get_text("text")
+    assert "Zusatz:" in text and patient.ort not in text  # the invisible layer is the correction
+    assert any(f["quelle"] == "korrektur" for f in erg.bericht.fundstellen)

@@ -149,6 +149,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert any(f.regel == "maske" for f in pr.fundstellen())
     pr.maske_modus.setChecked(False)
     assert pr.tabelle.rowCount() == len(pr.fundstellen())
+    assert pr.ocr_feld.isHidden()  # a page with a text layer has no OCR text to correct
 
     # 4 export
     fenster.export.ziel.setText(str(tmp_path / "aus"))

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QInputDialog,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QStackedWidget,
@@ -266,7 +267,31 @@ class PruefenSeite(QWidget):
         self.stapel = QStackedWidget()
         self.stapel.addWidget(self.ansicht)
         self.stapel.addWidget(self.textansicht)
-        teiler.addWidget(self.stapel)
+        mitte = QSplitter(Qt.Orientation.Vertical)
+        mitte.addWidget(self.stapel)
+        self.ocr_feld = QWidget()
+        o = QVBoxLayout(self.ocr_feld)
+        o.setContentsMargins(0, 0, 0, 0)
+        o.addWidget(QLabel(self.tr(
+            "Erkannter Text (OCR), von Hand korrigierbar; „Text übernehmen“ sucht darin neu."
+            " Was die OCR im Bild falsch las, mit Kasten oder Maske schwärzen.")))
+        self.ocr_text = QPlainTextEdit()
+        o.addWidget(self.ocr_text, 1)
+        oz = QHBoxLayout()
+        self.ocr_uebernehmen = QPushButton(self.tr("Text übernehmen"))
+        self.ocr_uebernehmen.clicked.connect(self.uebernehme_ocr_text)
+        self.ocr_zurueck = QPushButton(self.tr("OCR-Text zurücksetzen"))
+        self.ocr_zurueck.clicked.connect(self.setze_ocr_text_zurueck)
+        self.ocr_hinweis = QLabel("")
+        oz.addWidget(self.ocr_uebernehmen)
+        oz.addWidget(self.ocr_zurueck)
+        oz.addWidget(self.ocr_hinweis, 1)
+        o.addLayout(oz)
+        mitte.addWidget(self.ocr_feld)
+        mitte.setSizes([560, 220])
+        self.ocr_feld.setVisible(False)
+        self._ocr_geladen: tuple[int, int] | None = None
+        teiler.addWidget(mitte)
 
         rechts = QWidget()
         r = QVBoxLayout(rechts)
@@ -321,7 +346,7 @@ class PruefenSeite(QWidget):
         teiler.setSizes([180, 620, 360])
         aussen.addWidget(teiler, 1)
 
-    # -- navigation --------------------------------------------------------------------------------
+    # -- navigation -------------------------------------------------------------------------------
     def aktualisiere(self) -> None:
         self.baum.clear()
         for d in self.sitzung.dokumente:
@@ -378,6 +403,7 @@ class PruefenSeite(QWidget):
             self.stapel.setCurrentWidget(self.ansicht)
         self.markieren.setVisible(v.ist_text)
         self.maske_modus.setVisible(not v.ist_text)
+        self._ocr_feld_zeigen(v)
         verworfen_gewaehlt = self.gewaehlt is not None and self.gewaehlt in v.verworfen
         self.verwerfen.setText(self.tr("Treffer wiederherstellen") if verworfen_gewaehlt
                                else self.tr("Treffer verwerfen"))
@@ -449,6 +475,61 @@ class PruefenSeite(QWidget):
         self.dokument.vorbereitung.kasten(self.seite, rect, pseudonym or self.tr("[geschwärzt]"))
         self.gewaehlt = None
         self.zeichne()
+
+    # -- recognised text --------------------------------------------------------------------------
+    def _ocr_feld_zeigen(self, v) -> None:
+        hat_ocr = not v.ist_text and v.seiten[self.seite].ocr is not None
+        self.ocr_feld.setVisible(hat_ocr)
+        if not hat_ocr:
+            self._ocr_geladen = None
+            return
+        schluessel = (id(self.dokument), self.seite)
+        if self._ocr_geladen != schluessel:
+            self.ocr_text.setPlainText(v.ocr_text(self.seite))
+            self._ocr_geladen = schluessel
+        self._ocr_markieren(v)
+
+    def _ocr_markieren(self, v) -> None:
+        s = v.seiten[self.seite]
+        auswahlen = []
+        for f in s.korrektur_treffer:
+            cursor = QTextCursor(self.ocr_text.document())
+            cursor.setPosition(f.start)
+            cursor.setPosition(f.ende, QTextCursor.MoveMode.KeepAnchor)
+            sel = QTextEdit.ExtraSelection()
+            sel.cursor = cursor
+            fmt = QTextCharFormat()
+            hell = QColor(farbe(f))
+            hell.setAlpha(80)
+            fmt.setBackground(QBrush(hell))
+            sel.format = fmt
+            auswahlen.append(sel)
+        self.ocr_text.setExtraSelections(auswahlen)
+        if s.korrektur is None:
+            self.ocr_hinweis.setText(self.tr("OCR-Text unverändert"))
+        else:
+            self.ocr_hinweis.setText(self.tr("Korrigiert; {n} Treffer im Text").format(
+                n=len(s.korrektur_treffer)))
+
+    def uebernehme_ocr_text(self) -> None:
+        if self.dokument is None or self.dokument.vorbereitung is None:
+            return
+        v = self.dokument.vorbereitung
+        if v.ist_text or v.seiten[self.seite].ocr is None:
+            return
+        v.setze_ocr_text(self.seite, self.ocr_text.toPlainText())
+        self._ocr_markieren(v)
+
+    def setze_ocr_text_zurueck(self) -> None:
+        if self.dokument is None or self.dokument.vorbereitung is None:
+            return
+        v = self.dokument.vorbereitung
+        s = v.seiten[self.seite]
+        if v.ist_text or s.ocr is None:
+            return
+        v.setze_ocr_text(self.seite, s.ocr.text)
+        self.ocr_text.setPlainText(s.ocr.text)
+        self._ocr_markieren(v)
 
     def markiere_auswahl(self, pseudonym: str | None = None) -> None:
         """Text files: the selected text becomes a manual hit."""

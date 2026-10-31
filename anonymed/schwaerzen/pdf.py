@@ -423,6 +423,39 @@ def unsichtbare_textebene(
     return anzahl
 
 
+def unsichtbarer_textblock(page: pymupdf.Page, text: str, seite: Seitentext,
+                           opt: Schwaerzoptionen | None = None) -> None:
+    """Corrected OCR text as the invisible layer: line by line on the OCR lines when
+    the line counts match, otherwise as one block over the page."""
+    opt = opt or Schwaerzoptionen()
+    zeilen = text.rstrip("\n").split("\n")
+    boxen = [pymupdf.Rect(seite.zeilenboxen[k]) for k in sorted(seite.zeilenboxen)]
+    if len(zeilen) == len(boxen):
+        for zeile, box in zip(zeilen, boxen, strict=True):
+            if not zeile.strip() or box.is_empty:
+                continue
+            groesse = max(2.0, box.height * 0.8)
+            while groesse > 2.0 and pymupdf.get_text_length(
+                    zeile, fontname=opt.schrift, fontsize=groesse) > box.width + 1:
+                groesse -= 0.5
+            try:
+                page.insert_text((box.x0, box.y1 - 0.22 * box.height), zeile, fontsize=groesse,
+                                 fontname=opt.schrift, render_mode=3, overlay=True)
+            except Exception:
+                page.insert_text((box.x0, box.y1 - 0.22 * box.height),
+                                 zeile.encode("cp1252", "replace").decode("cp1252"),
+                                 fontsize=groesse, fontname=opt.schrift, render_mode=3,
+                                 overlay=True)
+        return
+    rand = pymupdf.Rect(page.rect.x0 + 18, page.rect.y0 + 18, page.rect.x1 - 18,
+                        page.rect.y1 - 18)
+    for groesse in (9.0, 7.0, 5.0, 3.5):
+        rest = page.insert_textbox(rand, text, fontsize=groesse, fontname=opt.schrift,
+                                   render_mode=3, overlay=True)
+        if rest >= 0:
+            return
+
+
 def bereinige(doc: pymupdf.Document, vermerk: bool = True, datum: dt.date | None = None) -> None:
     """Remove metadata, XMP, attachments, bookmarks, annotations and form fields.
 

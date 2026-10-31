@@ -3,6 +3,7 @@ redact, clean, check, report."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
@@ -19,7 +20,6 @@ from anonymed.erkennung import ner as nermodul
 from anonymed.erkennung import zahlwoerter
 from anonymed.erkennung.deterministisch import (
     Regel,
-    anonymisierter_text,
     finde,
     kasten_zu_fundstellen,
     regeln_fuer,
@@ -44,6 +44,7 @@ from anonymed.schwaerzen.pdf import (
     schwaerze_seite,
     speichere,
     unsichtbare_textebene,
+    unsichtbarer_textblock,
 )
 
 
@@ -121,6 +122,8 @@ class _Seite:
     fachrects: list[tuple[float, float, float, float]] = field(default_factory=list)
     fachspannen: list[tuple[int, int]] = field(default_factory=list)
     fachanzahl: int = 0
+    korrektur: str | None = None  # the OCR text as the user corrected it
+    korrektur_treffer: list[Fundstelle] = field(default_factory=list)
 
 
 def _lese_seiten(
@@ -195,24 +198,35 @@ def markdown_aus_text(text: str) -> str:
     return "\n".join(zeilen).rstrip() + "\n"
 
 
+def _anonym(text: str, fundstellen: list[Fundstelle]) -> str:
+    """``text`` with the hits replaced, blank runs collapsed."""
+    return re.sub(r"\n{3,}", "\n\n", textmodul.ersetze(text, fundstellen)).strip()
+
+
+def _ocr_text_anonym(s: _Seite) -> str:
+    """The OCR text of a page with pseudonyms: the user's correction when there is one."""
+    if s.korrektur is not None:
+        return _anonym(s.korrektur, s.korrektur_treffer)
+    assert s.ocr is not None
+    quellen = ("ocr",) + (("manuell",) if not s.text.hat_textebene else ())
+    treffer = [f for f in s.fundstellen if f.quelle in quellen and f.ende > f.start]
+    return _anonym(s.ocr.text, treffer)
+
+
 def _text(seiten: list[_Seite]) -> str:
     """Reading-order text with pseudonyms: text layer first, OCR text as its own block."""
-    def mit_spannen(s: _Seite, quellen: tuple[str, ...]) -> list[Fundstelle]:
-        return [f for f in s.fundstellen if f.quelle in quellen and f.ende > f.start]
+    def block(s: _Seite, text: str) -> str:
+        return f"=== Seite {s.nummer + 1} ===\n\n{text}"
 
-    teile = anonymisierter_text(
-        [s.text for s in seiten],
-        [f for s in seiten for f in mit_spannen(s, ("text",) + (("manuell",)
-                                                              if s.text.hat_textebene else ()))],
-    )
+    bloecke = []
+    for s in seiten:
+        quellen = ("text",) + (("manuell",) if s.text.hat_textebene else ())
+        treffer = [f for f in s.fundstellen if f.quelle in quellen and f.ende > f.start]
+        bloecke.append(block(s, _anonym(s.text.text, treffer)))
+    teile = "\n\n".join(bloecke) + "\n"
     ocr_seiten = [s for s in seiten if s.ocr is not None]
     if ocr_seiten:
-        ocr_text = anonymisierter_text(
-            [s.ocr for s in ocr_seiten if s.ocr is not None],
-            [f for s in ocr_seiten for f in mit_spannen(s, ("ocr",) + (("manuell",)
-                                                                     if not s.text.hat_textebene
-                                                                     else ()))],
-        )
+        ocr_text = "\n\n".join(block(s, _ocr_text_anonym(s)) for s in ocr_seiten) + "\n"
         teile = teile.rstrip("\n") + "\n\n--- Bildtext (OCR, ungeprüft) ---\n\n" + ocr_text
     return teile
 
@@ -317,6 +331,44 @@ class Vorbereitung:
     @property
     def toleriert(self) -> set[tuple[str, str]]:
         return {toleranzschluessel(f.regel, f.text) for f in self.verworfen if f.text}
+
+    def ocr_text(self, nummer: int) -> str:
+        """The recognised text of page ``nummer`` as it will be written out: the user's
+        correction when there is one, else the OCR reading; "" without OCR."""
+        s = self.seiten[nummer]
+        if s.korrektur is not None:
+            return s.korrektur
+        return s.ocr.text if s.ocr is not None else ""
+
+    def setze_ocr_text(self, nummer: int, text: str) -> list[Fundstelle]:
+        """Replace the OCR text of page ``nummer`` by the user's correction.
+
+        The correction feeds the text file, the Markdown and the invisible text layer;
+        the redaction in the image keeps the OCR boxes (mask what the OCR misread).
+        The rules and the fuzzy search run over the corrected text; their hits are
+        returned and shown with source ``korrektur``.
+        """
+        s = self.seiten[nummer]
+        if s.ocr is None:
+            raise ValueError("Diese Seite hat keinen OCR-Text.")
+        if text.strip() == s.ocr.text.strip():
+            s.korrektur, s.korrektur_treffer = None, []
+            return []
+        s.korrektur = text
+        seite = textmodul.textseite(text, nummer)
+        treffer = finde(seite, self.regeln)
+        if self.opt.unscharf_text:
+            fach = fachmodul.standard() if self.opt.fachbegriffe else None
+            treffer += finde_unscharf(seite, self.ziele, treffer, fach, grossschreibung=True)
+        for f in treffer:
+            f.quelle = "korrektur"
+            f.rects = []
+        s.korrektur_treffer = treffer
+        return treffer
+
+    @property
+    def korrektur_treffer(self) -> list[Fundstelle]:
+        return [f for s in self.seiten for f in s.korrektur_treffer]
 
     def unsichere_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
         """Boxes of OCR words read with low confidence on page ``nummer``: uncertain,
@@ -704,7 +756,9 @@ def _textebene_einbetten(doc: pymupdf.Document, seiten: list[_Seite], gerastert:
         page = doc[s.nummer]
         if s.nummer in gerastert:
             unsichtbare_textebene(page, s.text, s.fundstellen, mit_pseudonymen=True, opt=opt)
-        if s.ocr is not None:
+        if s.ocr is not None and s.korrektur is not None:
+            unsichtbarer_textblock(page, _ocr_text_anonym(s), s.ocr, opt=opt)
+        elif s.ocr is not None:
             ocr_treffer = [f for f in s.fundstellen if f.quelle in ("ocr", "manuell")]
             unsichtbare_textebene(page, s.ocr, ocr_treffer,
                                   mit_pseudonymen=s.nummer in gerastert, opt=opt)
@@ -719,7 +773,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
     v.abgeschlossen = True
     opt, quelle, seiten, warnungen = v.opt, v.quelle, v.seiten, list(v.warnungen)
     try:
-        fundstellen = v.fundstellen
+        fundstellen = v.fundstellen + v.korrektur_treffer
         v.vergabe.registriere_treffer(fundstellen)
         text = _text(seiten)
         try:
