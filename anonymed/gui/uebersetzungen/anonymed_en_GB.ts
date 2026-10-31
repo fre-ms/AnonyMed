@@ -3,135 +3,120 @@
 <context>
     <name>AnalysierenSeite</name>
     <message>
-        <location filename="../analysieren_seite.py" line="41" />
-        <source>Lesen</source>
-        <translation>Reading</translation>
+        <location filename="../analysieren_seite.py" line="40" />
+        <source>Erkennung der Identifikatoren</source>
+        <translation>Detection of identifiers</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="44" />
-        <source>automatisch</source>
-        <translation>automatic</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="47" />
-        <source>aus</source>
-        <translation>off</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="48" />
-        <source>OCR für Scans und Fotos</source>
-        <translation>OCR for scans and photos</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="50" />
+        <location filename="../analysieren_seite.py" line="43" />
         <source>Geburtsjahr [geb. 1990]</source>
         <translation>Year of birth [geb. 1990]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="51" />
+        <location filename="../analysieren_seite.py" line="44" />
         <source>Alter [Alter 36]</source>
         <translation>Age [Alter 36]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="52" />
+        <location filename="../analysieren_seite.py" line="45" />
         <source>Geburtsdatum als</source>
         <translation>Date of birth as</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="53" />
+        <location filename="../analysieren_seite.py" line="46" />
         <source>Barcodes und QR-Codes schwärzen</source>
         <translation>Redact barcodes and QR codes</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="56" />
+        <location filename="../analysieren_seite.py" line="49" />
         <source>Unlesbare OCR-Zeilen schwärzen</source>
         <translation>Redact unreadable OCR lines</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="60" />
+        <location filename="../analysieren_seite.py" line="53" />
         <source>Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen</source>
         <translation>Mark medical terms and protect them from NER and the fuzzy OCR search</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="64" />
+        <location filename="../analysieren_seite.py" line="57" />
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="67" />
+        <location filename="../analysieren_seite.py" line="60" />
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="72" />
+        <location filename="../analysieren_seite.py" line="65" />
         <source>Extra 'ner' und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra 'ner' and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="76" />
+        <location filename="../analysieren_seite.py" line="69" />
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="87" />
-        <location filename="../analysieren_seite.py" line="118" />
-        <location filename="../analysieren_seite.py" line="121" />
-        <location filename="../analysieren_seite.py" line="124" />
+        <location filename="../analysieren_seite.py" line="80" />
+        <location filename="../analysieren_seite.py" line="110" />
+        <location filename="../analysieren_seite.py" line="113" />
+        <location filename="../analysieren_seite.py" line="116" />
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="118" />
+        <location filename="../analysieren_seite.py" line="110" />
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="121" />
+        <location filename="../analysieren_seite.py" line="113" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="125" />
+        <location filename="../analysieren_seite.py" line="117" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="140" />
+        <location filename="../analysieren_seite.py" line="132" />
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="148" />
+        <location filename="../analysieren_seite.py" line="140" />
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="176" />
+        <location filename="../analysieren_seite.py" line="168" />
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="189" />
+        <location filename="../analysieren_seite.py" line="181" />
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="193" />
+        <location filename="../analysieren_seite.py" line="185" />
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="194" />
+        <location filename="../analysieren_seite.py" line="186" />
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="196" />
+        <location filename="../analysieren_seite.py" line="188" />
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="198" />
+        <location filename="../analysieren_seite.py" line="190" />
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -139,182 +124,192 @@
 <context>
     <name>AufbereitenSeite</name>
     <message>
-        <location filename="../aufbereiten_seite.py" line="48" />
+        <location filename="../aufbereiten_seite.py" line="49" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="56" />
+        <location filename="../aufbereiten_seite.py" line="57" />
         <source>Vorher</source>
         <translation>Before</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="81" />
+        <location filename="../aufbereiten_seite.py" line="65" />
+        <source>Nachher (so sieht es die OCR; Ziehen löscht den Bereich weiß, Cmd/Strg+Z holt ihn zurück; Umschalt/Option + Ziehen verschiebt beide Ansichten)</source>
+        <translation>After (what the OCR sees; dragging erases the area white, Cmd/Ctrl+Z brings it back; Shift/Option + drag pans both views)</translation>
+    </message>
+    <message>
+        <location filename="../aufbereiten_seite.py" line="91" />
         <source>Schritte für diese Seite</source>
         <translation>Steps for this page</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="83" />
+        <location filename="../aufbereiten_seite.py" line="93" />
         <source>Schräglage begradigen</source>
         <translation>Straighten tilt</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="93" />
+        <location filename="../aufbereiten_seite.py" line="103" />
         <source>Fotografiertes Blatt entzerren</source>
         <translation>Unwarp photographed sheet</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="108" />
+        <location filename="../aufbereiten_seite.py" line="118" />
         <source>Hintergrund glätten (Schatten, graues Papier)</source>
         <translation>Even out the background (shadows, grey paper)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="110" />
+        <location filename="../aufbereiten_seite.py" line="120" />
         <source>Schwarz-Weiß</source>
         <translation>Black and white</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="130" />
+        <location filename="../aufbereiten_seite.py" line="160" />
         <source>↺ 90°</source>
         <translation>↺ 90°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="130" />
+        <location filename="../aufbereiten_seite.py" line="160" />
         <source>↻ 90°</source>
         <translation>↻ 90°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="131" />
+        <location filename="../aufbereiten_seite.py" line="161" />
         <source>180°</source>
         <translation>180°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="135" />
+        <location filename="../aufbereiten_seite.py" line="166" />
         <source>Drehen</source>
         <translation>Rotate</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="61" />
-        <source>Nachher (so sieht es die OCR; Ziehen löscht den Bereich weiß; Umschalt/Option + Ziehen verschiebt beide Ansichten)</source>
-        <translation>After (what the OCR sees; dragging erases the area white; Shift/Option + drag pans both views)</translation>
-    </message>
-    <message>
-        <location filename="../aufbereiten_seite.py" line="96" />
+        <location filename="../aufbereiten_seite.py" line="106" />
         <source>nicht</source>
         <translation>no</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="99" />
+        <location filename="../aufbereiten_seite.py" line="109" />
         <source>Die OCR liest die Seite mit dem Vielfachen der Auflösung (bis 4×, Obergrenze 9000 Pixel); die Seite selbst wird nicht vergrößert gespeichert.</source>
         <translation>The OCR reads the page at that multiple of the resolution (up to 4×, capped at 9000 pixels); the page itself is not stored enlarged.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="101" />
+        <location filename="../aufbereiten_seite.py" line="111" />
         <source>Hochskalieren</source>
         <translation>Upscale</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="102" />
+        <location filename="../aufbereiten_seite.py" line="112" />
         <source>Buchstabenmodus: Striche schärfen, Kanten glätten</source>
         <translation>Letter mode: sharpen strokes, smooth edges</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="104" />
+        <location filename="../aufbereiten_seite.py" line="114" />
         <source>Nutzt, dass der Inhalt Text ist: Lanczos-Vergrößerung, lokale Schwelle nach Sauvola für saubere Striche, danach leicht geglättete Kanten. Ersetzt Hintergrund, Schärfen und Schwarz-Weiß.</source>
         <translation>Uses the fact that the content is text: Lanczos enlargement, Sauvola's local threshold for clean strokes, then slightly smoothed edges. Replaces background, sharpening and black-and-white.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="112" />
+        <location filename="../aufbereiten_seite.py" line="122" />
         <source>Weitere Schritte</source>
         <translation>Further steps</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="114" />
+        <location filename="../aufbereiten_seite.py" line="124" />
         <source>Dunkle Ränder säubern</source>
         <translation>Clean dark borders</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="115" />
+        <location filename="../aufbereiten_seite.py" line="125" />
         <source>Farbige Tinte entfernen (Stempel, Marker)</source>
         <translation>Remove coloured ink (stamps, highlighter)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="116" />
+        <location filename="../aufbereiten_seite.py" line="126" />
         <source>Entrauschen (Körnung, Staub)</source>
         <translation>Denoise (grain, dust)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="117" />
+        <location filename="../aufbereiten_seite.py" line="127" />
         <source>Kontrast anheben (blasse Kopien)</source>
         <translation>Raise contrast (faint copies)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="118" />
+        <location filename="../aufbereiten_seite.py" line="128" />
         <source>Schärfen</source>
         <translation>Sharpen</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="119" />
+        <location filename="../aufbereiten_seite.py" line="129" />
         <source>Linien entfernen (Formulare, Tabellen)</source>
         <translation>Remove lines (forms, tables)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="123" />
+        <location filename="../aufbereiten_seite.py" line="141" />
+        <source>Stärke 1 (sanft) bis 5 (kräftig)</source>
+        <translation>Strength 1 (gentle) to 5 (strong)</translation>
+    </message>
+    <message>
+        <location filename="../aufbereiten_seite.py" line="153" />
         <source>Ausrichtung erkennen</source>
         <translation>Detect orientation</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="125" />
+        <location filename="../aufbereiten_seite.py" line="155" />
         <source>Hoch- oder Querformat aus den Textzeilen; ob der Text auf dem Kopf steht, entscheidet ein kurzer OCR-Vergleich (dauert einige Sekunden).</source>
         <translation>Portrait or landscape from the text lines; whether the text is upside down is decided by a short OCR comparison (takes a few seconds).</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="136" />
-        <source>Gelöschte Bereiche zurückholen</source>
-        <translation>Restore erased areas</translation>
+        <location filename="../aufbereiten_seite.py" line="168" />
+        <source>Letzten Bereich zurückholen (Cmd/Strg+Z)</source>
+        <translation>Restore last area (Cmd/Ctrl+Z)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="149" />
+        <location filename="../aufbereiten_seite.py" line="171" />
+        <source>Alle zurückholen</source>
+        <translation>Restore all</translation>
+    </message>
+    <message>
+        <location filename="../aufbereiten_seite.py" line="187" />
         <source>Vorschlag wiederherstellen</source>
         <translation>Restore suggestion</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="151" />
+        <location filename="../aufbereiten_seite.py" line="189" />
         <source>Diese Seite nicht aufbereiten</source>
         <translation>Do not clean up this page</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="153" />
+        <location filename="../aufbereiten_seite.py" line="191" />
         <source>Schritte auf alle Seiten übertragen</source>
         <translation>Apply steps to all pages</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="173" />
+        <location filename="../aufbereiten_seite.py" line="212" />
         <source>Bildaufbereitung braucht OpenCV und NumPy (Extra 'ocr'); hier sind nur Masken möglich.</source>
         <translation>Image clean-up needs OpenCV and NumPy (extra 'ocr'); only masks are possible here.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="185" />
+        <location filename="../aufbereiten_seite.py" line="224" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="198" />
+        <location filename="../aufbereiten_seite.py" line="237" />
         <source>Keine Seiten ohne Textebene: nichts aufzubereiten. Scans und Fotos erscheinen hier mit einem Vorschlag.</source>
         <translation>No pages without a text layer: nothing to clean up. Scans and photos appear here with a suggestion.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="300" />
+        <location filename="../aufbereiten_seite.py" line="352" />
         <source>Ausrichtung nicht erkannt: {fehler}</source>
         <translation>Orientation not detected: {fehler}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="351" />
+        <location filename="../aufbereiten_seite.py" line="403" />
         <source>Aufbereitung fehlgeschlagen: {fehler}</source>
         <translation>Clean-up failed: {fehler}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="359" />
+        <location filename="../aufbereiten_seite.py" line="413" />
         <source>kein fotografiertes Blatt erkannt</source>
         <translation>no photographed sheet detected</translation>
     </message>
@@ -585,48 +580,53 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="33" />
+        <location filename="../hauptfenster.py" line="36" />
         <source>1 Patient</source>
         <translation>1 Patient</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="34" />
+        <location filename="../hauptfenster.py" line="37" />
         <source>2 Dokumente</source>
         <translation>2 Documents</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="35" />
-        <source>3 Analysieren</source>
-        <translation>3 Analyse</translation>
-    </message>
-    <message>
-        <location filename="../hauptfenster.py" line="36" />
-        <source>4 Prüfen</source>
-        <translation>4 Review</translation>
-    </message>
-    <message>
-        <location filename="../hauptfenster.py" line="37" />
-        <source>5 Exportieren</source>
-        <translation>5 Export</translation>
-    </message>
-    <message>
         <location filename="../hauptfenster.py" line="38" />
-        <source>6 Rückersetzen</source>
-        <translation>6 Re-identify</translation>
+        <source>3 Texterkennung</source>
+        <translation>3 Text recognition</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="47" />
+        <location filename="../hauptfenster.py" line="39" />
+        <source>4 Analysieren</source>
+        <translation>4 Analyse</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="40" />
+        <source>5 Prüfen</source>
+        <translation>5 Review</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="41" />
+        <source>6 Exportieren</source>
+        <translation>6 Export</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="42" />
+        <source>7 Rückersetzen</source>
+        <translation>7 Re-identify</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="53" />
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="51" />
-        <location filename="../hauptfenster.py" line="61" />
+        <location filename="../hauptfenster.py" line="57" />
+        <location filename="../hauptfenster.py" line="67" />
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="62" />
+        <location filename="../hauptfenster.py" line="68" />
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
     </message>
@@ -850,137 +850,112 @@
 <context>
     <name>PruefenSeite</name>
     <message>
-        <location filename="../pruefen_seite.py" line="336" />
+        <location filename="../pruefen_seite.py" line="348" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="354" />
-        <source>Erkannter Text (OCR), von Hand korrigierbar; „Text übernehmen“ sucht darin neu. Was die OCR im Bild falsch las, mit Kasten oder Maske schwärzen.</source>
-        <translation>Recognised text (OCR), editable by hand; “Apply text” searches it again. What the OCR misread in the image: redact it with a box or a mask.</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="359" />
-        <source>Text übernehmen</source>
-        <translation>Apply text</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="361" />
-        <source>OCR-Text zurücksetzen</source>
-        <translation>Reset OCR text</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="377" />
+        <location filename="../pruefen_seite.py" line="365" />
         <source>Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) · Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) · Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder her). Ziehen zeichnet einen Kasten mit dem Ersatztext aus dem Feld, mit „Maske zeichnen“ eine schwarze Maske; Umschalt + Ziehen verschiebt den Ausschnitt, Strg/Cmd + Rad zoomt. In Textdateien markiert „Auswahl schwärzen“ den ausgewählten Text. Die Quelle jedes Treffers steht in der Tabelle.</source>
         <translation>Red: will be redacted (dashed: suggested by NER or the fuzzy search) · Yellow: read with low confidence (unreadable lines are blanked as a precaution) · Green: stays (medical term, discarded hit; click to restore it). Dragging draws a box with the replacement text from the field, with “Draw mask” a black mask; Shift + drag pans the view, Ctrl/Cmd + wheel zooms. In text files “Redact selection” marks the selected text. The source of every hit is in the table.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="387" />
+        <location filename="../pruefen_seite.py" line="375" />
         <source>Seite</source>
         <translation>Page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="387" />
+        <location filename="../pruefen_seite.py" line="375" />
         <source>Regel</source>
         <translation>Rule</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="388" />
+        <location filename="../pruefen_seite.py" line="376" />
         <source>Pseudonym</source>
         <translation>Pseudonym</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="388" />
+        <location filename="../pruefen_seite.py" line="376" />
         <source>Quelle</source>
         <translation>Source</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="394" />
+        <location filename="../pruefen_seite.py" line="382" />
         <source>Fachbegriffe markieren</source>
         <translation>Mark medical terms</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="399" />
+        <location filename="../pruefen_seite.py" line="387" />
         <source>Verworfene Treffer für diesen Patienten merken (beim Export gespeichert)</source>
         <translation>Remember discarded hits for this patient (stored on export)</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="405" />
+        <location filename="../pruefen_seite.py" line="393" />
         <source>Ersatztext für Kästen</source>
         <translation>Replacement text for boxes</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="410" />
-        <location filename="../pruefen_seite.py" line="499" />
+        <location filename="../pruefen_seite.py" line="398" />
+        <location filename="../pruefen_seite.py" line="486" />
         <source>Treffer verwerfen</source>
         <translation>Discard hit</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="413" />
-        <location filename="../pruefen_seite.py" line="641" />
+        <location filename="../pruefen_seite.py" line="401" />
+        <location filename="../pruefen_seite.py" line="573" />
         <source>Auswahl schwärzen</source>
         <translation>Redact selection</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="417" />
+        <location filename="../pruefen_seite.py" line="405" />
         <source>Maske zeichnen</source>
         <translation>Draw mask</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="420" />
+        <location filename="../pruefen_seite.py" line="408" />
         <source>Eingeschaltet: Ziehen schwärzt den Bereich schwarz, ohne Ersatztext; Text und Bild darunter verschwinden.</source>
         <translation>When on, dragging blacks out the area without a label; text and image under it disappear.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="449" />
+        <location filename="../pruefen_seite.py" line="437" />
         <source>Text</source>
         <translation>Text</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="451" />
+        <location filename="../pruefen_seite.py" line="439" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="498" />
+        <location filename="../pruefen_seite.py" line="485" />
         <source>Treffer wiederherstellen</source>
         <translation>Restore hit</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="518" />
+        <location filename="../pruefen_seite.py" line="505" />
         <source>{n} Fachbegriffe markiert</source>
         <translation>{n} medical terms marked</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="406" />
-        <location filename="../pruefen_seite.py" line="565" />
-        <location filename="../pruefen_seite.py" line="643" />
-        <location filename="../pruefen_seite.py" line="647" />
+        <location filename="../pruefen_seite.py" line="394" />
+        <location filename="../pruefen_seite.py" line="552" />
+        <location filename="../pruefen_seite.py" line="575" />
+        <location filename="../pruefen_seite.py" line="579" />
         <source>[geschwärzt]</source>
         <translation>[redacted]</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="567" />
+        <location filename="../pruefen_seite.py" line="554" />
         <source>Kasten nicht gesetzt: {fehler}</source>
         <translation>Box not set: {fehler}</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="572" />
+        <location filename="../pruefen_seite.py" line="559" />
         <source>{n} Kasten gesetzt: {pseudonym}</source>
         <translation>{n} box(es) set: {pseudonym}</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="605" />
-        <source>OCR-Text unverändert</source>
-        <translation>OCR text unchanged</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="607" />
-        <source>Korrigiert; {n} Treffer im Text</source>
-        <translation>Corrected; {n} hits in the text</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="642" />
+        <location filename="../pruefen_seite.py" line="574" />
         <source>Ersatztext:</source>
         <translation>Replacement text:</translation>
     </message>
@@ -1071,19 +1046,158 @@
 <context>
     <name>Seitenansicht</name>
     <message>
-        <location filename="../pruefen_seite.py" line="154" />
+        <location filename="../pruefen_seite.py" line="165" />
         <source>Fachbegriff (bleibt)</source>
         <translation>Medical term (stays)</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="156" />
+        <location filename="../pruefen_seite.py" line="167" />
         <source>unsicher gelesen</source>
         <translation>read with low confidence</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="161" />
+        <location filename="../pruefen_seite.py" line="172" />
         <source>verworfen, bleibt: {regel}</source>
         <translation>discarded, stays: {regel}</translation>
+    </message>
+</context>
+<context>
+    <name>TexterkennungSeite</name>
+    <message>
+        <location filename="../texterkennung_seite.py" line="50" />
+        <source>Texterkennung (OCR) für Scans und Fotos</source>
+        <translation>Text recognition (OCR) for scans and photos</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="53" />
+        <source>automatisch</source>
+        <translation>automatic</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="56" />
+        <source>aus (nur Textebene)</source>
+        <translation>off (text layer only)</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="58" />
+        <source>OCR-Programm</source>
+        <translation>OCR engine</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="60" />
+        <source>Sprachpakete</source>
+        <translation>Language packs</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="70" />
+        <source>Texterkennung starten</source>
+        <translation>Start text recognition</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="82" />
+        <source>Dokument / Seite</source>
+        <translation>Document / page</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="92" />
+        <source>Erkannter Text</source>
+        <translation>Recognised text</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="98" />
+        <source>Text übernehmen</source>
+        <translation>Apply text</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="100" />
+        <source>Auf OCR-Text zurücksetzen</source>
+        <translation>Reset to OCR text</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="115" />
+        <source>Weiter: Analysieren</source>
+        <translation>Next: analyse</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="132" />
+        <source>Installierte Tesseract-Sprachen: {liste}</source>
+        <translation>Installed Tesseract languages: {liste}</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="136" />
+        <source>Es wird nur die Textebene der PDFs gelesen.</source>
+        <translation>Only the text layer of PDFs is read.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="140" />
+        <source>RapidOCR: Sprachtyp de (Standard), en, latin, ch …; Modelle sind im Paket.</source>
+        <translation>RapidOCR: language type de (default), en, latin, ch …; the models are in the package.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="156" />
+        <location filename="../texterkennung_seite.py" line="159" />
+        <source>Texterkennung</source>
+        <translation>Text recognition</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="156" />
+        <source>Bitte zuerst Dokumente hinzufügen.</source>
+        <translation>Please add documents first.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="160" />
+        <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
+        <translation>The documents are still loading; please wait a moment.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="173" />
+        <source>Gelesen: {n} Dokument(e).</source>
+        <translation>Read: {n} document(s).</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="181" />
+        <source>Lese {nummer} von {gesamt}: {name} …</source>
+        <translation>Reading {nummer} of {gesamt}: {name} …</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="219" />
+        <source>Seite {nummer}</source>
+        <translation>Page {nummer}</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="220" />
+        <source> (OCR)</source>
+        <translation> (OCR)</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="229" />
+        <source>{n} Dokument(e) noch nicht gelesen</source>
+        <translation>{n} document(s) not read yet</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="231" />
+        <source>{n} Textdatei(en) brauchen keine Texterkennung</source>
+        <translation>{n} text file(s) need no text recognition</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="270" />
+        <source>Erkannter Text (OCR), von Hand korrigierbar. Die Korrektur gilt für Textdatei, Markdown und die Textebene; die Schwärzung im Bild folgt den OCR-Kästen.</source>
+        <translation>Recognised text (OCR), editable by hand. The correction applies to the text file, the Markdown and the text layer; the redaction in the image follows the OCR boxes.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="273" />
+        <source>korrigiert</source>
+        <translation>corrected</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="274" />
+        <source>OCR-Text unverändert</source>
+        <translation>OCR text unchanged</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="276" />
+        <source>Text der Textebene (nicht veränderbar)</source>
+        <translation>Text of the text layer (not editable)</translation>
     </message>
 </context>
 </TS>

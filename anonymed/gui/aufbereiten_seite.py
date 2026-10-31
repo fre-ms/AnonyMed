@@ -9,7 +9,7 @@ then starts the analysis.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QImage, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QSplitter,
     QTreeWidget,
     QTreeWidgetItem,
@@ -49,18 +50,23 @@ class AufbereitenSeite(QWidget):
         self.baum.currentItemChanged.connect(self._seite_gewaehlt)
         teiler.addWidget(self.baum)
 
-        bilder = QWidget()
-        b = QHBoxLayout(bilder)
-        b.setContentsMargins(0, 0, 0, 0)
-        links = QVBoxLayout()
-        links.addWidget(QLabel(self.tr("Vorher")))
+        self.bilder = QSplitter(Qt.Orientation.Horizontal)  # the user moves the divider
+        links_w = QWidget()
+        links = QVBoxLayout(links_w)
+        links.setContentsMargins(0, 0, 0, 0)
+        vorher_titel = QLabel(self.tr("Vorher"))
+        vorher_titel.setWordWrap(True)
+        links.addWidget(vorher_titel)
         self.vorher = Seitenansicht()
-        self.vorher.setEnabled(True)
         links.addWidget(self.vorher, 1)
-        rechts_bild = QVBoxLayout()
-        rechts_bild.addWidget(QLabel(self.tr("Nachher (so sieht es die OCR; Ziehen löscht den"
-                                             " Bereich weiß; Umschalt/Option + Ziehen"
-                                             " verschiebt beide Ansichten)")))
+        rechts_w = QWidget()
+        rechts_bild = QVBoxLayout(rechts_w)
+        rechts_bild.setContentsMargins(0, 0, 0, 0)
+        nachher_titel = QLabel(self.tr("Nachher (so sieht es die OCR; Ziehen löscht den"
+                                       " Bereich weiß, Cmd/Strg+Z holt ihn zurück;"
+                                       " Umschalt/Option + Ziehen verschiebt beide Ansichten)"))
+        nachher_titel.setWordWrap(True)
+        rechts_bild.addWidget(nachher_titel)
         self.nachher = Seitenansicht()
         self.nachher.masken_modus = True
         self.nachher.loeschmodus = True
@@ -69,9 +75,13 @@ class AufbereitenSeite(QWidget):
         self.vorher.masken_modus = True  # drag on the left: nothing drawn, pan with modifier
         self.vorher.kasten_gezeichnet.connect(lambda _r: None)
         Seitenansicht.koppeln(self.vorher, self.nachher)
-        b.addLayout(links, 1)
-        b.addLayout(rechts_bild, 1)
-        teiler.addWidget(bilder)
+        self.bilder.addWidget(links_w)
+        self.bilder.addWidget(rechts_w)
+        self.bilder.setSizes([400, 400])
+        teiler.addWidget(self.bilder)
+        rueckgaengig = QShortcut(QKeySequence.StandardKey.Undo, self)
+        rueckgaengig.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        rueckgaengig.activated.connect(self.rueckgaengig)
 
         rechts = QWidget()
         r = QVBoxLayout(rechts)
@@ -117,9 +127,29 @@ class AufbereitenSeite(QWidget):
         self.kontrast = QCheckBox(self.tr("Kontrast anheben (blasse Kopien)"))
         self.schaerfen = QCheckBox(self.tr("Schärfen"))
         self.linien_entfernen = QCheckBox(self.tr("Linien entfernen (Formulare, Tabellen)"))
-        for w in (self.raender, self.farbe_entfernen, self.entrauschen, self.kontrast,
-                  self.schaerfen, self.linien_entfernen):
-            wf.addRow(w)
+        wf.addRow(self.raender)
+        wf.addRow(self.farbe_entfernen)
+        self.regler: dict[str, QSlider] = {}
+        for name, kasten in (("entrauschen", self.entrauschen), ("kontrast", self.kontrast),
+                             ("schaerfen", self.schaerfen)):
+            regler = QSlider(Qt.Orientation.Horizontal)
+            regler.setRange(1, 5)
+            regler.setValue(2)
+            regler.setTickPosition(QSlider.TickPosition.TicksBelow)
+            regler.setTickInterval(1)
+            regler.setMaximumWidth(140)
+            regler.setToolTip(self.tr("Stärke 1 (sanft) bis 5 (kräftig)"))
+            regler.setEnabled(False)
+            kasten.toggled.connect(regler.setEnabled)
+            regler.valueChanged.connect(
+                lambda _w, r=regler: None if r.isSliderDown() else self._formular_uebernehmen())
+            regler.sliderReleased.connect(self._formular_uebernehmen)
+            zeile_ = QHBoxLayout()
+            zeile_.addWidget(kasten, 1)
+            zeile_.addWidget(regler)
+            wf.addRow(zeile_)
+            self.regler[name] = regler
+        wf.addRow(self.linien_entfernen)
         self.ausrichtung = QPushButton(self.tr("Ausrichtung erkennen"))
         self.ausrichtung.setToolTip(self.tr(
             "Hoch- oder Querformat aus den Textzeilen; ob der Text auf dem Kopf steht,"
@@ -130,12 +160,20 @@ class AufbereitenSeite(QWidget):
         for text, grad in ((self.tr("↺ 90°"), 270), (self.tr("↻ 90°"), 90),
                            (self.tr("180°"), 180)):
             k = QPushButton(text)
+            k.setMinimumHeight(32)
             k.clicked.connect(lambda _c=False, g=grad: self.drehe(g))
             drehen.addWidget(k)
         form.addRow(self.tr("Drehen"), drehen)
-        self.masken_loeschen = QPushButton(self.tr("Gelöschte Bereiche zurückholen"))
+        masken_zeile = QHBoxLayout()
+        self.letzte_zurueck = QPushButton(self.tr("Letzten Bereich zurückholen (Cmd/Strg+Z)"))
+        self.letzte_zurueck.setMinimumHeight(32)
+        self.letzte_zurueck.clicked.connect(self.rueckgaengig)
+        self.masken_loeschen = QPushButton(self.tr("Alle zurückholen"))
+        self.masken_loeschen.setMinimumHeight(32)
         self.masken_loeschen.clicked.connect(self.loesche_masken)
-        form.addRow(self.masken_loeschen)
+        masken_zeile.addWidget(self.letzte_zurueck, 1)
+        masken_zeile.addWidget(self.masken_loeschen)
+        form.addRow(masken_zeile)
         r.addWidget(schritte)
         r.addWidget(weitere)
         for w in (self.begradigen, self.entzerren, self.textmodus, self.hintergrund,
@@ -160,7 +198,8 @@ class AufbereitenSeite(QWidget):
         for text, aktion in (("+", lambda: self._zoom(1.25)), ("−", lambda: self._zoom(0.8)),
                              ("1:1", self._zoom_zuruecksetzen)):
             k = QPushButton(text)
-            k.setMaximumWidth(40)
+            k.setMaximumWidth(44)
+            k.setMinimumHeight(32)
             k.clicked.connect(aktion)
             zoom.addWidget(k)
         zoom.addStretch(1)
@@ -237,6 +276,9 @@ class AufbereitenSeite(QWidget):
             self.kontrast.setChecked(a.kontrast)
             self.schaerfen.setChecked(a.schaerfen)
             self.linien_entfernen.setChecked(a.linien_entfernen)
+            self.regler["entrauschen"].setValue(a.entrauschen_staerke)
+            self.regler["kontrast"].setValue(a.kontrast_staerke)
+            self.regler["schaerfen"].setValue(a.schaerfen_staerke)
         finally:
             self._stumm = False
 
@@ -259,6 +301,9 @@ class AufbereitenSeite(QWidget):
         a.kontrast = self.kontrast.isChecked()
         a.schaerfen = self.schaerfen.isChecked()
         a.linien_entfernen = self.linien_entfernen.isChecked()
+        a.entrauschen_staerke = self.regler["entrauschen"].value()
+        a.kontrast_staerke = self.regler["kontrast"].value()
+        a.schaerfen_staerke = self.regler["schaerfen"].value()
         self.zeichne()
 
     # -- actions -----------------------------------------------------------------------------------
@@ -281,6 +326,13 @@ class AufbereitenSeite(QWidget):
         a = self.einstellung()
         if a is not None:
             a.masken = []
+            self.zeichne()
+
+    def rueckgaengig(self) -> None:
+        """Take back the last erased area of this page (Cmd/Ctrl+Z)."""
+        a = self.einstellung()
+        if a is not None and a.masken:
+            a.masken.pop()
             self.zeichne()
 
     def ausrichtung_erkennen(self) -> None:
@@ -346,13 +398,15 @@ class AufbereitenSeite(QWidget):
         self.vorher.skala = VORSCHAU_DPI / 72.0
         self.vorher.zeige(vorlage.seitenbild(self.seite, VORSCHAU_DPI), [], None)
         try:
-            png = vorlage.vorschau(self.seite, a, VORSCHAU_DPI)
+            png, _skala = vorlage.vorschau(self.seite, a, VORSCHAU_DPI)
         except Exception as e:  # noqa: BLE001 - shown instead of crashing the step
             self.hinweis.setText(self.tr("Aufbereitung fehlgeschlagen: {fehler}").format(
                 fehler=e))
             return
         bild = QImage.fromData(png)
         self.nachher.skala = bild.width() / vorlage.seitenbreite(self.seite, a)
+        # an enlarged image is shown at the size of the original; zooming shows the gain
+        self.nachher.setze_basis((VORSCHAU_DPI / 72.0) / self.nachher.skala)
         self.nachher.zeige(png, [], None)
         text = aufmodul.beschreibung(a)
         if a.ecken is None and not vorlage.foto:

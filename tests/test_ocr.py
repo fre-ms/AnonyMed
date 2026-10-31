@@ -331,7 +331,7 @@ def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient
     assert vorlage.kandidaten == [0, 1] and not vorlage.foto
     a = vorlage.vorschlaege[0]
     assert a.begradigen and abs(abs(a.winkel) - 2.5) < 0.5, a
-    assert vorlage.vorschau(0, a).startswith(b"\x89PNG")
+    assert vorlage.vorschau(0, a)[0].startswith(b"\x89PNG")
     vorlage.schliessen()
     assert lade(befund).kandidaten == []  # a text layer needs no clean-up
     erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
@@ -352,3 +352,30 @@ def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient
     assert set(v.aufbereitet) == {0} and v.aufbereitet[0].masken
     erg3 = abschliessen(v)
     assert erg3.freigegeben
+
+
+@braucht_backend
+def test_lesen_dann_analysieren(tmp_path: Path, befund: Path, patient: Patient,
+                                speicher: Pseudonymspeicher) -> None:
+    """Reading and detection as two phases: the text can be corrected in between, the
+    detection then runs over the corrected text as well."""
+    from anonymed.ablauf import abschliessen, analysiere, lese
+
+    scan = _scan(befund, tmp_path / "scan.pdf")
+    lesung = lese(scan, Ablaufoptionen())
+    assert lesung.ocr_seiten == [1, 2] and lesung.hat_ocr(0) and not lesung.verbraucht
+    assert "Diagnosen" in lesung.text(0) and lesung.seitenbild(0).startswith(b"\x89PNG")
+    lesung.setze_ocr_text(0, lesung.ocr_text(0).rstrip("\n")
+                          + f"\nZusatz: {patient.vorname} {patient.nachname}.\n")
+    assert lesung.seiten[0].korrektur is not None
+    lesung.setze_ocr_text(1, lesung.ocr_text(1))  # unchanged text: no correction
+    assert lesung.seiten[1].korrektur is None
+    v = analysiere(lesung, patient, Ablaufoptionen(), speicher=speicher)
+    assert lesung.verbraucht and v.seiten[0].korrektur_treffer
+    assert any(f.quelle == "korrektur" for f in v.korrektur_treffer)
+    with pytest.raises(RuntimeError):
+        analysiere(lesung, patient, Ablaufoptionen(), speicher=speicher)
+    erg = abschliessen(v)
+    assert erg.freigegeben, als_text(erg.bericht)
+    txt = erg.ziel_txt.read_text(encoding="utf-8")
+    assert f"Zusatz: Patient {erg.kennung}." in txt and gefundene_klardaten(txt, patient) == []

@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from anonymed.dokument.ocr import verfuegbare_backends
 from anonymed.erkennung import ner as nermodul
 from anonymed.gui.arbeiter import Arbeiter
 from anonymed.gui.sitzung import Dokument, Sitzung
@@ -38,14 +37,8 @@ class AnalysierenSeite(QWidget):
         self._gesamt = 0
         aussen = QVBoxLayout(self)
 
-        optionen = QGroupBox(self.tr("Lesen"))
+        optionen = QGroupBox(self.tr("Erkennung der Identifikatoren"))
         form = QFormLayout(optionen)
-        self.ocr = QComboBox()
-        self.ocr.addItem(self.tr("automatisch"), "auto")
-        for b in verfuegbare_backends():
-            self.ocr.addItem(b, b)
-        self.ocr.addItem(self.tr("aus"), "aus")
-        form.addRow(self.tr("OCR für Scans und Fotos"), self.ocr)
         self.datum = QComboBox()
         self.datum.addItem(self.tr("Geburtsjahr [geb. 1990]"), "jahr")
         self.datum.addItem(self.tr("Alter [Alter 36]"), "alter")
@@ -99,7 +92,6 @@ class AnalysierenSeite(QWidget):
 
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen
-        o.ocr = self.ocr.currentData()
         o.datumsform = self.datum.currentData()
         o.codes = self.codes.isChecked()
         o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"

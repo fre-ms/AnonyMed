@@ -95,8 +95,10 @@ def test_seite_ersetzen(befund: Path, tmp_path: Path) -> None:
     assert doc[0].get_images() and not doc[0].get_text("text").strip()  # an image page now
     pix = doc[0].get_pixmap(clip=pymupdf.Rect(60, 65, 290, 85), colorspace=pymupdf.csGRAY)
     assert min(pix.samples) > 240  # the erased region is white on the new page
-    png = auf.vorschau_png(doc[1], auf.Aufbereitung(drehung=90), dpi=50)
-    assert png.startswith(b"\x89PNG")
+    png, skala_v = auf.vorschau_png(doc[1], auf.Aufbereitung(drehung=90), dpi=50)
+    assert png.startswith(b"\x89PNG") and skala_v > 0
+    gross, skala_g = auf.vorschau_png(doc[1], auf.Aufbereitung(hochskalieren=4), dpi=100)
+    assert skala_g > skala_v  # shown enlarged, rendered at a lower dpi to stay bounded
     doc.close()
 
 

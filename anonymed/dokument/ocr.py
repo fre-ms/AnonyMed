@@ -266,11 +266,13 @@ def _zerlege_zeile(zeile: OCRWort) -> list[OCRWort]:
 
 
 # -- selection -----------------------------------------------------------------------------------
-def backend(name: str = "auto") -> OCRBackend | None:
+def backend(name: str = "auto", sprachen: str | None = None) -> OCRBackend | None:
     """Return the requested backend, or for "auto" the configured preference
     ([ocr] backend in the configuration file, ANONYMED_OCR), else the first
-    available one; None for "aus"."""
+    available one; None for "aus".  ``sprachen`` names the language packs:
+    "deu+eng" for Tesseract, a RapidOCR language type such as "de" or "latin"."""
     name = (name or "auto").lower()
+    sprachen = (sprachen or "").strip() or None
     if name == "auto":
         from anonymed.konfig import lade_einstellungen
 
@@ -280,15 +282,15 @@ def backend(name: str = "auto") -> OCRBackend | None:
     if name == "aus":
         return None
     if name == "rapidocr":
-        return RapidOCRBackend()
+        return RapidOCRBackend(sprachen or "de")
     if name == "tesseract":
-        return TesseractBackend()
+        return TesseractBackend(sprache=sprachen)
     if name != "auto":
         raise OCRFehler(f"Unbekanntes OCR-Backend: {name!r} (auto, rapidocr, tesseract, aus).")
     if RapidOCRBackend.verfuegbar():
-        return RapidOCRBackend()
+        return RapidOCRBackend(sprachen if sprachen and "+" not in sprachen else "de")
     if TesseractBackend.verfuegbar():
-        return TesseractBackend()
+        return TesseractBackend(sprache=sprachen if sprachen and "+" in sprachen else None)
     return None
 
 

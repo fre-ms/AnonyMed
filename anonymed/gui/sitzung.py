@@ -10,11 +10,14 @@ from pathlib import Path
 from anonymed.ablauf import (
     Ablaufoptionen,
     Ergebnis,
+    Lesung,
     Textvorbereitung,
     Vorbereitung,
     Vorlage,
     abschliessen,
+    analysiere,
     lade,
+    lese,
     vorbereiten,
 )
 from anonymed.dokument import aufbereitung as aufmodul
@@ -28,6 +31,7 @@ class Dokument:
     pfad: Path
     vorlage: Vorlage | None = None  # phase zero: open, pages known, clean-up suggested
     aufbereitung: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
+    lesung: Lesung | None = None  # reading phase: text layer and OCR, correctable
     vorbereitung: Vorbereitung | Textvorbereitung | None = None
     vorpruefung: Ergebnis | None = None  # the re-check run into a scratch folder
     vorpruefung_version: int = -1  # review state the pre-check belongs to
@@ -37,6 +41,11 @@ class Dokument:
     @property
     def aufzubereiten(self) -> bool:
         return self.vorlage is not None and bool(self.vorlage.kandidaten)
+
+    @property
+    def lesbar(self) -> bool:
+        """PDFs and images go through the reading step; text files do not."""
+        return not ist_textdatei(self.pfad)
 
     @property
     def pruefbereit(self) -> bool:
@@ -59,6 +68,10 @@ class Dokument:
                 return f"Text, {len(v.fundstellen)} Treffer"
             ocr = f", OCR auf Seite(n) {', '.join(map(str, v.ocr_seiten))}" if v.ocr_seiten else ""
             return f"{len(v.seiten)} Seite(n), {len(v.fundstellen)} Treffer{ocr}"
+        if self.lesung is not None:
+            ocr = (f", OCR auf Seite(n) {', '.join(map(str, self.lesung.ocr_seiten))}"
+                   if self.lesung.ocr_seiten else "")
+            return f"{self.lesung.seitenzahl} Seite(n) gelesen{ocr}"
         if self.vorlage is not None:
             n = len(self.vorlage.kandidaten)
             return (f"{self.vorlage.seitenzahl} Seite(n), {n} ohne Textebene (aufbereiten)"
@@ -101,7 +114,23 @@ class Sitzung:
             d.vorbereitung.schliessen()
         if d.vorlage is not None:
             d.vorlage.schliessen()
+        if d.lesung is not None:
+            d.lesung.schliessen()
         self.dokumente.remove(d)
+
+    def lese(self, d: Dokument) -> None:
+        """Reading phase for one document with the clean-up the user chose; text files
+        have nothing to read."""
+        if d.lesung is not None:
+            d.lesung.schliessen()
+        d.lesung, d.vorbereitung, d.ergebnis, d.fehler = None, None, None, ""
+        if not d.lesbar:
+            return
+        try:
+            d.lesung = lese(d.pfad, self.optionen, dict(d.aufbereitung) if d.vorlage else None)
+        except Exception as e:
+            d.fehler = str(e)
+            raise
 
     def lade(self, d: Dokument) -> None:
         """Phase zero for one document: open it and suggest the clean-up of its
@@ -130,8 +159,11 @@ class Sitzung:
         aufbereitung = dict(d.aufbereitung) if d.vorlage is not None else None
         speicher = self.speicher()
         try:
-            d.vorbereitung = vorbereiten(d.pfad, self.patient, opt, speicher=speicher,
-                                         aufbereitung=aufbereitung)
+            if d.lesung is not None and not d.lesung.verbraucht:
+                d.vorbereitung = analysiere(d.lesung, self.patient, opt, speicher=speicher)
+            else:
+                d.vorbereitung = vorbereiten(d.pfad, self.patient, opt, speicher=speicher,
+                                             aufbereitung=aufbereitung)
         except UnsichererAbgleich:
             speicher.close()
             raise
@@ -140,6 +172,7 @@ class Sitzung:
             d.fehler = str(e)
             raise
         d.vorbereitung.eigener_speicher = True  # the preparation owns and closes it
+        d.lesung = None  # its documents now belong to the preparation
         if d.vorlage is not None:
             d.vorlage.schliessen()
             d.vorlage = None
@@ -238,6 +271,8 @@ class Sitzung:
                 d.vorbereitung.schliessen()
             if d.vorlage is not None:
                 d.vorlage.schliessen()
+            if d.lesung is not None:
+                d.lesung.schliessen()
         if self._scratch is not None and self._scratch.exists():
             shutil.rmtree(self._scratch, ignore_errors=True)
             self._scratch = None

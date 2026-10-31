@@ -117,16 +117,26 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert d.vorlage is not None and d.vorlage.kandidaten == [] and not fenster.dokumente.laedt
     assert "nichts aufzubereiten" in fenster.dokumente.aufbereiten.hinweis.text()
     fenster.dokumente.weiter_knopf.click()
+    assert fenster.tabs.currentWidget() is fenster.texterkennung
+
+    # 3 text recognition: a text-layer PDF is read without OCR, its text is shown read-only
+    te = fenster.texterkennung
+    te.synchron = True
+    te.starten()
+    qapp.processEvents()
+    assert d.lesung is not None and d.lesung.ocr_seiten == [] and te.text.isReadOnly()
+    assert "Diagnosen" in te.text.toPlainText()
+    te.weiter_knopf.click()
     assert fenster.tabs.currentWidget() is fenster.analysieren
 
-    # 3 analyse with the settings of that step
+    # 4 analyse with the settings of that step
     fenster.analysieren.analysieren()
     qapp.processEvents()
-    assert d.vorbereitung is not None and d.vorbereitung.fundstellen
+    assert d.vorbereitung is not None and d.vorbereitung.fundstellen and d.lesung is None
     assert fenster.tabs.currentWidget() is fenster.pruefen
     assert "Fertig" in fenster.analysieren.status.text()
 
-    # 4 review: drop one hit, draw one box; medical terms are marked by default
+    # 5 review: drop one hit, draw one box; medical terms are marked by default
     pr = fenster.pruefen
     assert pr.baum.topLevelItemCount() == 1 and pr.dokument is d
     assert fenster.analysieren.fachbegriffe.isChecked()
@@ -159,7 +169,6 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert any(f.regel == "maske" for f in pr.fundstellen())
     pr.maske_modus.setChecked(False)
     assert pr.tabelle.rowCount() == len(pr.fundstellen())
-    assert pr.ocr_feld.isHidden()  # a page with a text layer has no OCR text to correct
     # a real mouse drag draws a box with the replacement text from the field, no dialog
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
@@ -186,7 +195,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert len(pr.fundstellen()) == vorher_kaesten + 1
     assert pr.merken.isChecked() and sitzung.optionen.verworfene_merken
 
-    # 5 export: the step re-checks first (traffic light), then copies the checked files
+    # 6 export: the step re-checks first (traffic light), then copies the checked files
     fenster.export.ziel.setText(str(tmp_path / "aus"))
     fenster.export.aktualisiere()
     qapp.processEvents()
@@ -213,7 +222,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     with Pseudonymspeicher(tmp_path / "s.sqlite") as sp:
         assert any(r == "zuweiser1.name" for r, _t in sp.verworfene(patient))
 
-    # 6 re-identify
+    # 7 re-identify
     fenster.tabs.setCurrentWidget(fenster.rueckersetzen)
     rs = fenster.rueckersetzen
     assert rs.person.count() == 1
@@ -245,6 +254,10 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient)
     fenster.dokumente.hinzufuegen([quelle, tmp_path / "egal.xyz"])
     assert fenster.dokumente.liste.count() == 1
     assert sitzung.dokumente[0].vorlage is None  # text files are not opened as documents
+    fenster.texterkennung.synchron = True
+    fenster.texterkennung.starten()
+    assert sitzung.dokumente[0].lesung is None
+    assert "Textdatei" in fenster.texterkennung.hinweis.text()
     assert fenster.analysieren.unscharf.isChecked()
     fenster.analysieren.analysieren()
     qapp.processEvents()
@@ -312,8 +325,8 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
     try:
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
-        assert tabs == ["1 Patient", "2 Documents", "3 Analyse", "4 Review", "5 Export",
-                    "6 Re-identify"]
+        assert tabs == ["1 Patient", "2 Documents", "3 Text recognition", "4 Analyse", "5 Review",
+                    "6 Export", "7 Re-identify"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()
@@ -364,13 +377,13 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     au.textmodus.setChecked(False)
     # the two views are linked: pan one, the other follows; zoom likewise
     au.nachher.zoom(2.0)
-    assert abs(au.vorher.transform().m11() - au.nachher.transform().m11()) < 1e-6
+    assert abs(au.vorher.zoomfaktor - au.nachher.zoomfaktor) < 1e-6  # relative to each base
     au.vorher.verticalScrollBar().setValue(au.vorher.verticalScrollBar().maximum() // 2)
     v1 = au.vorher.verticalScrollBar().value() / max(1, au.vorher.verticalScrollBar().maximum())
     v2 = au.nachher.verticalScrollBar().value() / max(1, au.nachher.verticalScrollBar().maximum())
     assert abs(v1 - v2) < 0.02, (v1, v2)
     au.vorher.zoom_zuruecksetzen()
-    assert abs(au.nachher.transform().m11() - 1.0) < 1e-6
+    assert abs(au.nachher.zoomfaktor - 1.0) < 1e-6
     au.ausrichtung_erkennen()
     assert d.aufbereitung[0].drehung == 0
     au.drehe(90)
@@ -380,10 +393,25 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     assert not d.aufbereitung[0].aktiv
     au.vorschlag_wiederherstellen()
     assert d.aufbereitung[0].begradigen
+    au.rueckgaengig()  # nothing to undo any more: no error
+    # 3 text recognition on the cleaned-up pages, with a correction
+    te = fenster.texterkennung
+    te.synchron = True
+    assert te.engine.currentData() == "auto" and te.weiter_knopf.isEnabled()
+    te.starten()
+    qapp.processEvents()
+    assert d.lesung is not None and d.lesung.ocr_seiten == [1, 2]
+    assert te.baum.topLevelItemCount() == 1 and not te.text.isReadOnly()
+    ocr = te.text.toPlainText()
+    assert "Diagnosen" in ocr
+    te.text.setPlainText(ocr.rstrip("\n") + "\nZusatz: Testzeile aus der Korrektur.\n")
+    te.text_uebernehmen()
+    assert d.lesung.seiten[0].korrektur is not None and "korrigiert" in te.text_hinweis.text()
     fenster.analysieren.analysieren()
     qapp.processEvents()
-    assert d.vorbereitung is not None and d.vorlage is None
+    assert d.vorbereitung is not None and d.vorlage is None and d.lesung is None
     assert fenster.tabs.currentWidget() is fenster.pruefen
+    assert d.vorbereitung.seiten[0].korrektur is not None
     assert d.vorbereitung.aufbereitet and 0 in d.vorbereitung.aufbereitet
     assert any("aufbereitet" in w for w in d.vorbereitung.warnungen)
     assert len(d.vorbereitung.fundstellen) > 5
@@ -396,6 +424,8 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     protokoll = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in protokoll, protokoll
     assert gefundene_klardaten(protokoll, patient) == []
+    txt = (tmp_path / "aus" / "scan_anonym.txt").read_text(encoding="utf-8")
+    assert "Zusatz: Testzeile aus der Korrektur." in txt  # the correction reached the output
     fenster.close()
 
 

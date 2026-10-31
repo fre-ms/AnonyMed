@@ -45,9 +45,12 @@ class Aufbereitung:
     textmodus: bool = False  # letter-aware upscaling: Lanczos, Sauvola strokes, smooth edges
     raender: bool = False  # dark scanner borders -> white
     farbe_entfernen: bool = False  # coloured ink (stamps, highlighter) -> white
-    entrauschen: bool = False  # non-local means against grain and specks
+    entrauschen: bool = False  # median plus non-local means against specks and grain
+    entrauschen_staerke: int = 2  # 1 (gentle) to 5 (strong)
     kontrast: bool = False  # CLAHE on faint copies
+    kontrast_staerke: int = 2  # 1 to 5
     schaerfen: bool = False  # unsharp mask
+    schaerfen_staerke: int = 2  # 1 to 5
     hintergrund: bool = False  # even out illumination, white paper
     linien_entfernen: bool = False  # long ruled and table lines -> white
     schwarzweiss: bool = False  # binarise after that
@@ -66,8 +69,10 @@ class Aufbereitung:
                 "winkel": round(self.winkel, 2), "entzerren": self.entzerren,
                 "hochskalieren": self.hochskalieren, "textmodus": self.textmodus,
                 "raender": self.raender, "farbe_entfernen": self.farbe_entfernen,
-                "entrauschen": self.entrauschen, "kontrast": self.kontrast,
-                "schaerfen": self.schaerfen, "hintergrund": self.hintergrund,
+                "entrauschen": self.entrauschen, "entrauschen_staerke": self.entrauschen_staerke,
+                "kontrast": self.kontrast, "kontrast_staerke": self.kontrast_staerke,
+                "schaerfen": self.schaerfen, "schaerfen_staerke": self.schaerfen_staerke,
+                "hintergrund": self.hintergrund,
                 "linien_entfernen": self.linien_entfernen, "schwarzweiss": self.schwarzweiss,
                 "masken": len(self.masken), "maskenfarbe": self.maskenfarbe}
 
@@ -403,21 +408,25 @@ def _farbe_entfernen(bild: Any) -> Any:
     return grau
 
 
-def _entrausche(bild: Any) -> Any:
-    """Median against isolated specks (dust, salt-and-pepper), then a light non-local
-    means pass against grain; both keep the strokes of letters."""
+def _entrausche(bild: Any, staerke: int = 2) -> Any:
+    """Median against isolated specks (dust, salt-and-pepper), then non-local means
+    against grain; both keep the strokes of letters.  Strength 1 to 5."""
     import cv2
 
-    glatt = cv2.medianBlur(bild, 3)
+    staerke = max(1, min(5, int(staerke)))
+    glatt = cv2.medianBlur(bild, 3 if staerke < 4 else 5)
+    h = (3, 5, 8, 11, 15)[staerke - 1]
     if glatt.ndim == 3:
-        return cv2.fastNlMeansDenoisingColored(glatt, None, 5, 5, 7, 21)
-    return cv2.fastNlMeansDenoising(glatt, None, 7, 7, 21)
+        return cv2.fastNlMeansDenoisingColored(glatt, None, h, h, 7, 21)
+    return cv2.fastNlMeansDenoising(glatt, None, h, 7, 21)
 
 
-def _kontrast(bild: Any) -> Any:
+def _kontrast(bild: Any, staerke: int = 2) -> Any:
     import cv2
 
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    staerke = max(1, min(5, int(staerke)))
+    clahe = cv2.createCLAHE(clipLimit=(1.0, 2.0, 3.0, 4.0, 6.0)[staerke - 1],
+                            tileGridSize=(8, 8))
     if bild.ndim == 3:
         lab = cv2.cvtColor(bild, cv2.COLOR_BGR2LAB)
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
@@ -425,11 +434,13 @@ def _kontrast(bild: Any) -> Any:
     return clahe.apply(bild)
 
 
-def _schaerfe(bild: Any) -> Any:
+def _schaerfe(bild: Any, staerke: int = 2) -> Any:
     import cv2
 
+    staerke = max(1, min(5, int(staerke)))
+    menge = (0.3, 0.6, 1.0, 1.5, 2.2)[staerke - 1]
     weich = cv2.GaussianBlur(bild, (0, 0), 1.0)
-    return cv2.addWeighted(bild, 1.6, weich, -0.6, 0)
+    return cv2.addWeighted(bild, 1.0 + menge, weich, -menge, 0)
 
 
 def _sauvola(grau: Any, fenster: int, k: float = 0.2, r: float = 128.0) -> Any:
@@ -526,15 +537,15 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
     if a.farbe_entfernen:
         aus = _farbe_entfernen(aus)
     if a.entrauschen:
-        aus = _entrausche(aus)
+        aus = _entrausche(aus, a.entrauschen_staerke)
     if a.kontrast:
-        aus = _kontrast(aus)
+        aus = _kontrast(aus, a.kontrast_staerke)
     if a.hochskalieren > 1:
         aus = _hochskaliere(aus, a.hochskalieren, a.textmodus)
     elif a.textmodus:
         aus = textverfeinerung(aus, 1)
     if a.schaerfen and not a.textmodus:
-        aus = _schaerfe(aus)
+        aus = _schaerfe(aus, a.schaerfen_staerke)
     if a.hintergrund and not a.textmodus:
         aus = _hintergrund(aus)
     if a.linien_entfernen:
@@ -600,11 +611,18 @@ def seite_ersetzen(doc: pymupdf.Document, nummer: int, a: Aufbereitung, dpi: int
     return seiten_ersetzen([doc], nummer, a, dpi)
 
 
-def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100) -> bytes:
-    """The processed page as PNG for the before/after view, masks included.  Not
-    enlarged, so that both views stay the same size; the letter mode is shown at 1×."""
-    aus, _breite, _skala = _verarbeite(page, a, dpi, mit_hochskalieren=False)
-    return als_png(aus)
+def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100,
+                 max_pixel: int = 3000) -> tuple[bytes, float]:
+    """The processed page as PNG for the before/after view, masks included, and its
+    pixels per point.  Upscaling is shown: the rendering resolution is lowered so that
+    the enlarged image stays below ``max_pixel`` on its long side; the view scales it
+    back to the size of the original, so zooming in reveals the gain."""
+    f = max(1, a.hochskalieren)
+    if f > 1:
+        lang = max(page.rect.width, page.rect.height) / 72.0  # inches
+        dpi = max(36, min(dpi, int(max_pixel / (f * lang))))
+    aus, _breite, skala = _verarbeite(page, a, dpi, mit_hochskalieren=True)
+    return als_png(aus), skala
 
 
 def _np_zu_pixmap(bild: Any) -> pymupdf.Pixmap:

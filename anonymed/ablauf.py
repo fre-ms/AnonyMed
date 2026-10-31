@@ -62,6 +62,7 @@ class Ablaufoptionen:
     ziel_ordner: Path | None = None
     abgleich: str | None = None  # decision for an uncertain match: "neu" or "gleich:<KENNUNG>"
     ocr: str = "auto"  # "auto", "rapidocr", "tesseract" or "aus"
+    ocr_sprachen: str = ""  # language packs: "deu+eng" (Tesseract) or "de", "latin" (RapidOCR)
     ocr_dpi: int = ocrmodul.OCR_DPI
     codes: bool = True  # blank barcodes and QR codes (extra "codes")
     unlesbar: str = "schwaerzen"  # lines OCR could not read: "schwaerzen" or "lassen"
@@ -84,6 +85,7 @@ class Ablaufoptionen:
             "dpi": self.schwaerzen.dpi if self.schwaerzen.rastern else None,
             "vermerk": self.schwaerzen.vermerk,
             "ocr": self.ocr,
+            "ocr_sprachen": self.ocr_sprachen,
             "codes": self.codes,
             "ner": self.ner,
             "fachbegriffe": self.fachbegriffe,
@@ -142,7 +144,9 @@ class Vorlage:
     def seitenbild(self, nummer: int, dpi: int = 100) -> bytes:
         return self.doc[nummer].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
 
-    def vorschau(self, nummer: int, a: aufmodul.Aufbereitung, dpi: int = 100) -> bytes:
+    def vorschau(self, nummer: int, a: aufmodul.Aufbereitung,
+                 dpi: int = 100) -> tuple[bytes, float]:
+        """PNG of the processed page and its pixels per point."""
         return aufmodul.vorschau_png(self.doc[nummer], a, dpi)
 
     def seitenbreite(self, nummer: int, a: aufmodul.Aufbereitung) -> float:
@@ -207,17 +211,15 @@ class _Seite:
     ocr_filter: object = None  # letter-aware finish applied before the engine
 
 
-def _lese_seiten(
-    doc: pymupdf.Document, regeln: list[Regel], ziele: list[Ziel], opt: Ablaufoptionen,
-    backend: ocrmodul.OCRBackend | None, vergabe: Pseudonymvergabe | None = None,
-    ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
-    verschont: list[str] | None = None,
+def _lese_roh(
+    doc: pymupdf.Document, opt: Ablaufoptionen, backend: ocrmodul.OCRBackend | None,
     plaene: dict[int, aufmodul.Aufbereitung] | None = None,
 ) -> tuple[list[_Seite], list[int]]:
-    """Text layer and, where needed and possible, OCR per page; returns the pages and
-    the numbers (1-based) of pages that needed OCR but got none.  ``plaene`` holds the
-    clean-up of pages: an upscaled page is read at that multiple of the OCR resolution
-    (capped), a page in letter mode gets the letter-aware finish before the engine."""
+    """Read every page: text layer and, where needed and possible, OCR.  No detection
+    yet.  Returns the pages and the numbers (1-based) of pages that needed OCR but got
+    none.  ``plaene`` holds the clean-up of pages: an upscaled page is read at that
+    multiple of the OCR resolution (capped), a page in letter mode gets the letter-aware
+    finish before the engine."""
     seiten: list[_Seite] = []
     ohne_text: list[int] = []
     for i, page in enumerate(doc):
@@ -229,13 +231,6 @@ def _lese_seiten(
         eintrag.ocr_max_pixel = min(ocrmodul.MAX_PIXEL * faktor, 9000)
         if plan is not None and plan.textmodus:
             eintrag.ocr_filter = functools.partial(aufmodul.textverfeinerung, faktor=faktor)
-        eintrag.fundstellen = finde(textebene, regeln)
-        if fachbegriffe is not None and textebene.hat_textebene:
-            _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
-        if ner is not None and vergabe is not None and textebene.hat_textebene:
-            neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
-                                      fachbegriffe, verschont)
-            eintrag.fundstellen += neue
         if ocrmodul.braucht_ocr(page, textebene):
             if backend is None:
                 ohne_text.append(i + 1)
@@ -243,28 +238,82 @@ def _lese_seiten(
                 eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, eintrag.ocr_dpi,
                                                      max_pixel=eintrag.ocr_max_pixel,
                                                      filter_=eintrag.ocr_filter)
-                if fachbegriffe is not None:
-                    _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
-                genau = finde(eintrag.ocr, regeln)
-                for f in genau:
-                    f.quelle = "ocr"
-                eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau,
-                                                              fachbegriffe)
-                if ner is not None and vergabe is not None:
-                    ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
-                    neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr",
-                                              fachbegriffe, verschont)
-                    eintrag.fundstellen = [f for f in eintrag.fundstellen
-                                           if f.quelle != "ocr" or f in ocr_treffer] + neue
-                if opt.unlesbar == "schwaerzen":
-                    belegt = [(f.start, f.ende) for f in eintrag.fundstellen if f.quelle == "ocr"]
-                    for u in ocrmodul.unlesbare_regionen(eintrag.ocr):
-                        if not any(u.start < y and u.ende > x for x, y in belegt):
-                            eintrag.fundstellen.append(u)
-        if opt.codes and codemodul.verfuegbar():
-            eintrag.fundstellen += codemodul.finde_codes(page, i)
         seiten.append(eintrag)
     return seiten, ohne_text
+
+
+def _erkenne_seiten(
+    doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel], ziele: list[Ziel],
+    opt: Ablaufoptionen, vergabe: Pseudonymvergabe | None = None,
+    ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
+    verschont: list[str] | None = None,
+) -> None:
+    """Run the detection over pages that were read already: rules, vocabulary marks,
+    NER on the text layer; on OCR text additionally the fuzzy search and the unreadable
+    lines; codes on the page image; the user's corrected text as text-only hits."""
+    for eintrag in seiten:
+        page = doc[eintrag.nummer]
+        textebene = eintrag.text
+        eintrag.fundstellen = finde(textebene, regeln)
+        eintrag.fachrects, eintrag.fachspannen, eintrag.fachanzahl = [], [], 0
+        if fachbegriffe is not None and textebene.hat_textebene:
+            _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
+        if ner is not None and vergabe is not None and textebene.hat_textebene:
+            neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
+                                      fachbegriffe, verschont)
+            eintrag.fundstellen += neue
+        if eintrag.ocr is not None:
+            if fachbegriffe is not None:
+                _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
+            genau = finde(eintrag.ocr, regeln)
+            for f in genau:
+                f.quelle = "ocr"
+            eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau, fachbegriffe)
+            if ner is not None and vergabe is not None:
+                ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
+                neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr",
+                                          fachbegriffe, verschont)
+                eintrag.fundstellen = [f for f in eintrag.fundstellen
+                                       if f.quelle != "ocr" or f in ocr_treffer] + neue
+            if opt.unlesbar == "schwaerzen":
+                belegt = [(f.start, f.ende) for f in eintrag.fundstellen if f.quelle == "ocr"]
+                for u in ocrmodul.unlesbare_regionen(eintrag.ocr):
+                    if not any(u.start < y and u.ende > x for x, y in belegt):
+                        eintrag.fundstellen.append(u)
+            if eintrag.korrektur is not None:
+                eintrag.korrektur_treffer = _korrektur_treffer(eintrag, regeln, ziele, opt,
+                                                               fachbegriffe)
+        if opt.codes and codemodul.verfuegbar():
+            eintrag.fundstellen += codemodul.finde_codes(page, eintrag.nummer)
+
+
+def _gemerkte_verwerfen(seiten: list[_Seite], gemerkt: set[tuple[str, str]]) -> list[Fundstelle]:
+    """Move hits the user discarded in an earlier session (same rule and text) out of
+    the pages; they come back green and can be restored."""
+    verworfen: list[Fundstelle] = []
+    if not gemerkt:
+        return verworfen
+    for s in seiten:
+        for f in list(s.fundstellen):
+            if f.text and toleranzschluessel(f.regel, f.text) in gemerkt:
+                s.fundstellen.remove(f)
+                verworfen.append(f)
+    return verworfen
+
+
+def _korrektur_treffer(eintrag: _Seite, regeln: list[Regel], ziele: list[Ziel],
+                       opt: Ablaufoptionen,
+                       fachbegriffe: fachmodul.Fachbegriffe | None) -> list[Fundstelle]:
+    """Rules and fuzzy search over the user's corrected OCR text: text-only hits."""
+    assert eintrag.korrektur is not None
+    seite = textmodul.textseite(eintrag.korrektur, eintrag.nummer)
+    treffer = finde(seite, regeln)
+    if opt.unscharf_text:
+        treffer += finde_unscharf(seite, ziele, treffer, fachbegriffe, grossschreibung=True)
+    for f in treffer:
+        f.quelle = "korrektur"
+        f.rects = []
+    return treffer
 
 
 def _merke_fachbegriffe(eintrag: _Seite, seite: Seitentext,
@@ -459,17 +508,10 @@ class Vorbereitung:
             s.korrektur, s.korrektur_treffer = None, []
             return []
         s.korrektur = text
-        seite = textmodul.textseite(text, nummer)
-        treffer = finde(seite, self.regeln)
-        if self.opt.unscharf_text:
-            fach = fachmodul.standard() if self.opt.fachbegriffe else None
-            treffer += finde_unscharf(seite, self.ziele, treffer, fach, grossschreibung=True)
-        for f in treffer:
-            f.quelle = "korrektur"
-            f.rects = []
-        s.korrektur_treffer = treffer
+        fach = fachmodul.standard() if self.opt.fachbegriffe else None
+        s.korrektur_treffer = _korrektur_treffer(s, self.regeln, self.ziele, self.opt, fach)
         self.version += 1
-        return treffer
+        return s.korrektur_treffer
 
     @property
     def korrektur_treffer(self) -> list[Fundstelle]:
@@ -573,6 +615,154 @@ def _ner_warnung(r: _Ruestzeug, fundstellen: list[Fundstelle], verschont: list[s
             " NER rät, Treffer im Prüfschritt ansehen.")
 
 
+@dataclass
+class Lesung:
+    """The reading phase: the pages of a PDF or image are read (text layer, OCR after
+    the clean-up) but not yet searched.  The desktop lets the user check and correct
+    the recognised text here before :func:`analysiere` looks for identifiers."""
+
+    ist_text: ClassVar[bool] = False
+
+    quelle: Path
+    opt: Ablaufoptionen
+    doc: pymupdf.Document
+    original: pymupdf.Document
+    backend: ocrmodul.OCRBackend | None
+    seiten: list[_Seite]
+    ohne_text: list[int]
+    plan: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
+    warnungen: list[str] = field(default_factory=list)
+    verbraucht: bool = False
+
+    @property
+    def seitenzahl(self) -> int:
+        return len(self.seiten)
+
+    @property
+    def ocr_seiten(self) -> list[int]:
+        return [s.nummer + 1 for s in self.seiten if s.ocr is not None]
+
+    def hat_ocr(self, nummer: int) -> bool:
+        return self.seiten[nummer].ocr is not None
+
+    def seitenbild(self, nummer: int, dpi: int = 100) -> bytes:
+        """PNG of the page as the OCR saw it (cleaned up)."""
+        return self.doc[nummer].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
+
+    def text(self, nummer: int) -> str:
+        """Text of the page: the (corrected) OCR text for OCR pages, else the text layer."""
+        s = self.seiten[nummer]
+        if s.ocr is not None:
+            return s.korrektur if s.korrektur is not None else s.ocr.text
+        return s.text.text
+
+    def ocr_text(self, nummer: int) -> str:
+        s = self.seiten[nummer]
+        if s.korrektur is not None:
+            return s.korrektur
+        return s.ocr.text if s.ocr is not None else ""
+
+    def setze_ocr_text(self, nummer: int, text: str) -> None:
+        """Keep the user's correction of the OCR text; the same text as read resets it."""
+        s = self.seiten[nummer]
+        if s.ocr is None:
+            raise ValueError("Diese Seite hat keinen OCR-Text.")
+        s.korrektur = None if text.strip() == s.ocr.text.strip() else text
+
+    def schliessen(self) -> None:
+        for d in (self.doc, self.original):
+            try:
+                d.close()
+            except Exception:  # already closed
+                pass
+
+
+def lese(
+    pfad: str | Path,
+    opt: Ablaufoptionen | None = None,
+    aufbereitung: dict[int, aufmodul.Aufbereitung] | None = None,
+) -> Lesung:
+    """Reading phase for a PDF or image: clean-up, text layer, OCR.  No patient needed."""
+    opt = opt or Ablaufoptionen()
+    quelle = Path(pfad)
+    backend = ocrmodul.backend(opt.ocr, opt.ocr_sprachen)
+    doc = oeffne(quelle)
+    original = oeffne(quelle)
+    try:
+        plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
+        for nummer in sorted(plan):
+            aufmodul.seiten_ersetzen([doc, original], nummer, plan[nummer], opt.ocr_dpi)
+        seiten, ohne_text = _lese_roh(doc, opt, backend, plan)
+    except Exception:
+        doc.close()
+        original.close()
+        raise
+    warnungen: list[str] = []
+    for nummer in sorted(plan):
+        warnungen.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
+                         f" {aufmodul.beschreibung(plan[nummer])}.")
+    if ohne_text:
+        warnungen.append(
+            "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
+            + " – OCR-Backend installieren (Extra 'ocr' oder Tesseract) oder --ocr prüfen."
+        )
+    ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
+    if ocr_seiten:
+        unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
+        warnungen.append(
+            f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
+            f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter)."
+            " Handschrift wird nicht erkannt; erkannten Text und Vorschaubilder prüfen."
+        )
+    return Lesung(quelle=quelle, opt=opt, doc=doc, original=original, backend=backend,
+                  seiten=seiten, ohne_text=ohne_text, plan=plan, warnungen=warnungen)
+
+
+def analysiere(
+    lesung: Lesung,
+    patient: Patient,
+    opt: Ablaufoptionen | None = None,
+    speicher: Pseudonymspeicher | None = None,
+) -> Vorbereitung:
+    """Detection phase over a :class:`Lesung`: rules, vocabulary, fuzzy search, NER,
+    codes, unreadable lines, the corrected OCR text.  Takes over the documents of the
+    reading (which must not be used afterwards)."""
+    if lesung.verbraucht:
+        raise RuntimeError("Diese Lesung wurde bereits analysiert.")
+    opt = opt or lesung.opt
+    eigener_speicher = speicher is None
+    speicher = speicher or Pseudonymspeicher()
+    try:
+        r = _ruestzeug(patient, opt, speicher)
+        verschont: list[str] = []
+        _erkenne_seiten(lesung.doc, lesung.seiten, r.regeln, r.ziele, opt, r.vergabe, r.ner,
+                        r.fachbegriffe, verschont)
+    except Exception:
+        if eigener_speicher:
+            speicher.close()
+        raise
+    lesung.verbraucht = True
+    seiten = lesung.seiten
+    warnungen = list(r.warnungen) + list(lesung.warnungen)
+    hinweis = _ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont)
+    if hinweis:
+        warnungen.append(hinweis)
+    unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
+    if unlesbar:
+        warnungen.append(f"{unlesbar} unlesbare OCR-Zeile(n) vorsorglich geschwärzt.")
+    verworfen = _gemerkte_verwerfen(seiten, speicher.verworfene(patient))
+    if verworfen:
+        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
+                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
+    return Vorbereitung(
+        quelle=lesung.quelle, patient=patient, opt=opt, speicher=speicher,
+        eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
+        regeln=r.regeln, ziele=r.ziele, backend=lesung.backend, doc=lesung.doc,
+        original=lesung.original, seiten=seiten, ohne_text=lesung.ohne_text,
+        warnungen=warnungen, aufbereitet=lesung.plan, verworfen=verworfen,
+    )
+
+
 def vorbereiten(
     pfad: str | Path,
     patient: Patient,
@@ -582,85 +772,31 @@ def vorbereiten(
 ) -> Vorbereitung | Textvorbereitung:
     """Phase one of :func:`anonymisiere`: read the file and find the hits.
 
-    PDFs and images yield a :class:`Vorbereitung`, text files (``.txt``,
-    ``.md``, ``.srt``, ``.vtt``) a :class:`Textvorbereitung`.  ``aufbereitung``
-    (per page, 0-based) replaces image-only pages by their cleaned-up image
-    before OCR; without it the suggestion is applied when ``opt.aufbereiten``
-    is "auto".
+    PDFs and images yield a :class:`Vorbereitung` (reading and detection in one go,
+    see :func:`lese` and :func:`analysiere` for the two halves), text files
+    (``.txt``, ``.md``, ``.srt``, ``.vtt``, ``.json``, ``.eml``) a
+    :class:`Textvorbereitung`.  ``aufbereitung`` (per page, 0-based) replaces
+    image-only pages by their cleaned-up image before OCR; without it the suggestion
+    is applied when ``opt.aufbereiten`` is "auto".
     """
     opt = opt or Ablaufoptionen()
     quelle = Path(pfad)
-    eigener_speicher = speicher is None
-    speicher = speicher or Pseudonymspeicher()
-    try:
-        r = _ruestzeug(patient, opt, speicher)
-        if textmodul.ist_textdatei(quelle):
-            return _vorbereiten_text(quelle, patient, opt, speicher, eigener_speicher, r)
-        verschont: list[str] = []
-        backend = ocrmodul.backend(opt.ocr)
-        doc = oeffne(quelle)
-        original = oeffne(quelle)
+    if textmodul.ist_textdatei(quelle):
+        eigener_speicher = speicher is None
+        speicher = speicher or Pseudonymspeicher()
         try:
-            plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
-            for nummer in sorted(plan):
-                aufmodul.seiten_ersetzen([doc, original], nummer, plan[nummer], opt.ocr_dpi)
-            seiten, ohne_text = _lese_seiten(doc, r.regeln, r.ziele, opt, backend, r.vergabe,
-                                             r.ner, r.fachbegriffe, verschont, plan)
+            r = _ruestzeug(patient, opt, speicher)
+            return _vorbereiten_text(quelle, patient, opt, speicher, eigener_speicher, r)
         except Exception:
-            doc.close()
-            original.close()
+            if eigener_speicher:
+                speicher.close()
             raise
+    lesung = lese(quelle, opt, aufbereitung)
+    try:
+        return analysiere(lesung, patient, opt, speicher)
     except Exception:
-        if eigener_speicher:
-            speicher.close()
+        lesung.schliessen()
         raise
-    warnungen = list(r.warnungen)
-    for nummer in sorted(plan):
-        warnungen.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
-                         f" {aufmodul.beschreibung(plan[nummer])}.")
-    verworfen = _gemerkte_verwerfen(seiten, speicher.verworfene(patient))
-    if verworfen:
-        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
-                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
-    if ohne_text:
-        warnungen.append(
-            "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
-            + " – OCR-Backend installieren (Extra 'ocr' oder Tesseract) oder --ocr prüfen."
-        )
-    ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
-    hinweis = _ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont)
-    if hinweis:
-        warnungen.append(hinweis)
-    if ocr_seiten:
-        unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
-        unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
-        warnungen.append(
-            f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
-            f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter"
-            f", {unlesbar} unlesbare Zeilen geschwärzt)."
-            " Handschrift wird nicht erkannt; Vorschaubilder vor der Weitergabe prüfen."
-        )
-    return Vorbereitung(
-        quelle=quelle, patient=patient, opt=opt, speicher=speicher,
-        eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
-        regeln=r.regeln, ziele=r.ziele, backend=backend, doc=doc, original=original,
-        seiten=seiten, ohne_text=ohne_text, warnungen=warnungen, aufbereitet=plan,
-        verworfen=verworfen,
-    )
-
-
-def _gemerkte_verwerfen(seiten: list[_Seite], gemerkt: set[tuple[str, str]]) -> list[Fundstelle]:
-    """Move hits the user discarded in an earlier session (same rule and text) out of
-    the pages; they come back green and can be restored."""
-    verworfen: list[Fundstelle] = []
-    if not gemerkt:
-        return verworfen
-    for s in seiten:
-        for f in list(s.fundstellen):
-            if f.text and toleranzschluessel(f.regel, f.text) in gemerkt:
-                s.fundstellen.remove(f)
-                verworfen.append(f)
-    return verworfen
 
 
 # -- text files ------------------------------------------------------------------------------------

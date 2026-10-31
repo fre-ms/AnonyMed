@@ -13,6 +13,7 @@ from anonymed.gui.patient_seite import PatientSeite
 from anonymed.gui.pruefen_seite import PruefenSeite
 from anonymed.gui.rueckersetzen_seite import RueckersetzenSeite
 from anonymed.gui.sitzung import Sitzung
+from anonymed.gui.texterkennung_seite import TexterkennungSeite
 from anonymed.konfig import lade_einstellungen, speichere_einstellungen
 
 
@@ -25,6 +26,8 @@ class Hauptfenster(QMainWindow):
         self.tabs = QTabWidget()
         self.patient = PatientSeite(self.sitzung)
         self.dokumente = DokumenteSeite(self.sitzung)
+        self.texterkennung = TexterkennungSeite(self.sitzung)
+        self.texterkennung.laedt = lambda: self.dokumente.laedt
         self.analysieren = AnalysierenSeite(self.sitzung)
         self.analysieren.laedt = lambda: self.dokumente.laedt
         self.pruefen = PruefenSeite(self.sitzung)
@@ -32,15 +35,18 @@ class Hauptfenster(QMainWindow):
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
         for seite, titel in ((self.patient, self.tr("1 Patient")),
                              (self.dokumente, self.tr("2 Dokumente")),
-                             (self.analysieren, self.tr("3 Analysieren")),
-                             (self.pruefen, self.tr("4 Prüfen")),
-                             (self.export, self.tr("5 Exportieren")),
-                             (self.rueckersetzen, self.tr("6 Rückersetzen"))):
+                             (self.texterkennung, self.tr("3 Texterkennung")),
+                             (self.analysieren, self.tr("4 Analysieren")),
+                             (self.pruefen, self.tr("5 Prüfen")),
+                             (self.export, self.tr("6 Exportieren")),
+                             (self.rueckersetzen, self.tr("7 Rückersetzen"))):
             self.tabs.addTab(seite, titel)
         self.setCentralWidget(self.tabs)
         self.patient.uebernommen.connect(lambda _p: self.tabs.setCurrentWidget(self.dokumente))
-        self.dokumente.weiter.connect(lambda: self.tabs.setCurrentWidget(self.analysieren))
-        self.dokumente.geladen.connect(self.analysieren.aktualisiere)
+        self.dokumente.weiter.connect(lambda: self.tabs.setCurrentWidget(self.texterkennung))
+        self.dokumente.geladen.connect(self.texterkennung.aktualisiere)
+        self.texterkennung.weiter.connect(lambda: self.tabs.setCurrentWidget(self.analysieren))
+        self.texterkennung.gelesen.connect(self.analysieren.aktualisiere)
         self.analysieren.analysiert.connect(self._nach_analyse)
         self.tabs.currentChanged.connect(self._tab_gewechselt)
         self.statusBar().showMessage(self.tr(
@@ -71,6 +77,8 @@ class Hauptfenster(QMainWindow):
             self.rueckersetzen.aktualisiere()
         elif self.tabs.widget(index) is self.analysieren:
             self.analysieren.aktualisiere()
+        elif self.tabs.widget(index) is self.texterkennung:
+            self.texterkennung.aktualisiere()
         elif self.tabs.widget(index) is self.export:
             self.export.aktualisiere()
 
