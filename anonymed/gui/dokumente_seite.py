@@ -53,6 +53,7 @@ class Ablage(QListWidget):
 
 
 class DokumenteSeite(QWidget):
+    geladen = Signal()  # phase zero done: the main window decides whether to clean up first
     analysiert = Signal()
 
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
@@ -61,6 +62,7 @@ class DokumenteSeite(QWidget):
         self.synchron = False  # tests run the work inline
         self._arbeiter: Arbeiter | None = None
         self._warteschlange: list[Dokument] = []
+        self._phase = "laden"
         aussen = QVBoxLayout(self)
 
         self.liste = Ablage()
@@ -161,6 +163,12 @@ class DokumenteSeite(QWidget):
             if d.ergebnis.freigegeben:
                 return self.tr("freigegeben")
             return self.tr("nicht freigegeben")
+        if d.vorbereitung is None and d.vorlage is not None:
+            n = len(d.vorlage.kandidaten)
+            if n:
+                return self.tr("{seiten} Seite(n), {n} ohne Textebene: aufbereiten").format(
+                    seiten=d.vorlage.seitenzahl, n=n)
+            return self.tr("{seiten} Seite(n), geladen").format(seiten=d.vorlage.seitenzahl)
         if d.vorbereitung is not None:
             v = d.vorbereitung
             if v.ist_text:
@@ -201,6 +209,8 @@ class DokumenteSeite(QWidget):
         QMessageBox.information(self, titel, text)
 
     def analysieren(self) -> None:
+        """Phase zero for every pending document (open, suggest clean-up); the main
+        window then shows the clean-up step or goes straight to the analysis."""
         if self.sitzung.patient is None:
             self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst einen Patienten übernehmen."))
             return
@@ -208,6 +218,14 @@ class DokumenteSeite(QWidget):
             self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst Dokumente hinzufügen."))
             return
         self._optionen_uebernehmen()
+        self._phase = "laden"
+        self._warteschlange = [d for d in self.sitzung.dokumente
+                               if d.vorbereitung is None or d.vorbereitung.abgeschlossen]
+        self._naechstes()
+
+    def analysiere_alle(self) -> None:
+        """Phase one for every loaded document, with the clean-up the user chose."""
+        self._phase = "analysieren"
         self._warteschlange = [d for d in self.sitzung.dokumente
                                if d.vorbereitung is None or d.vorbereitung.abgeschlossen]
         self._naechstes()
@@ -216,20 +234,26 @@ class DokumenteSeite(QWidget):
         if not self._warteschlange:
             self.knopf.setEnabled(True)
             self.aktualisiere()
-            self.analysiert.emit()
+            if self._phase == "laden":
+                self.geladen.emit()
+            else:
+                self.analysiert.emit()
             return
         d = self._warteschlange[0]
         self.knopf.setEnabled(False)
-        self.status.setText(self.tr("Analysiere {name} …").format(name=d.pfad.name))
+        laden = self._phase == "laden"
+        self.status.setText((self.tr("Lade {name} …") if laden
+                             else self.tr("Analysiere {name} …")).format(name=d.pfad.name))
+        aufgabe = (lambda: self.sitzung.lade(d)) if laden else (lambda: self.sitzung.analysiere(d))
         if self.synchron:
             try:
-                self.sitzung.analysiere(d)
+                aufgabe()
             except Exception as e:  # noqa: BLE001 - shown to the user
                 self._fehler(e, d)
                 return
             self._fertig(d)
             return
-        self._arbeiter = Arbeiter(lambda: self.sitzung.analysiere(d), self)
+        self._arbeiter = Arbeiter(aufgabe, self)
         self._arbeiter.fertig.connect(lambda _r, d=d: self._fertig(d))
         self._arbeiter.fehler.connect(lambda e, d=d: self._fehler(e, d))
         self._arbeiter.start()

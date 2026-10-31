@@ -10,10 +10,13 @@ from anonymed.ablauf import (
     Ergebnis,
     Textvorbereitung,
     Vorbereitung,
+    Vorlage,
     abschliessen,
+    lade,
     vorbereiten,
 )
-from anonymed.dokument.textdatei import TEXTENDUNGEN
+from anonymed.dokument import aufbereitung as aufmodul
+from anonymed.dokument.textdatei import TEXTENDUNGEN, ist_textdatei
 from anonymed.kern.modell import Patient
 from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
 
@@ -21,9 +24,15 @@ from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
 @dataclass
 class Dokument:
     pfad: Path
+    vorlage: Vorlage | None = None  # phase zero: open, pages known, clean-up suggested
+    aufbereitung: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
     vorbereitung: Vorbereitung | Textvorbereitung | None = None
     ergebnis: Ergebnis | None = None
     fehler: str = ""
+
+    @property
+    def aufzubereiten(self) -> bool:
+        return self.vorlage is not None and bool(self.vorlage.kandidaten)
 
     @property
     def zustand(self) -> str:
@@ -37,6 +46,10 @@ class Dokument:
                 return f"Text, {len(v.fundstellen)} Treffer"
             ocr = f", OCR auf Seite(n) {', '.join(map(str, v.ocr_seiten))}" if v.ocr_seiten else ""
             return f"{len(v.seiten)} Seite(n), {len(v.fundstellen)} Treffer{ocr}"
+        if self.vorlage is not None:
+            n = len(self.vorlage.kandidaten)
+            return (f"{self.vorlage.seitenzahl} Seite(n), {n} ohne Textebene (aufbereiten)"
+                    if n else f"{self.vorlage.seitenzahl} Seite(n), geladen")
         return "noch nicht analysiert"
 
 
@@ -66,7 +79,25 @@ class Sitzung:
     def entferne(self, d: Dokument) -> None:
         if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen:
             d.vorbereitung.schliessen()
+        if d.vorlage is not None:
+            d.vorlage.schliessen()
         self.dokumente.remove(d)
+
+    def lade(self, d: Dokument) -> None:
+        """Phase zero for one document: open it and suggest the clean-up of its
+        image-only pages.  Text files have nothing to clean up."""
+        if d.vorlage is not None:
+            d.vorlage.schliessen()
+        d.vorlage, d.aufbereitung, d.vorbereitung, d.ergebnis, d.fehler = None, {}, None, None, ""
+        if ist_textdatei(d.pfad):
+            return
+        try:
+            d.vorlage = lade(d.pfad, self.optionen)
+        except Exception as e:
+            d.fehler = str(e)
+            raise
+        d.aufbereitung = {n: aufmodul.Aufbereitung(**{**a.__dict__, "masken": list(a.masken)})
+                          for n, a in d.vorlage.vorschlaege.items()}
 
     def analysiere(self, d: Dokument) -> None:
         """Phase one for one document; raises UnsichererAbgleich for the dialog."""
@@ -76,9 +107,11 @@ class Sitzung:
             d.vorbereitung.schliessen()
         d.vorbereitung, d.ergebnis, d.fehler = None, None, ""
         opt = Ablaufoptionen(**{**self.optionen.__dict__, "abgleich": self.abgleich})
+        aufbereitung = dict(d.aufbereitung) if d.vorlage is not None else None
         speicher = self.speicher()
         try:
-            d.vorbereitung = vorbereiten(d.pfad, self.patient, opt, speicher=speicher)
+            d.vorbereitung = vorbereiten(d.pfad, self.patient, opt, speicher=speicher,
+                                         aufbereitung=aufbereitung)
         except UnsichererAbgleich:
             speicher.close()
             raise
@@ -87,6 +120,9 @@ class Sitzung:
             d.fehler = str(e)
             raise
         d.vorbereitung.eigener_speicher = True  # the preparation owns and closes it
+        if d.vorlage is not None:
+            d.vorlage.schliessen()
+            d.vorlage = None
 
     def exportiere(self, d: Dokument) -> Ergebnis:
         if d.vorbereitung is None or d.vorbereitung.abgeschlossen:
@@ -101,3 +137,5 @@ class Sitzung:
         for d in self.dokumente:
             if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen:
                 d.vorbereitung.schliessen()
+            if d.vorlage is not None:
+                d.vorlage.schliessen()

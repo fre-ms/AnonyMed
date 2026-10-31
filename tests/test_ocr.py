@@ -10,6 +10,7 @@ import pymupdf
 import pytest
 
 from anonymed.ablauf import Ablaufoptionen, anonymisiere
+from anonymed.dokument import aufbereitung as aufmodul
 from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument.laden import oeffne
 from anonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
@@ -315,3 +316,39 @@ def test_ocr_text_korrigieren(tmp_path: Path, befund: Path, patient: Patient,
         text = d[0].get_text("text")
     assert "Zusatz:" in text and patient.ort not in text  # the invisible layer is the correction
     assert any(f["quelle"] == "korrektur" for f in erg.bericht.fundstellen)
+
+
+@braucht_backend
+@pytest.mark.skipif(not aufmodul.verfuegbar(), reason="OpenCV fehlt")
+def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient,
+                                  speicher: Pseudonymspeicher) -> None:
+    """A tilted, shadowed scan: the loading phase suggests straightening and background
+    clean-up, the pipeline applies it before OCR and records it; the hits are found."""
+    from anonymed.ablauf import lade
+
+    scan = _scan(befund, tmp_path / "scan.pdf", drehung=2.5)
+    vorlage = lade(scan)
+    assert vorlage.kandidaten == [0, 1] and not vorlage.foto
+    a = vorlage.vorschlaege[0]
+    assert a.begradigen and abs(abs(a.winkel) - 2.5) < 0.5, a
+    assert vorlage.vorschau(0, a).startswith(b"\x89PNG")
+    vorlage.schliessen()
+    assert lade(befund).kandidaten == []  # a text layer needs no clean-up
+    erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    assert any("aufbereitet" in w and "begradigt" in w for w in erg.bericht.warnungen)
+    assert erg.bericht.optionen["aufbereitung"]["1"]["begradigen"] is True
+    assert gefundene_klardaten(erg.text, patient) == [] and "Ramipril" in erg.text
+    ohne = anonymisiere(scan, patient, Ablaufoptionen(aufbereiten="aus", suffix="_roh"),
+                        speicher=speicher)
+    assert not any("aufbereitet" in w for w in ohne.bericht.warnungen)
+    assert "aufbereitung" not in ohne.bericht.optionen
+    # an explicit choice wins over the suggestion
+    from anonymed.ablauf import abschliessen, vorbereiten
+    from anonymed.dokument.aufbereitung import Aufbereitung
+
+    v = vorbereiten(scan, patient, Ablaufoptionen(suffix="_eigen"), speicher=speicher,
+                    aufbereitung={0: Aufbereitung(masken=[(56, 60, 400, 95)])})
+    assert set(v.aufbereitet) == {0} and v.aufbereitet[0].masken
+    erg3 = abschliessen(v)
+    assert erg3.freigegeben

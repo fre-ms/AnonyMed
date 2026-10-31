@@ -6,6 +6,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QTabWidget
 
 from anonymed import WERKZEUG
+from anonymed.gui.aufbereiten_seite import AufbereitenSeite
 from anonymed.gui.dokumente_seite import DokumenteSeite
 from anonymed.gui.export_seite import ExportSeite
 from anonymed.gui.patient_seite import PatientSeite
@@ -24,17 +25,21 @@ class Hauptfenster(QMainWindow):
         self.tabs = QTabWidget()
         self.patient = PatientSeite(self.sitzung)
         self.dokumente = DokumenteSeite(self.sitzung)
+        self.aufbereiten = AufbereitenSeite(self.sitzung)
         self.pruefen = PruefenSeite(self.sitzung)
         self.export = ExportSeite(self.sitzung)
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
         for seite, titel in ((self.patient, self.tr("1 Patient")),
                              (self.dokumente, self.tr("2 Dokumente")),
-                             (self.pruefen, self.tr("3 Prüfen")),
-                             (self.export, self.tr("4 Exportieren")),
-                             (self.rueckersetzen, self.tr("5 Rückersetzen"))):
+                             (self.aufbereiten, self.tr("3 Aufbereiten")),
+                             (self.pruefen, self.tr("4 Prüfen")),
+                             (self.export, self.tr("5 Exportieren")),
+                             (self.rueckersetzen, self.tr("6 Rückersetzen"))):
             self.tabs.addTab(seite, titel)
         self.setCentralWidget(self.tabs)
         self.patient.uebernommen.connect(lambda _p: self.tabs.setCurrentWidget(self.dokumente))
+        self.dokumente.geladen.connect(self._nach_laden)
+        self.aufbereiten.analysieren_gewuenscht.connect(self.dokumente.analysiere_alle)
         self.dokumente.analysiert.connect(self._nach_analyse)
         self.tabs.currentChanged.connect(self._tab_gewechselt)
         self.statusBar().showMessage(self.tr(
@@ -54,6 +59,15 @@ class Hauptfenster(QMainWindow):
         speichere_einstellungen(e)
         QMessageBox.information(self, self.tr("Sprache"), self.tr(
             "Die Sprache gilt ab dem nächsten Start von AnonyMed."))
+
+    def _nach_laden(self) -> None:
+        """Scans and photos go through the clean-up step first; everything else is
+        analysed right away."""
+        if any(d.aufzubereiten for d in self.sitzung.dokumente):
+            self.aufbereiten.aktualisiere()
+            self.tabs.setCurrentWidget(self.aufbereiten)
+        else:
+            self.dokumente.analysiere_alle()
 
     def _nach_analyse(self) -> None:
         self.pruefen.aktualisiere()

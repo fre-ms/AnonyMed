@@ -47,7 +47,7 @@ def test_blatt_im_foto_wird_gefunden(befund: Path) -> None:
                                     ziel)
     verzerrt = cv2.warpPerspective(bild, m, (w + 300, h + 300), dst=foto,
                                    borderMode=cv2.BORDER_TRANSPARENT)
-    ecken = auf.finde_ecken(verzerrt)
+    ecken = auf.finde_ecken(verzerrt)  # skala 1: corners in pixels
     assert ecken is not None and len(ecken) == 4
     for (x, y), (sx, sy) in zip(ecken, ziel, strict=True):
         assert abs(x - sx) < 12 and abs(y - sy) < 12, (ecken, ziel)
@@ -57,6 +57,7 @@ def test_blatt_im_foto_wird_gefunden(befund: Path) -> None:
     assert auf.finde_ecken(bild) is None  # a page that fills the image needs nothing
     v = auf.vorschlag(verzerrt, foto=True)
     assert v.entzerren and v.hintergrund and v.ecken is not None
+    assert "entzerrt" in auf.beschreibung(v) and "Hintergrund" in auf.beschreibung(v)
 
 
 def test_hochskalieren_hintergrund_masken(befund: Path) -> None:
@@ -75,9 +76,11 @@ def test_hochskalieren_hintergrund_masken(befund: Path) -> None:
     assert set(np.unique(sw)) <= {0, 255}
     maskiert = auf.wende_an(bild, auf.Aufbereitung(masken=[(10, 10, 60, 30)]), skala)
     assert maskiert[15:25, 15:55].max() == 0 and maskiert[100:, 100:].max() == 255
-    v = auf.vorschlag(bild)
+    v = auf.vorschlag(bild, aufloesung=120)
     assert v.hochskalieren == 2 and not v.entzerren and not v.begradigen
     assert v.als_dict()["hochskalieren"] == 2
+    assert auf.vorschlag(bild, aufloesung=300).hochskalieren == 1
+    assert auf.beschreibung(auf.Aufbereitung()) == "unverändert"
 
 
 def test_seite_ersetzen(befund: Path, tmp_path: Path) -> None:

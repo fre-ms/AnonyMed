@@ -44,7 +44,8 @@ uv run anonymed vorlage > patient.json                                          
 uv run anonymed anonymisieren befund.pdf --kontakt "Müller 1959"      # straight from the address book
 uv run anonymed anonymisieren befund.pdf --vcf export.vcf --nr 2      # from a vCard file
 uv run anonymed anonymisieren befund.pdf --patient patient.json       # from a patient file
-#    -> befund_anonym.pdf          redacted PDF, pseudonyms in place, metadata removed
+#    -> befund_anonym.pdf          redacted PDF with text layer, pseudonyms in place, metadata removed
+#    -> befund_anonym.md           optional Markdown (--markdown)
 #    -> befund_anonym.txt          text in reading order (paste this into the model)
 #    -> befund_anonym.bericht.json audit report without any clear data
 
@@ -62,6 +63,8 @@ uv run anonymed konfig            # version, pseudonym database and key file (ba
 Options of `anonymisieren`: `--datum alter` writes `[Alter 36]` instead of `[geb. 1990]`; `--rastern` produces an image-only PDF; `--ocr auto|rapidocr|tesseract|aus`; `--keine-codes`; `--vorschau auto|immer|nie`; `--kein-text`, `--kein-bericht`, `--ohne-vermerk`; `--ziel DIR`; `--speicher FILE` for a different pseudonym database; `--konfig FILE` for a different configuration file.
 
 ### Desktop interface
+
+Six steps as tabs: patient, documents, clean-up (scans and photos only), review, export, re-identify. The review uses traffic-light colours: red is everything that will be redacted (dashed when NER or the fuzzy search merely suggest it), yellow is text the OCR read with low confidence (unreadable lines are blanked as a precaution), green is what stays: protected medical terms and hits you discarded, which remain visible and can be restored with a click. Dragging on a page draws a box with a replacement text; with *Maske zeichnen* it draws a black mask that removes text and image under it and writes nothing. For OCR pages the recognised text is shown under the page and can be corrected by hand; *Text übernehmen* searches the corrected text again and uses it for the text file, the Markdown and the invisible text layer (what the OCR misread in the image is masked, not retyped).
 
 ```sh
 uv sync --extra gui        # PySide6 (Qt 6)
@@ -81,6 +84,8 @@ Options for the pseudonym store: `--schema hash` (default) or `--schema buchstab
 Exit codes: 0 released, 1 input error, 2 not released (check failed or page without text layer), 3 pseudonyms left unresolved after re-identification, 4 uncertain match in the pseudonym store (decide with `--gleich` or `--neu`).
 
 ### Scans and photos
+
+Before OCR, image-only pages go through a clean-up step (desktop tab *3 Aufbereiten*; on the command line `--aufbereiten auto`, the default, applies the suggestion): the tilt is estimated from the text lines and straightened, a sheet photographed against a background is found and unwarped, low-resolution images are upscaled, shadows and grey paper are evened out, pages can be rotated in 90° steps and turned black and white, and black masks can be drawn over regions the OCR must never see. Every step is a suggestion the user checks in a before/after view; the processed image replaces the page, so that OCR, redaction and output all work on the corrected page. Needs OpenCV and NumPy, which come with the `ocr` extra.
 
 Install the extras once: `uv sync --extra ocr --extra codes` (RapidOCR with bundled models, pillow-heif, zxing-cpp). A locally installed Tesseract (Homebrew, apt, the Windows installer) is found in the usual places even when the app starts from the Finder and is used when RapidOCR is missing or preferred (`--ocr tesseract`, `[ocr] backend = "tesseract"` in the configuration file, or `ANONYMED_OCR=tesseract`; `--ocr aus` disables OCR). German and English language packs are picked up when installed.
 

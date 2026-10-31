@@ -32,9 +32,9 @@ def verfuegbar() -> bool:
 
 @dataclass
 class Aufbereitung:
-    """What to do with one page.  Angles in degrees, corners and masks in pixels of
-    the rendered page at ``dpi`` (masks: ``(x0, y0, x1, y1)`` in points of the result
-    page, see :func:`seite_ersetzen`)."""
+    """What to do with one page.  Angles in degrees; corners in points of the source
+    page (after ``drehung``), masks as ``(x0, y0, x1, y1)`` in points of the result
+    page (see :func:`seite_ersetzen`)."""
 
     drehung: int = 0  # 0, 90, 180, 270 clockwise, applied first
     begradigen: bool = False  # rotate by -winkel
@@ -126,10 +126,10 @@ def schaetze_winkel(bild: Any, maximal: float = 10.0) -> float:
     return round(beste, 2) if abs(beste) >= 0.05 else 0.0
 
 
-def finde_ecken(bild: Any) -> list[Ecke] | None:
+def finde_ecken(bild: Any, skala: float = 1.0) -> list[Ecke] | None:
     """The four corners of a sheet photographed against a background, ordered
-    top-left, top-right, bottom-right, bottom-left; None when no convincing
-    quadrilateral is found (a scan that fills the image, for instance)."""
+    top-left, top-right, bottom-right, bottom-left, in points (pixels / ``skala``);
+    None when no convincing quadrilateral is found (a scan that fills the image)."""
     import cv2
     import numpy as np
 
@@ -152,7 +152,7 @@ def finde_ecken(bild: Any) -> list[Ecke] | None:
             beste, beste_flaeche = naeherung.reshape(4, 2).astype(np.float64), flaeche
     if beste is None or beste_flaeche > 0.97 * w * h:
         return None  # nothing, or the whole image: no correction needed
-    beste /= f
+    beste /= f * skala
     summe = beste.sum(axis=1)
     diff = np.diff(beste, axis=1).ravel()
     geordnet = [beste[np.argmin(summe)], beste[np.argmin(diff)], beste[np.argmax(summe)],
@@ -170,32 +170,66 @@ def hintergrund_ungleich(bild: Any) -> bool:
     return bool(np.std(hintergrund) > 12 or np.median(hintergrund) < 215)
 
 
-def vorschlag(bild: Any, foto: bool = False) -> Aufbereitung:
+def native_dpi(page: pymupdf.Page) -> float | None:
+    """Resolution of the largest image on the page, or None without images."""
+    beste: float | None = None
+    for info in page.get_image_info():
+        bbox = pymupdf.Rect(info["bbox"]) & page.rect
+        if bbox.width < 20 or bbox.height < 20:
+            continue
+        dpi = info["width"] / (bbox.width / 72.0)
+        if beste is None or dpi > beste:
+            beste = dpi
+    return beste
+
+
+def vorschlag(bild: Any, foto: bool = False, skala: float = 1.0,
+              aufloesung: float | None = None) -> Aufbereitung:
     """Automatic suggestion for one page: straighten a visible tilt, unwarp a
-    photographed sheet, upscale small images, even out an uneven background."""
+    photographed sheet, upscale low-resolution images, even out an uneven background.
+    ``skala`` is pixels per point of ``bild``, ``aufloesung`` the native dpi."""
     a = Aufbereitung()
-    h, w = bild.shape[:2]
     if foto:
-        ecken = finde_ecken(bild)
+        ecken = finde_ecken(bild, skala)
         if ecken is not None:
             a.ecken, a.entzerren = ecken, True
-    grundlage = wende_an(bild, Aufbereitung(entzerren=a.entzerren, ecken=a.ecken)) \
+    grundlage = wende_an(bild, Aufbereitung(entzerren=a.entzerren, ecken=a.ecken), skala) \
         if a.entzerren else bild
     a.winkel = schaetze_winkel(grundlage)
     a.begradigen = abs(a.winkel) >= 0.3
-    a.hochskalieren = 2 if min(h, w) < 1500 else 1
+    a.hochskalieren = 2 if aufloesung is not None and aufloesung < 150 else 1
     a.hintergrund = foto or hintergrund_ungleich(grundlage)
     return a
+
+
+def beschreibung(a: Aufbereitung) -> str:
+    """What a page clean-up does, for reports and the interface."""
+    teile = []
+    if a.drehung:
+        teile.append(f"um {a.drehung}° gedreht")
+    if a.entzerren and a.ecken:
+        teile.append("entzerrt")
+    if a.begradigen and abs(a.winkel) >= 0.05:
+        teile.append(f"begradigt ({a.winkel:+.1f}°)".replace(".", ","))
+    if a.hochskalieren > 1:
+        teile.append(f"{a.hochskalieren}× hochskaliert")
+    if a.hintergrund:
+        teile.append("Hintergrund geglättet")
+    if a.schwarzweiss:
+        teile.append("Schwarz-Weiß")
+    if a.masken:
+        teile.append(f"{len(a.masken)} Maske(n)")
+    return ", ".join(teile) if teile else "unverändert"
 
 
 # -- application ---------------------------------------------------------------------------------
 
 
-def _entzerre(bild: Any, ecken: list[Ecke]) -> Any:
+def _entzerre(bild: Any, ecken: list[Ecke], skala: float) -> Any:
     import cv2
     import numpy as np
 
-    quelle = np.array(ecken, dtype=np.float32)
+    quelle = np.array(ecken, dtype=np.float32) * skala
     (ol, orr, ur, ul) = quelle
     breite = int(max(np.linalg.norm(orr - ol), np.linalg.norm(ur - ul)))
     hoehe = int(max(np.linalg.norm(ul - ol), np.linalg.norm(ur - orr)))
@@ -237,9 +271,10 @@ def _hintergrund(bild: Any) -> Any:
     return np.clip(norm, 0, 255).astype(np.uint8)
 
 
-def wende_an(bild: Any, a: Aufbereitung, skala: float | None = None) -> Any:
+def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
     """Apply the steps in their fixed order: rotate, unwarp, straighten, upscale,
-    background, black-and-white, masks (masks need ``skala`` pixels per point)."""
+    background, black-and-white, masks.  ``skala`` is pixels per point of ``bild``
+    (corners) and of the result (masks)."""
     import cv2
     import numpy as np
 
@@ -248,7 +283,7 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float | None = None) -> Any:
         aus = cv2.rotate(aus, {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180,
                                270: cv2.ROTATE_90_COUNTERCLOCKWISE}[a.drehung])
     if a.entzerren and a.ecken and len(a.ecken) == 4:
-        aus = _entzerre(aus, a.ecken)
+        aus = _entzerre(aus, a.ecken, skala)
     if a.begradigen and abs(a.winkel) >= 0.05:
         aus = _drehe(aus, a.winkel)  # counter-clockwise by the tilt
     if a.hochskalieren > 1:
@@ -260,7 +295,7 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float | None = None) -> Any:
         grau = _grau(aus)
         aus = cv2.adaptiveThreshold(grau, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                     cv2.THRESH_BINARY, 31, 15)
-    if a.masken and skala:
+    if a.masken:
         if aus.ndim == 2:
             aus = cv2.cvtColor(aus, cv2.COLOR_GRAY2BGR)
         else:
@@ -280,35 +315,41 @@ def als_png(bild: Any) -> bytes:
     return bytes(puffer)
 
 
-def seite_ersetzen(doc: pymupdf.Document, nummer: int, a: Aufbereitung, dpi: int = 300) -> float:
-    """Replace page ``nummer`` by its processed image.  The page keeps its width in
-    points; the height follows the image.  Returns the pixels-per-point scale of
-    the new page (needed to place masks that were drawn in page points)."""
-    page = doc[nummer]
+def _verarbeite(page: pymupdf.Page, a: Aufbereitung, dpi: int) -> tuple[Any, float, float]:
+    """Processed image of ``page``, its width in points and its pixels per point."""
     bild, skala = rendere(page, dpi)
     schritte = Aufbereitung(**{**a.__dict__, "masken": []})
-    aus = wende_an(bild, schritte)
-    breite = page.rect.width if a.drehung in (0, 180) else page.rect.height
-    h, w = aus.shape[:2]
-    neue_skala = w / breite
-    if a.masken:
-        aus = wende_an(aus, Aufbereitung(masken=a.masken), neue_skala)
-    hoehe = h / neue_skala
-    neu = doc.new_page(pno=nummer, width=breite, height=hoehe)
-    neu.insert_image(neu.rect, stream=als_png(aus))
-    doc.delete_page(nummer + 1)
-    return neue_skala
-
-
-def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100) -> bytes:
-    """The processed page as PNG for the before/after view, masks included."""
-    bild, skala = rendere(page, dpi)
-    schritte = Aufbereitung(**{**a.__dict__, "masken": []})
-    aus = wende_an(bild, schritte)
+    aus = wende_an(bild, schritte, skala)
     breite = page.rect.width if a.drehung in (0, 180) else page.rect.height
     neue_skala = aus.shape[1] / breite
     if a.masken:
         aus = wende_an(aus, Aufbereitung(masken=a.masken), neue_skala)
+    return aus, breite, neue_skala
+
+
+def seiten_ersetzen(docs: list[pymupdf.Document], nummer: int, a: Aufbereitung,
+                    dpi: int = 300) -> float:
+    """Replace page ``nummer`` in every document of ``docs`` (copies of the same file)
+    by its processed image, rendered once from the first.  The page keeps its width
+    in points; the height follows the image.  Returns the pixels per point of the
+    new page."""
+    aus, breite, neue_skala = _verarbeite(docs[0][nummer], a, dpi)
+    png = als_png(aus)
+    hoehe = aus.shape[0] / neue_skala
+    for doc in docs:
+        neu = doc.new_page(pno=nummer, width=breite, height=hoehe)
+        neu.insert_image(neu.rect, stream=png)
+        doc.delete_page(nummer + 1)
+    return neue_skala
+
+
+def seite_ersetzen(doc: pymupdf.Document, nummer: int, a: Aufbereitung, dpi: int = 300) -> float:
+    return seiten_ersetzen([doc], nummer, a, dpi)
+
+
+def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100) -> bytes:
+    """The processed page as PNG for the before/after view, masks included."""
+    aus, _breite, _skala = _verarbeite(page, a, dpi)
     return als_png(aus)
 
 

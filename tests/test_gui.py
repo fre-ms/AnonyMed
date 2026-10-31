@@ -12,6 +12,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from anonymed.dokument import aufbereitung as aufmodul
+from anonymed.dokument import ocr as ocrmodul
 from anonymed.gui.hauptfenster import Hauptfenster  # noqa: E402
 from anonymed.gui.patient_seite import _personen  # noqa: E402
 from anonymed.gui.sitzung import Sitzung  # noqa: E402
@@ -257,7 +259,8 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
     try:
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
-        assert tabs == ["1 Patient", "2 Documents", "3 Review", "4 Export", "5 Re-identify"]
+        assert tabs == ["1 Patient", "2 Documents", "3 Clean up", "4 Review", "5 Export",
+                    "6 Re-identify"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()
@@ -265,4 +268,58 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
         qapp.removeTranslator(uebersetzer)
     fenster = Hauptfenster(Sitzung(speicherpfad=None))
     assert fenster.tabs.tabText(1) == "2 Dokumente"
+    fenster.close()
+
+
+@pytest.mark.skipif(not ocrmodul.verfuegbare_backends() or not aufmodul.verfuegbar(),
+                    reason="OCR-Backend oder OpenCV fehlt")
+def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
+                             patient: Patient) -> None:
+    """A tilted scan goes through the clean-up step: suggestion shown, user adjusts,
+    analysis runs on the corrected page, the review follows."""
+    from tests.test_ocr import _scan
+
+    scan = _scan(befund, tmp_path / "scan.pdf", drehung=2.0)
+    sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
+    fenster = Hauptfenster(sitzung)
+    fenster.dokumente.synchron = True
+    fenster.export.synchron = True
+    fenster.patient.fuelle(patient)
+    fenster.patient.uebernehmen()
+    fenster.dokumente.hinzufuegen([scan])
+    fenster.dokumente.analysieren()
+    qapp.processEvents()
+    d = sitzung.dokumente[0]
+    assert d.vorlage is not None and d.vorlage.kandidaten == [0, 1]
+    assert fenster.tabs.currentWidget() is fenster.aufbereiten
+    au = fenster.aufbereiten
+    assert au.baum.topLevelItemCount() == 1 and au.dokument is d and au.seite == 0
+    a = au.einstellung()
+    assert a is not None and a.begradigen and abs(abs(a.winkel) - 2.0) < 0.5, a
+    assert "begradigt" in au.hinweis.text()
+    au.hintergrund.setChecked(True)
+    au.maske((56, 60, 300, 90))
+    assert d.aufbereitung[0].hintergrund and len(d.aufbereitung[0].masken) == 1
+    au.auf_alle_uebertragen()
+    assert d.aufbereitung[1].hintergrund
+    au.drehe(90)
+    assert d.aufbereitung[0].drehung == 90 and not d.aufbereitung[0].masken
+    au.drehe(270)
+    au.nichts_aufbereiten()
+    assert not d.aufbereitung[0].aktiv
+    au.vorschlag_wiederherstellen()
+    assert d.aufbereitung[0].begradigen
+    au.weiter.click()
+    qapp.processEvents()
+    assert d.vorbereitung is not None and d.vorlage is None
+    assert fenster.tabs.currentWidget() is fenster.pruefen
+    assert d.vorbereitung.aufbereitet and 0 in d.vorbereitung.aufbereitet
+    assert any("aufbereitet" in w for w in d.vorbereitung.warnungen)
+    assert len(d.vorbereitung.fundstellen) > 5
+    fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.exportieren()
+    qapp.processEvents()
+    protokoll = fenster.export.ausgabe.toPlainText()
+    assert "Gegenprobe: bestanden" in protokoll, protokoll
+    assert gefundene_klardaten(protokoll, patient) == []
     fenster.close()

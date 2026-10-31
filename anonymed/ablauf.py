@@ -10,9 +10,10 @@ from typing import ClassVar
 
 import pymupdf
 
+from anonymed.dokument import aufbereitung as aufmodul
 from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument import textdatei as textmodul
-from anonymed.dokument.laden import oeffne
+from anonymed.dokument.laden import BILDENDUNGEN, HEIC_ENDUNGEN, oeffne
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
 from anonymed.erkennung import fachbegriffe as fachmodul
@@ -64,6 +65,8 @@ class Ablaufoptionen:
     ner: bool = False  # people and places the rules do not know (extra "ner")
     fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
     unscharf_text: bool = True  # text files: fuzzy search for misspelt identifiers (transcripts)
+    aufbereiten: str = "auto"  # image-only pages: "auto" (suggested clean-up) or "aus"
+    aufbereitung: dict[int, aufmodul.Aufbereitung] | None = None  # explicit choice per page
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
@@ -81,6 +84,7 @@ class Ablaufoptionen:
             "ner": self.ner,
             "fachbegriffe": self.fachbegriffe,
             "unscharf_text": self.unscharf_text,
+            "aufbereiten": self.aufbereiten,
         }
 
 
@@ -111,6 +115,76 @@ class Ergebnis:
 def zielpfad(quelle: Path, opt: Ablaufoptionen, endung: str = ".pdf") -> Path:
     ordner = opt.ziel_ordner or quelle.parent
     return ordner / f"{quelle.stem}{opt.suffix}{endung}"
+
+
+@dataclass
+class Vorlage:
+    """Phase zero: the file is open and its pages are known, nothing is read in detail.
+
+    Pages without a text layer (scans, photos) are candidates for the clean-up step;
+    each comes with an automatic suggestion.  Call ``schliessen`` when done.
+    """
+
+    quelle: Path
+    doc: pymupdf.Document
+    foto: bool
+    kandidaten: list[int]
+    vorschlaege: dict[int, aufmodul.Aufbereitung]
+
+    @property
+    def seitenzahl(self) -> int:
+        return len(self.doc)
+
+    def seitenbild(self, nummer: int, dpi: int = 100) -> bytes:
+        return self.doc[nummer].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
+
+    def vorschau(self, nummer: int, a: aufmodul.Aufbereitung, dpi: int = 100) -> bytes:
+        return aufmodul.vorschau_png(self.doc[nummer], a, dpi)
+
+    def seitenbreite(self, nummer: int, a: aufmodul.Aufbereitung) -> float:
+        r = self.doc[nummer].rect
+        return r.width if a.drehung in (0, 180) else r.height
+
+    def schliessen(self) -> None:
+        try:
+            self.doc.close()
+        except Exception:  # already closed
+            pass
+
+
+def lade(pfad: str | Path, opt: Ablaufoptionen | None = None) -> Vorlage:
+    """Open a PDF or image and find the pages worth cleaning up before OCR."""
+    opt = opt or Ablaufoptionen()
+    quelle = Path(pfad)
+    doc = oeffne(quelle)
+    foto = quelle.suffix.lower() in BILDENDUNGEN | HEIC_ENDUNGEN
+    kandidaten = [i for i, page in enumerate(doc) if not lese_seite(page, i).hat_textebene]
+    vorschlaege: dict[int, aufmodul.Aufbereitung] = {}
+    if aufmodul.verfuegbar() and opt.aufbereiten != "aus":
+        for i in kandidaten:
+            bild, skala = aufmodul.rendere(doc[i], 150)
+            vorschlaege[i] = aufmodul.vorschlag(bild, foto, skala, aufmodul.native_dpi(doc[i]))
+    return Vorlage(quelle, doc, foto, kandidaten, vorschlaege)
+
+
+def _aufbereitungsplan(
+    doc: pymupdf.Document, quelle: Path, opt: Ablaufoptionen,
+    explizit: dict[int, aufmodul.Aufbereitung] | None,
+) -> dict[int, aufmodul.Aufbereitung]:
+    """Which pages get which clean-up: the explicit choice, else the suggestion for
+    every image-only page when ``aufbereiten`` is "auto"."""
+    plan = {n: a for n, a in (explizit or opt.aufbereitung or {}).items() if a.aktiv}
+    if opt.aufbereiten == "auto" and aufmodul.verfuegbar() and explizit is None \
+            and opt.aufbereitung is None:
+        foto = quelle.suffix.lower() in BILDENDUNGEN | HEIC_ENDUNGEN
+        for i, page in enumerate(doc):
+            if i in plan or lese_seite(page, i).hat_textebene:
+                continue
+            bild, skala = aufmodul.rendere(page, 150)
+            a = aufmodul.vorschlag(bild, foto, skala, aufmodul.native_dpi(page))
+            if a.aktiv:
+                plan[i] = a
+    return plan
 
 
 @dataclass
@@ -287,6 +361,7 @@ class Vorbereitung:
     ohne_text: list[int]
     warnungen: list[str] = field(default_factory=list)
     verworfen: list[Fundstelle] = field(default_factory=list)
+    aufbereitet: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
     abgeschlossen: bool = False
 
     @property
@@ -472,11 +547,15 @@ def vorbereiten(
     patient: Patient,
     opt: Ablaufoptionen | None = None,
     speicher: Pseudonymspeicher | None = None,
+    aufbereitung: dict[int, aufmodul.Aufbereitung] | None = None,
 ) -> Vorbereitung | Textvorbereitung:
     """Phase one of :func:`anonymisiere`: read the file and find the hits.
 
     PDFs and images yield a :class:`Vorbereitung`, text files (``.txt``,
-    ``.md``, ``.srt``, ``.vtt``) a :class:`Textvorbereitung`.
+    ``.md``, ``.srt``, ``.vtt``) a :class:`Textvorbereitung`.  ``aufbereitung``
+    (per page, 0-based) replaces image-only pages by their cleaned-up image
+    before OCR; without it the suggestion is applied when ``opt.aufbereiten``
+    is "auto".
     """
     opt = opt or Ablaufoptionen()
     quelle = Path(pfad)
@@ -491,6 +570,9 @@ def vorbereiten(
         doc = oeffne(quelle)
         original = oeffne(quelle)
         try:
+            plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
+            for nummer in sorted(plan):
+                aufmodul.seiten_ersetzen([doc, original], nummer, plan[nummer], opt.ocr_dpi)
             seiten, ohne_text = _lese_seiten(doc, r.regeln, r.ziele, opt, backend, r.vergabe,
                                              r.ner, r.fachbegriffe, verschont)
         except Exception:
@@ -502,6 +584,9 @@ def vorbereiten(
             speicher.close()
         raise
     warnungen = list(r.warnungen)
+    for nummer in sorted(plan):
+        warnungen.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
+                         f" {aufmodul.beschreibung(plan[nummer])}.")
     if ohne_text:
         warnungen.append(
             "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
@@ -524,7 +609,7 @@ def vorbereiten(
         quelle=quelle, patient=patient, opt=opt, speicher=speicher,
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
         regeln=r.regeln, ziele=r.ziele, backend=backend, doc=doc, original=original,
-        seiten=seiten, ohne_text=ohne_text, warnungen=warnungen,
+        seiten=seiten, ohne_text=ohne_text, warnungen=warnungen, aufbereitet=plan,
     )
 
 
@@ -838,9 +923,12 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
         else:
             ziel.unlink(missing_ok=True)
             warnungen.append("Nicht freigegeben: Ausgabe verworfen.")
+        optionen = opt.als_dict()
+        if v.aufbereitet:
+            optionen["aufbereitung"] = {str(n + 1): a.als_dict() for n, a in v.aufbereitet.items()}
         ergebnis.bericht = erstelle_bericht(
             quelle, ergebnis.ziel_pdf, seitenzahl, not ocr_seiten and not v.ohne_text,
-            fundstellen, gegenprobe, opt.als_dict(), warnungen,
+            fundstellen, gegenprobe, optionen, warnungen,
         )
         if opt.bericht:
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")

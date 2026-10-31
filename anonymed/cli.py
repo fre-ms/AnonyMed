@@ -247,6 +247,9 @@ def anonymisieren(
     unscharf: Annotated[bool, typer.Option(
         "--unscharf/--genau",
         help="Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte).")] = True,
+    aufbereiten: Annotated[str, typer.Option(
+        "--aufbereiten", help="Scans und Fotos vor der OCR aufbereiten (begradigen, Hintergrund,"
+                              " Hochskalieren): auto oder aus.")] = "auto",
 ) -> None:
     """Dokumente und Texte schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if unlesbar not in ("schwaerzen", "lassen"):
@@ -257,6 +260,9 @@ def anonymisieren(
         raise typer.Exit(code=1)
     if vorschau not in ("auto", "immer", "nie"):
         typer.echo("--vorschau muss 'auto', 'immer' oder 'nie' sein.", err=True)
+        raise typer.Exit(code=1)
+    if aufbereiten not in ("auto", "aus"):
+        typer.echo("--aufbereiten muss 'auto' oder 'aus' sein.", err=True)
         raise typer.Exit(code=1)
     p = _patient_bestimmen(patient, vcf, kontakt, nr, konfig)
     if p.hinweise:
@@ -270,6 +276,7 @@ def anonymisieren(
         ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
+        aufbereiten=aufbereiten,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,
                                     textebene=textebene),
     )
