@@ -83,7 +83,7 @@ class DokumenteSeite(QWidget):
 
         unten = QHBoxLayout()
         self.status = QLabel("")
-        self.weiter_knopf = QPushButton(self.tr("Weiter: Analysieren"))
+        self.weiter_knopf = QPushButton(self.tr("Weiter: Texterkennung"))
         self.weiter_knopf.setDefault(True)
         self.weiter_knopf.clicked.connect(self.weiter.emit)
         unten.addWidget(self.status, 1)

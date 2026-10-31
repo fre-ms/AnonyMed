@@ -154,32 +154,42 @@
         <translation>Unwarp photographed sheet</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="118" />
+        <location filename="../aufbereiten_seite.py" line="112" />
+        <source>Buchstabenmodus: Lanczos-Vergrößerung, Striche geschärft</source>
+        <translation>Letter mode: Lanczos enlargement, sharpened strokes</translation>
+    </message>
+    <message>
+        <location filename="../aufbereiten_seite.py" line="115" />
+        <source>Vergrößert mit Lanczos und schärft die Striche in Graustufen. Eine harte Schwarz-Weiß-Schwelle verschlechterte die Erkennung in Messungen deutlich, deshalb bleibt das Bild grau. Ersetzt Hintergrund, Schärfen und Schwarz-Weiß.</source>
+        <translation>Enlarges with Lanczos and sharpens the strokes in grey scale. A hard black-and-white threshold lowered the recognition markedly in measurements, so the image stays grey. Replaces background, sharpening and black-and-white.</translation>
+    </message>
+    <message>
+        <location filename="../aufbereiten_seite.py" line="119" />
         <source>Hintergrund glätten (Schatten, graues Papier)</source>
         <translation>Even out the background (shadows, grey paper)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="120" />
+        <location filename="../aufbereiten_seite.py" line="121" />
         <source>Schwarz-Weiß</source>
         <translation>Black and white</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="160" />
+        <location filename="../aufbereiten_seite.py" line="161" />
         <source>↺ 90°</source>
         <translation>↺ 90°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="160" />
+        <location filename="../aufbereiten_seite.py" line="161" />
         <source>↻ 90°</source>
         <translation>↻ 90°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="161" />
+        <location filename="../aufbereiten_seite.py" line="162" />
         <source>180°</source>
         <translation>180°</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="166" />
+        <location filename="../aufbereiten_seite.py" line="167" />
         <source>Drehen</source>
         <translation>Rotate</translation>
     </message>
@@ -199,117 +209,107 @@
         <translation>Upscale</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="112" />
-        <source>Buchstabenmodus: Striche schärfen, Kanten glätten</source>
-        <translation>Letter mode: sharpen strokes, smooth edges</translation>
-    </message>
-    <message>
-        <location filename="../aufbereiten_seite.py" line="114" />
-        <source>Nutzt, dass der Inhalt Text ist: Lanczos-Vergrößerung, lokale Schwelle nach Sauvola für saubere Striche, danach leicht geglättete Kanten. Ersetzt Hintergrund, Schärfen und Schwarz-Weiß.</source>
-        <translation>Uses the fact that the content is text: Lanczos enlargement, Sauvola's local threshold for clean strokes, then slightly smoothed edges. Replaces background, sharpening and black-and-white.</translation>
-    </message>
-    <message>
-        <location filename="../aufbereiten_seite.py" line="122" />
+        <location filename="../aufbereiten_seite.py" line="123" />
         <source>Weitere Schritte</source>
         <translation>Further steps</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="124" />
+        <location filename="../aufbereiten_seite.py" line="125" />
         <source>Dunkle Ränder säubern</source>
         <translation>Clean dark borders</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="125" />
+        <location filename="../aufbereiten_seite.py" line="126" />
         <source>Farbige Tinte entfernen (Stempel, Marker)</source>
         <translation>Remove coloured ink (stamps, highlighter)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="126" />
+        <location filename="../aufbereiten_seite.py" line="127" />
         <source>Entrauschen (Körnung, Staub)</source>
         <translation>Denoise (grain, dust)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="127" />
+        <location filename="../aufbereiten_seite.py" line="128" />
         <source>Kontrast anheben (blasse Kopien)</source>
         <translation>Raise contrast (faint copies)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="128" />
+        <location filename="../aufbereiten_seite.py" line="129" />
         <source>Schärfen</source>
         <translation>Sharpen</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="129" />
+        <location filename="../aufbereiten_seite.py" line="130" />
         <source>Linien entfernen (Formulare, Tabellen)</source>
         <translation>Remove lines (forms, tables)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="141" />
+        <location filename="../aufbereiten_seite.py" line="142" />
         <source>Stärke 1 (sanft) bis 5 (kräftig)</source>
         <translation>Strength 1 (gentle) to 5 (strong)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="153" />
+        <location filename="../aufbereiten_seite.py" line="154" />
         <source>Ausrichtung erkennen</source>
         <translation>Detect orientation</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="155" />
+        <location filename="../aufbereiten_seite.py" line="156" />
         <source>Hoch- oder Querformat aus den Textzeilen; ob der Text auf dem Kopf steht, entscheidet ein kurzer OCR-Vergleich (dauert einige Sekunden).</source>
         <translation>Portrait or landscape from the text lines; whether the text is upside down is decided by a short OCR comparison (takes a few seconds).</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="168" />
+        <location filename="../aufbereiten_seite.py" line="169" />
         <source>Letzten Bereich zurückholen (Cmd/Strg+Z)</source>
         <translation>Restore last area (Cmd/Ctrl+Z)</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="171" />
+        <location filename="../aufbereiten_seite.py" line="172" />
         <source>Alle zurückholen</source>
         <translation>Restore all</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="187" />
+        <location filename="../aufbereiten_seite.py" line="188" />
         <source>Vorschlag wiederherstellen</source>
         <translation>Restore suggestion</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="189" />
+        <location filename="../aufbereiten_seite.py" line="190" />
         <source>Diese Seite nicht aufbereiten</source>
         <translation>Do not clean up this page</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="191" />
+        <location filename="../aufbereiten_seite.py" line="192" />
         <source>Schritte auf alle Seiten übertragen</source>
         <translation>Apply steps to all pages</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="212" />
+        <location filename="../aufbereiten_seite.py" line="213" />
         <source>Bildaufbereitung braucht OpenCV und NumPy (Extra 'ocr'); hier sind nur Masken möglich.</source>
         <translation>Image clean-up needs OpenCV and NumPy (extra 'ocr'); only masks are possible here.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="224" />
+        <location filename="../aufbereiten_seite.py" line="225" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="237" />
+        <location filename="../aufbereiten_seite.py" line="238" />
         <source>Keine Seiten ohne Textebene: nichts aufzubereiten. Scans und Fotos erscheinen hier mit einem Vorschlag.</source>
         <translation>No pages without a text layer: nothing to clean up. Scans and photos appear here with a suggestion.</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="352" />
+        <location filename="../aufbereiten_seite.py" line="353" />
         <source>Ausrichtung nicht erkannt: {fehler}</source>
         <translation>Orientation not detected: {fehler}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="403" />
+        <location filename="../aufbereiten_seite.py" line="404" />
         <source>Aufbereitung fehlgeschlagen: {fehler}</source>
         <translation>Clean-up failed: {fehler}</translation>
     </message>
     <message>
-        <location filename="../aufbereiten_seite.py" line="413" />
+        <location filename="../aufbereiten_seite.py" line="414" />
         <source>kein fotografiertes Blatt erkannt</source>
         <translation>no photographed sheet detected</translation>
     </message>
@@ -333,8 +333,8 @@
     </message>
     <message>
         <location filename="../dokumente_seite.py" line="86" />
-        <source>Weiter: Analysieren</source>
-        <translation>Next: analyse</translation>
+        <source>Weiter: Texterkennung</source>
+        <translation>Next: text recognition</translation>
     </message>
     <message>
         <location filename="../dokumente_seite.py" line="99" />

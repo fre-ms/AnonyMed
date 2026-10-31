@@ -29,6 +29,7 @@ def test_winkel_wird_geschaetzt(befund: Path) -> None:
                                 borderValue=(255, 255, 255))
         geschaetzt = auf.schaetze_winkel(schief)
         assert abs(geschaetzt - soll) <= 0.35, (soll, geschaetzt)
+        assert auf.vorschlag(schief).begradigen  # 2° and 3.5° are worth straightening
         gerade = auf.wende_an(schief, auf.Aufbereitung(begradigen=True, winkel=geschaetzt))
         assert abs(auf.schaetze_winkel(gerade)) < 0.35
 
@@ -161,14 +162,13 @@ def test_buchstabenmodus_und_faktoren(befund: Path) -> None:
     for faktor in (2, 3, 4):
         gross = auf.wende_an(bild, auf.Aufbereitung(hochskalieren=faktor, textmodus=True))
         assert gross.shape == (faktor * h, faktor * w) and gross.dtype == np.uint8
-        # letter mode: clean paper, dark strokes, soft edges in between
-        assert np.median(gross) == 255 and gross.min() == 0
-        assert 0 < np.mean((gross > 30) & (gross < 225)) < 0.2
+        # letter mode: grey image, white paper, dark sharpened strokes
+        assert gross.ndim == 2 and np.median(gross) == 255 and gross.min() < 40
     fein = auf.textverfeinerung(bild, faktor=1)
     assert fein.shape == (h, w) and np.median(fein) == 255
     v = auf.vorschlag(bild, aufloesung=100)
-    assert v.hochskalieren == 2 and v.textmodus
-    assert "Buchstabenmodus" in auf.beschreibung(v)
+    assert v.hochskalieren == 2 and not v.textmodus  # letter mode is never suggested
+    assert "Buchstabenmodus" in auf.beschreibung(auf.Aufbereitung(textmodus=True))
 
 
 def test_ausrichtung(befund: Path) -> None:

@@ -379,3 +379,40 @@ def test_lesen_dann_analysieren(tmp_path: Path, befund: Path, patient: Patient,
     assert erg.freigegeben, als_text(erg.bericht)
     txt = erg.ziel_txt.read_text(encoding="utf-8")
     assert f"Zusatz: Patient {erg.kennung}." in txt and gefundene_klardaten(txt, patient) == []
+
+
+@braucht_backend
+@pytest.mark.skipif(not aufmodul.verfuegbar(), reason="OpenCV fehlt")
+def test_vorschlag_schadet_der_ocr_nicht(tmp_path: Path, befund: Path) -> None:
+    """Guard for the automatic clean-up: on a noisy, slightly tilted scan the OCR text
+    after the suggested steps must be about as close to the truth as without them."""
+    import difflib
+
+    from anonymed.ablauf import lade, lese
+    from tests.synthetisch import befund_text
+
+    wahr = " ".join("\n".join(befund_text(_patient_aus(befund))[0]).split())
+    scan = _scan(befund, tmp_path / "scan.pdf", dpi=150, rauschen=0.01, drehung=1.0)
+    roh = lese(scan, Ablaufoptionen(aufbereiten="aus"))
+    vorschlag = lade(scan).vorschlaege[0]
+    auto = lese(scan, Ablaufoptionen(aufbereiten="aus"), {0: vorschlag})
+
+    def guete(text: str) -> float:
+        return difflib.SequenceMatcher(None, wahr, " ".join(text.split())).ratio()
+
+    g_roh, g_auto = guete(roh.ocr_text(0)), guete(auto.ocr_text(0))
+    roh.schliessen()
+    auto.schliessen()
+    assert g_roh > 0.95, g_roh
+    assert g_auto >= g_roh - 0.03, (g_roh, g_auto, vorschlag)
+    text = lese(scan, Ablaufoptionen(aufbereiten="aus"),
+                {0: aufmodul.Aufbereitung(hochskalieren=2, textmodus=True)})
+    g_text = guete(text.ocr_text(0))
+    text.schliessen()
+    assert g_text >= g_roh - 0.03, (g_roh, g_text)  # the letter mode must not hurt
+
+
+def _patient_aus(befund: Path):
+    from tests.synthetisch import synthetischer_patient
+
+    return synthetischer_patient(7, "m")

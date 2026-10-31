@@ -109,11 +109,12 @@ class AufbereitenSeite(QWidget):
             "Die OCR liest die Seite mit dem Vielfachen der Auflösung (bis 4×, Obergrenze"
             " 9000 Pixel); die Seite selbst wird nicht vergrößert gespeichert."))
         form.addRow(self.tr("Hochskalieren"), self.hochskalieren)
-        self.textmodus = QCheckBox(self.tr("Buchstabenmodus: Striche schärfen, Kanten glätten"))
+        self.textmodus = QCheckBox(self.tr("Buchstabenmodus: Lanczos-Vergrößerung, Striche"
+                                           " geschärft"))
         self.textmodus.setToolTip(self.tr(
-            "Nutzt, dass der Inhalt Text ist: Lanczos-Vergrößerung, lokale Schwelle nach"
-            " Sauvola für saubere Striche, danach leicht geglättete Kanten. Ersetzt"
-            " Hintergrund, Schärfen und Schwarz-Weiß."))
+            "Vergrößert mit Lanczos und schärft die Striche in Graustufen. Eine harte"
+            " Schwarz-Weiß-Schwelle verschlechterte die Erkennung in Messungen deutlich,"
+            " deshalb bleibt das Bild grau. Ersetzt Hintergrund, Schärfen und Schwarz-Weiß."))
         form.addRow(self.textmodus)
         self.hintergrund = QCheckBox(self.tr("Hintergrund glätten (Schatten, graues Papier)"))
         form.addRow(self.hintergrund)

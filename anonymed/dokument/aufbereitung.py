@@ -42,7 +42,7 @@ class Aufbereitung:
     entzerren: bool = False  # perspective correction with ``ecken``
     ecken: list[Ecke] | None = None  # four corners of the page in the (rotated) image
     hochskalieren: int = 1  # 1 to 4: OCR reads the page at that multiple of the resolution
-    textmodus: bool = False  # letter-aware upscaling: Lanczos, Sauvola strokes, smooth edges
+    textmodus: bool = False  # letter-aware upscaling: Lanczos enlargement, sharpened strokes
     raender: bool = False  # dark scanner borders -> white
     farbe_entfernen: bool = False  # coloured ink (stamps, highlighter) -> white
     entrauschen: bool = False  # median plus non-local means against specks and grain
@@ -276,9 +276,11 @@ def vorschlag(bild: Any, foto: bool = False, skala: float = 1.0,
     grundlage = wende_an(bild, Aufbereitung(entzerren=a.entzerren, ecken=a.ecken), skala) \
         if a.entzerren else bild
     a.winkel = schaetze_winkel(grundlage)
-    a.begradigen = abs(a.winkel) >= 0.3
+    # OCR engines tolerate a slight tilt, and rotating a noisy scan costs a little;
+    # straighten only what the eye notices
+    a.begradigen = abs(a.winkel) >= 1.2
     a.hochskalieren = 2 if aufloesung is not None and aufloesung < 150 else 1
-    a.textmodus = a.hochskalieren > 1
+    a.textmodus = False  # measured: no gain over plain enlargement, so an explicit choice
     a.hintergrund = foto or hintergrund_ungleich(grundlage)
     a.raender = raender_dunkel(grundlage)
     a.farbe_entfernen = farbanteil(grundlage) > 0.003
@@ -443,33 +445,15 @@ def _schaerfe(bild: Any, staerke: int = 2) -> Any:
     return cv2.addWeighted(bild, 1.0 + menge, weich, -menge, 0)
 
 
-def _sauvola(grau: Any, fenster: int, k: float = 0.2, r: float = 128.0) -> Any:
-    """Sauvola's local threshold: strokes survive where the paper is grey or shaded."""
-    import cv2
-    import numpy as np
-
-    f = grau.astype(np.float32)
-    mittel = cv2.boxFilter(f, -1, (fenster, fenster), normalize=True,
-                           borderType=cv2.BORDER_REPLICATE)
-    quadrat = cv2.boxFilter(f * f, -1, (fenster, fenster), normalize=True,
-                            borderType=cv2.BORDER_REPLICATE)
-    streuung = np.sqrt(np.maximum(quadrat - mittel * mittel, 0))
-    schwelle = mittel * (1 + k * (streuung / r - 1))
-    return np.where(f > schwelle, 255, 0).astype(np.uint8)
-
-
 def textverfeinerung(grau: Any, faktor: int = 2) -> Any:
-    """Letter-aware finish for an upscaled (or large) rendering: sharpen, cut the strokes
-    out with Sauvola's local threshold, then smooth the edges a little so that the OCR
-    sees clean, anti-aliased glyphs instead of blurred grey or jagged black.  Exploits
-    that the content is text: two tones, thin strokes, local contrast."""
-    import cv2
+    """Letter-aware finish for an upscaled (or large) rendering: grey, strokes sharpened.
 
-    grau = _grau(grau)
-    grau = _schaerfe(grau)
-    fenster = max(15, (12 * faktor) | 1)
-    bw = _sauvola(grau, fenster, k=0.2)
-    return cv2.GaussianBlur(bw, (0, 0), 0.4 * faktor)
+    Measured on synthetic scans (RapidOCR): a hard local threshold (Sauvola) after the
+    enlargement looked crisp but wrecked the recognition (down to 0.0 on a noisy
+    150-dpi scan), whereas Lanczos enlargement plus unsharp masking in grey scale
+    matched or beat the plain enlargement.  The recogniser wants grey, not binary.
+    """
+    return _schaerfe(_grau(grau), 2)
 
 
 def _hochskaliere(bild: Any, faktor: int, textmodus: bool) -> Any:
