@@ -90,7 +90,7 @@ OCR misreads are met in three ways: codes such as insurance numbers are matched 
 
 ### Unknown names (NER, optional)
 
-`uv sync --extra ner` (spaCy and the German model) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it is off by default, keeps its hands off everything the medical vocabulary marks (see below), shows its hits in their own colour in the review tab and never runs in the re-check.
+`uv sync --extra ner` (spaCy and the German model) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it keeps its hands off everything the medical vocabulary marks (see below), shows its hits in their own colour in the review tab and never runs in the re-check. The graphical interface switches it on by default once the extra is installed, after the vocabulary has marked the page; on the command line it stays opt-in.
 
 ### Medical vocabulary (what guesswork must never redact)
 

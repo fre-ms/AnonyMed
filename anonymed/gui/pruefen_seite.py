@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
     QGraphicsScene,
@@ -33,6 +34,7 @@ FARBEN = {
     "manuell": QColor(200, 30, 30),
     "unlesbar": QColor(110, 110, 110),
     "ner": QColor(0, 140, 130),
+    "fachbegriff": QColor(40, 160, 60),
 }
 VORSCHAU_DPI = 100
 
@@ -61,12 +63,24 @@ class Seitenansicht(QGraphicsView):
         self._start: QPointF | None = None
         self._gummi: QGraphicsRectItem | None = None
 
-    def zeige(self, png: bytes, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None) -> None:
+    def zeige(self, png: bytes, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None,
+              fachrects: list[tuple[float, float, float, float]] = ()) -> None:
         self._szene.clear()
         self._items.clear()
         bild = QImage.fromData(png)
         self._szene.addItem(QGraphicsPixmapItem(QPixmap.fromImage(bild)))
         self._szene.setSceneRect(0, 0, bild.width(), bild.height())
+        gruen = FARBEN["fachbegriff"]
+        hell = QColor(gruen)
+        hell.setAlpha(28)
+        for rect in fachrects:  # protected medical terms: outline only, not clickable
+            r = QRectF(rect[0] * self.skala, rect[1] * self.skala,
+                       (rect[2] - rect[0]) * self.skala, (rect[3] - rect[1]) * self.skala)
+            item = QGraphicsRectItem(r)
+            item.setPen(QPen(gruen, 1))
+            item.setBrush(QBrush(hell))
+            item.setToolTip(self.tr("Fachbegriff (geschützt)"))
+            self._szene.addItem(item)
         for f in fundstellen:
             for rect in f.rects:
                 r = QRectF(rect[0] * self.skala, rect[1] * self.skala,
@@ -149,7 +163,8 @@ class PruefenSeite(QWidget):
         r = QVBoxLayout(rechts)
         legende = QLabel(self.tr(
             "Blau: Textebene · Orange: OCR · Lila: Code · Rot: manuell · Grau: unlesbar ·"
-            " Türkis: NER. Ziehen mit der Maus zeichnet einen Kasten."))
+            " Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus zeichnet"
+            " einen Kasten."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
@@ -160,6 +175,10 @@ class PruefenSeite(QWidget):
         self.tabelle.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabelle.itemSelectionChanged.connect(self._zeile_gewaehlt)
         r.addWidget(self.tabelle, 1)
+        self.fach_anzeigen = QCheckBox(self.tr("Fachbegriffe markieren"))
+        self.fach_anzeigen.setChecked(True)
+        self.fach_anzeigen.toggled.connect(lambda _an: self.zeichne())
+        r.addWidget(self.fach_anzeigen)
         knoepfe = QHBoxLayout()
         self.verwerfen = QPushButton(self.tr("Treffer verwerfen"))
         self.verwerfen.clicked.connect(self.verwerfe)
@@ -219,8 +238,9 @@ class PruefenSeite(QWidget):
         if self.dokument is None or self.dokument.vorbereitung is None:
             return
         v = self.dokument.vorbereitung
+        fach = v.fachbegriffe_rects(self.seite) if self.fach_anzeigen.isChecked() else []
         self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), self.fundstellen(),
-                           self.gewaehlt)
+                           self.gewaehlt, fach)
         self.tabelle.blockSignals(True)
         self.tabelle.setRowCount(0)
         for f in self.fundstellen():
@@ -232,7 +252,8 @@ class PruefenSeite(QWidget):
                 self.tabelle.selectRow(zeile)
         self.tabelle.blockSignals(False)
         warnungen = [w for w in v.warnungen if "OCR" in w or "Textebene" in w]
-        self.hinweis.setText(warnungen[0] if warnungen else "")
+        hinweis = self.tr("{n} Fachbegriffe markiert").format(n=v.fachbegriffe_anzahl)
+        self.hinweis.setText(" · ".join([hinweis] + warnungen[:1]))
 
     # -- actions ---------------------------------------------------------------------------------
     def waehle(self, f: Fundstelle) -> None:
@@ -246,8 +267,10 @@ class PruefenSeite(QWidget):
             i = zeilen[0].row()
             if 0 <= i < len(treffer):
                 self.gewaehlt = treffer[i]
-                png = self.dokument.vorbereitung.seitenbild(self.seite, VORSCHAU_DPI)
-                self.ansicht.zeige(png, treffer, self.gewaehlt)
+                v = self.dokument.vorbereitung
+                fach = v.fachbegriffe_rects(self.seite) if self.fach_anzeigen.isChecked() else []
+                self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), treffer,
+                                   self.gewaehlt, fach)
 
     def verwerfe(self) -> None:
         if self.gewaehlt is None or self.dokument is None or self.dokument.vorbereitung is None:

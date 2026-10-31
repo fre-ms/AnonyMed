@@ -96,8 +96,13 @@ class DokumenteSeite(QWidget):
         self.unlesbar = QCheckBox(self.tr("Unlesbare OCR-Zeilen schwärzen"))
         self.unlesbar.setChecked(True)
         form.addRow(self.unlesbar)
+        self.fachbegriffe = QCheckBox(
+            self.tr("Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen"))
+        self.fachbegriffe.setChecked(True)
+        form.addRow(self.fachbegriffe)
         self.ner = QCheckBox(self.tr("Unbekannte Personen und Orte per NER suchen (rät)"))
         self.ner.setEnabled(nermodul.verfuegbar())
+        self.ner.setChecked(nermodul.verfuegbar())
         if not nermodul.verfuegbar():
             self.ner.setToolTip(
                 self.tr("Extra 'ner' und ein deutsches spaCy-Modell installieren."))
@@ -180,6 +185,7 @@ class DokumenteSeite(QWidget):
         o.codes = self.codes.isChecked()
         o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"
         o.ner = self.ner.isChecked()
+        o.fachbegriffe = self.fachbegriffe.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:
         if self.synchron:

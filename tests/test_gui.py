@@ -69,9 +69,18 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert d.vorbereitung is not None and d.vorbereitung.fundstellen
     assert fenster.tabs.currentWidget() is fenster.pruefen
 
-    # 3 review: drop one hit, draw one box
+    # 3 review: drop one hit, draw one box; medical terms are marked by default
     pr = fenster.pruefen
     assert pr.baum.topLevelItemCount() == 1 and pr.dokument is d
+    assert fenster.dokumente.fachbegriffe.isChecked()
+    assert d.vorbereitung.fachbegriffe_anzahl >= 3  # Hypertonie, Ramipril, Atorvastatin ...
+    assert d.vorbereitung.fachbegriffe_rects(0)
+    assert pr.fach_anzeigen.isChecked() and "Fachbegriffe markiert" in pr.hinweis.text()
+    pr.fach_anzeigen.setChecked(False)
+    pr.fach_anzeigen.setChecked(True)
+    from anonymed.erkennung import ner as nermodul
+
+    assert fenster.dokumente.ner.isChecked() == nermodul.verfuegbar()
     vorher = len(pr.fundstellen())
     assert pr.tabelle.rowCount() == vorher > 5
     ziel = next(f for f in pr.fundstellen() if f.regel == "zuweiser1.name")

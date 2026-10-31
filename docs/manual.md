@@ -32,8 +32,8 @@ The app password (Nextcloud → Settings → Security) goes into the operating s
 ## The five steps
 
 1. **Patient.** Search the address book (name, year of birth), load a patient file or a vCard. Check the fields: everything listed there will be redacted. Add relatives, referrers and further terms (one per line); they are not taken from a contact's notes automatically. *Use this patient*.
-2. **Documents.** Drop PDFs or photos. Pages without a text layer (scans, photos) are read by OCR. Optionally switch on NER to find people and places nobody entered. *Analyse*.
-3. **Review.** Every page appears with coloured boxes: blue from the text layer, orange from OCR, purple barcodes, red manual, grey unreadable lines, teal NER. A false hit (a drug name that looks like a surname): click it, *Discard hit*. Something missed, a handwritten name for instance: drag a box over it. Zoom with Ctrl/Cmd and the wheel or the buttons.
+2. **Documents.** Drop PDFs or photos. Pages without a text layer (scans, photos) are read by OCR. Two boxes are ticked by default: first the medical terms on every page are marked and protected, then NER (if the extra is installed) looks for people and places nobody entered. Both can be switched off here. *Analyse*.
+3. **Review.** Every page appears with coloured boxes: blue from the text layer, orange from OCR, purple barcodes, red manual, grey unreadable lines, teal NER; green outlines are the protected medical terms that NER and the fuzzy OCR search left alone (the *Mark medical terms* box hides them). A false hit (a drug name that looks like a surname): click it, *Discard hit*. Something missed, a handwritten name for instance: drag a box over it. Zoom with Ctrl/Cmd and the wheel or the buttons.
 4. **Export.** Choose a target folder. Per document you get `name_anonym.pdf`, `name_anonym.txt` (the text in reading order, this is what you give the language model) and `name_anonym.bericht.json`. The re-check reads the result again; if an identifier survives, nothing is released and the report says why. OCR pages get preview images: look at them before you pass a scan on.
 5. **Re-identify.** Paste the language model's text, pick the person, *Re-identify*. *Mr/Ms surname* inserts the salutation by grammatical case, *full name* the name. Mangled pseudonyms (wrong check character) are reported with a suggestion.
 
@@ -45,7 +45,7 @@ Not redacted: diagnoses, medication, measurements, findings, appointment dates. 
 
 ## NER
 
-Named-entity recognition is a statistical model (spaCy, trained on German news) that tags person and place names in free text without a list. It catches the relative or colleague nobody entered, but it guesses: it may tag a drug or a department as a person, and it may miss a name. Therefore it is off by default, its hits are shown in their own colour in the review step, medical eponyms (Alzheimer, Parkinson, Babinski …) are excluded, and it never decides about the release. Install with
+Named-entity recognition is a statistical model (spaCy, trained on German news) that tags person and place names in free text without a list. It catches the relative or colleague nobody entered, but it guesses: it may tag a drug or a department as a person, and it may miss a name. Therefore its hits are shown in their own colour in the review step, medical eponyms (Alzheimer, Parkinson, Babinski …) and everything the medical vocabulary marks are excluded, and it never decides about the release. The graphical interface runs it by default once the extra is installed, after the vocabulary has marked the page; on the command line it stays opt-in (`--ner`). Install with
 
 ```sh
 uv sync --extra ner

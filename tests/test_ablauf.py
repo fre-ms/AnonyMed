@@ -214,3 +214,13 @@ def test_gegenprobe_schuetzt_pseudonyme(befund: Path, patient: Patient,
     spannen = pseudonymspannen(text, ["[Straße AZ2Q4WX]", "Patient KAZ2Q4W"])
     assert spannen == [(9, 25), (27, 42)]
     assert in_pseudonym(17, 24, spannen) and not in_pseudonym(0, 5, spannen)
+
+
+def test_fachbegriffe_werden_gemerkt(befund: Path, patient: Patient,
+                                      speicher: Pseudonymspeicher) -> None:
+    v = vorbereiten(befund, patient, Ablaufoptionen(), speicher=speicher)
+    assert v.fachbegriffe_anzahl >= 3 and v.fachbegriffe_rects(0)
+    v.schliessen()
+    ohne = vorbereiten(befund, patient, Ablaufoptionen(fachbegriffe=False), speicher=speicher)
+    assert ohne.fachbegriffe_anzahl == 0 and ohne.fachbegriffe_rects(0) == []
+    ohne.schliessen()

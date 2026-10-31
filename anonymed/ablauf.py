@@ -101,6 +101,8 @@ class _Seite:
     text: Seitentext
     ocr: Seitentext | None = None
     fundstellen: list[Fundstelle] = field(default_factory=list)
+    fachrects: list[tuple[float, float, float, float]] = field(default_factory=list)
+    fachanzahl: int = 0
 
 
 def _lese_seiten(
@@ -117,6 +119,8 @@ def _lese_seiten(
         textebene = lese_seite(page, i)
         eintrag = _Seite(i, textebene)
         eintrag.fundstellen = finde(textebene, regeln)
+        if fachbegriffe is not None and textebene.hat_textebene:
+            _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
         if ner is not None and vergabe is not None and textebene.hat_textebene:
             neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
                                       fachbegriffe, verschont)
@@ -126,6 +130,8 @@ def _lese_seiten(
                 ohne_text.append(i + 1)
             else:
                 eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, opt.ocr_dpi)
+                if fachbegriffe is not None:
+                    _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
                 genau = finde(eintrag.ocr, regeln)
                 for f in genau:
                     f.quelle = "ocr"
@@ -146,6 +152,15 @@ def _lese_seiten(
             eintrag.fundstellen += codemodul.finde_codes(page, i)
         seiten.append(eintrag)
     return seiten, ohne_text
+
+
+def _merke_fachbegriffe(eintrag: _Seite, seite: Seitentext,
+                        fachbegriffe: fachmodul.Fachbegriffe) -> None:
+    """Remember where medical terms sit, for the green marks of the review step."""
+    spannen = fachbegriffe.spannen(seite.text)
+    eintrag.fachanzahl += len(spannen)
+    for a, b in spannen:
+        eintrag.fachrects += [tuple(r) for r in seite.rects(a, b)]
 
 
 def _text(seiten: list[_Seite]) -> str:
@@ -233,6 +248,14 @@ class Vorbereitung:
     @property
     def ocr_seiten(self) -> list[int]:
         return [s.nummer + 1 for s in self.seiten if s.ocr is not None]
+
+    def fachbegriffe_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
+        """Rectangles of the medical terms on page ``nummer`` (0-based), for display."""
+        return list(self.seiten[nummer].fachrects)
+
+    @property
+    def fachbegriffe_anzahl(self) -> int:
+        return sum(s.fachanzahl for s in self.seiten)
 
     def seitenbild(self, nummer: int, dpi: int = 100) -> bytes:
         """PNG of the original page for the preview."""
