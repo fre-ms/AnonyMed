@@ -54,6 +54,12 @@ uv pip install https://github.com/explosion/spacy-models/releases/download/de_co
 
 Gefundene Personen werden zu `Person <Code>`, Orte zu `[Ort <Code>]`, mit demselben Schlüssel-Hash wie die Patientenkennung; derselbe Name bekommt denselben Code, und die Rückersetzung kennt ihn.
 
+## Fachbegriffe: was Rateverfahren nie anfassen dürfen
+
+NER und die unscharfe OCR-Suche laufen hinter einer Schranke: Bevor sie eine Seite ansehen, werden alle medizinischen Fachbegriffe darauf markiert, und diese Stellen sind für beide tabu. Die festen Regeln für die Identifikatoren des Patienten bleiben unberührt (ein Patient, der wirklich Herz heißt, wird weiterhin geschwärzt). Das mitgelieferte Basisvokabular (rund 40 000 deutsche Begriffe) stammt aus Wikidata (CC0): deutsche Bezeichnungen und Synonyme aller Einträge mit ICD-10-Code, ATC-Code, INN oder MeSH-Deskriptor in den medizinischen MeSH-Bäumen (Anatomie, Organismen, Krankheiten, Arzneimittel, Verfahren, Psychiatrie, Phänomene); Geographie und Berufe sind ausgenommen, damit Orte und Nachnamen erkennbar bleiben. Beugungen, Bindestrich-Zusammensetzungen (*Parkinson-Syndrom*) und Umlaut-Umschriften werden erkannt, Mehrwortbegriffe als Ganzes.
+
+Eigene Listen: `anonymed fachbegriffe importieren DATEI --name NAME` aus MeSH-XML (`--format mesh-xml`, NLM-Datei oder Übersetzung), aus ICD-10-GM, Alpha-ID-SE oder ATC-Tabellen (`--format csv --spalte N`) oder aus jeder einfachen Liste (ein Begriff je Zeile). `anonymed fachbegriffe pruefen WORT` sagt, ob ein Wort geschützt ist, `anonymed fachbegriffe status` zeigt die Quellen. SNOMED CT darf nicht mitgeliefert werden (Lizenz des BfArM nötig); eine lokal lizenzierte Beschreibungsdatei lässt sich wie jede CSV importieren.
+
 ## Pseudonyme
 
 Die Hauptperson heißt `Patient K7Q4MX` (Buchstaben und Ziffern aus einem Schlüssel-Hash über Name und Geburtsdatum, mit Prüfzeichen), Angehörige `Angehörige K7Q4MX-1`, Zuweiser `Dr. Z1`, Straßen `[Straße …]`, Orte `[Ort …]` und `[PLZ Ort …]`, das Geburtsdatum `[geb. 1959]` oder `[Alter 66]`. Schreibvarianten desselben Namens ergeben dieselbe Kennung; ähnelt eine Person einem vorhandenen Eintrag nur ungefähr, fragt AnonyMed nach. Einzelheiten: `docs/pseudonyme.md`.

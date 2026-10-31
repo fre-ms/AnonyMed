@@ -13,11 +13,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from anonymed.dokument.textebene import Seitentext
 from anonymed.erkennung.varianten import ohne_akzente
 from anonymed.kern.modell import Art, Fundstelle, Patient, Person, Rolle
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+
+if TYPE_CHECKING:
+    from anonymed.erkennung.fachbegriffe import Fachbegriffe
 
 _MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September",
            "Oktober", "November", "Dezember"]
@@ -154,18 +158,30 @@ def ziele_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Ziel]:
 
 
 def finde_unscharf(
-    seite: Seitentext, ziele: list[Ziel], vorhandene: list[Fundstelle]
+    seite: Seitentext, ziele: list[Ziel], vorhandene: list[Fundstelle],
+    fachbegriffe: Fachbegriffe | None = None,
 ) -> list[Fundstelle]:
-    """Fuzzy hits on an OCR page that do not overlap exact hits."""
+    """Fuzzy hits on an OCR page that do not overlap exact hits.
+
+    An inexact match whose text is a medical term ("Bauch" for a patient
+    called Bauer) is not a hit; exact spellings still are.
+    """
     tokens = [(m.start(), m.end(), m.group(0)) for m in _TOKEN.finditer(seite.text)]
     belegt = [(f.start, f.ende) for f in vorhandene if f.ende > f.start]
     kandidaten: list[tuple[int, int, Ziel]] = []
+    schutz = fachbegriffe.spannen(seite.text) if fachbegriffe is not None else []
+
     def merke(i: int, j: int, ziel: Ziel) -> None:
         a, b = tokens[i][0], tokens[j][1]
         while a < b and seite.text[a] in _RAND:  # keep punctuation out of the span
             a += 1
         while b > a and seite.text[b - 1] in _RAND:
             b -= 1
+        gefunden = seite.text[a:b]
+        genau = _kern(gefunden) == _kern(" ".join(ziel.tokens))
+        if fachbegriffe is not None and not genau \
+                and fachbegriffe.geschuetzt(seite.text, a, b, schutz, ganz=True):
+            return
         kandidaten.append((a, b, ziel))
 
     for ziel in ziele:

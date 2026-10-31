@@ -66,6 +66,7 @@ def rauchtest() -> None:
         aus = lauf([str(exe("anonymed")), "konfig"], capture_output=True, env=umgebung)
         print(aus.stdout)
         assert "AnonyMed" in aus.stdout and "OCR-Backends" in aus.stdout
+        assert "Fachbegriffe:" in aus.stdout and "Basis (fachbegriffe_de.txt.gz)" in aus.stdout
         import importlib.util
 
         if importlib.util.find_spec("de_core_news_md") is not None:

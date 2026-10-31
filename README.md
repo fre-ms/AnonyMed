@@ -90,7 +90,13 @@ OCR misreads are met in three ways: codes such as insurance numbers are matched 
 
 ### Unknown names (NER, optional)
 
-`uv sync --extra ner` plus a German spaCy model (see `docs/manual.md`) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it is off by default, excludes medical eponyms, shows its hits in their own colour in the review tab and never runs in the re-check.
+`uv sync --extra ner` (spaCy and the German model) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it is off by default, keeps its hands off everything the medical vocabulary marks (see below), shows its hits in their own colour in the review tab and never runs in the re-check.
+
+### Medical vocabulary (what guesswork must never redact)
+
+NER and the fuzzy OCR search are heuristics, so they run behind a guard: before they look at a page, every medical term on it is marked and those spans are off limits to them. The deterministic rules for the patient's own identifiers are not affected (a patient really called Herz is still redacted). The bundled base vocabulary (`anonymed/daten/fachbegriffe_de.txt.gz`, about 40 000 German terms) is built by `werkzeuge/fachbegriffe_wikidata.py` from Wikidata (CC0): German labels and aliases of every item with an ICD-10 code, an ATC code, a WHO INN or a MeSH descriptor in the medical MeSH trees A–G (anatomy, organisms, diseases, drugs, techniques, psychiatry, phenomena; geography and occupations are left out so that towns and surnames stay recognisable). Matching tolerates German inflection, hyphenated compounds (*Parkinson-Syndrom*) and umlaut transliteration, and multi-word terms are matched whole.
+
+Add your own lists with `anonymed fachbegriffe importieren` from MeSH XML (`--format mesh-xml`, the NLM file or a translation), from ICD-10-GM, Alpha-ID-SE or ATC tables (`--format csv --spalte N`) or from any plain list; `anonymed fachbegriffe pruefen WORT` tells whether a word is protected, `anonymed fachbegriffe status` lists the sources. SNOMED CT cannot be shipped (licence), but a locally licensed description file imports like any CSV.
 
 ### Languages
 

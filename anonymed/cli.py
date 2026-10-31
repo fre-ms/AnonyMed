@@ -232,6 +232,9 @@ def anonymisieren(
     ner: Annotated[bool, typer.Option("--ner/--kein-ner", help="Unbekannte Personen und Orte"
                                                               " per NER suchen (Extra 'ner').")]
     = False,
+    fachbegriffe: Annotated[bool, typer.Option(
+        "--fachbegriffe/--keine-fachbegriffe",
+        help="Medizinische Fachbegriffe vor NER und unscharfer OCR-Suche schützen.")] = True,
 ) -> None:
     """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if unlesbar not in ("schwaerzen", "lassen"):
@@ -253,7 +256,7 @@ def anonymisieren(
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
-        unlesbar=unlesbar, ner=ner,
+        unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True
@@ -437,6 +440,12 @@ def konfig(speicher: SpeicherOption = None) -> None:
     typer.echo("NER:                 " + (f"spaCy mit {nermodul.verfuegbares_modell()}"
                                           if nermodul.verfuegbar() else
                                           "nicht verfügbar (Extra 'ner' + deutsches Modell)"))
+    from anonymed.erkennung import fachbegriffe as fachmodul
+
+    fb = fachmodul.standard()
+    quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
+    typer.echo(f"Fachbegriffe:        {fb.anzahl} geschützte Begriffe ({quellen});"
+               f" eigene Listen in {fachmodul.datenordner()}")
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
     typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
                "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")
@@ -447,6 +456,62 @@ def konfig(speicher: SpeicherOption = None) -> None:
         typer.echo(f"CardDAV:             {k.benutzer} @ {k.url} ({buch})")
     else:
         typer.echo("CardDAV:             nicht eingerichtet")
+
+
+fachbegriffe_app = typer.Typer(
+    help="Medizinisches Fachvokabular, das NER und unscharfe OCR-Suche nicht anfassen dürfen.",
+    no_args_is_help=True,
+)
+app.add_typer(fachbegriffe_app, name="fachbegriffe")
+
+
+@fachbegriffe_app.command("status")
+def fachbegriffe_status() -> None:
+    """Umfang und Quellen des Vokabulars anzeigen."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+
+    fb = fachmodul.standard()
+    typer.echo(f"{fb.anzahl} geschützte Begriffe")
+    for name, n in fb.quellen:
+        typer.echo(f"  {n:>7}  {name}")
+    typer.echo(f"Eigene Listen: {fachmodul.datenordner()} (*.txt, ein Begriff je Zeile)")
+
+
+@fachbegriffe_app.command("pruefen")
+def fachbegriffe_pruefen(
+    woerter: Annotated[list[str], typer.Argument(help="Wörter oder Wortfolgen.")],
+) -> None:
+    """Prüfen, ob Wörter als Fachbegriffe geschützt sind."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+
+    fb = fachmodul.standard()
+    for w in woerter:
+        spannen = fb.spannen(w)
+        ganz = bool(spannen) and fb.geschuetzt(w, 0, len(w), spannen, ganz=True)
+        typer.echo(f"{w}: {'geschützt' if ganz else ('teilweise' if spannen else 'frei')}")
+
+
+@fachbegriffe_app.command("importieren")
+def fachbegriffe_importieren(
+    datei: Annotated[Path, typer.Argument(exists=True, help="Quelldatei.")],
+    name: Annotated[str, typer.Option("--name", help="Name der Liste im Datenordner.")],
+    format_: Annotated[str, typer.Option("--format", help="liste, csv oder mesh-xml.")]
+    = "liste",
+    spalte: Annotated[int, typer.Option("--spalte", help="Spalte (0-basiert) bei csv.")] = 0,
+    trennzeichen: Annotated[str, typer.Option("--trennzeichen", help="Trennzeichen bei csv.")]
+    = ";",
+) -> None:
+    """Begriffe aus MeSH-XML (NLM), ICD-10-GM/Alpha-ID (csv) oder einer Liste übernehmen."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+
+    try:
+        ziel = fachmodul.importiere(datei, name, format_, spalte, trennzeichen)
+    except (ValueError, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    n = sum(1 for z in ziel.read_text(encoding="utf-8").splitlines() if not z.startswith("#"))
+    typer.echo(f"{n} Begriffe nach {ziel} geschrieben; jetzt {fachmodul.standard().anzahl}"
+               " geschützte Begriffe")
 
 
 kontakte_app = typer.Typer(

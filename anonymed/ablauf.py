@@ -12,6 +12,7 @@ from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument.laden import oeffne
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
+from anonymed.erkennung import fachbegriffe as fachmodul
 from anonymed.erkennung import ner as nermodul
 from anonymed.erkennung.deterministisch import (
     Regel,
@@ -55,6 +56,7 @@ class Ablaufoptionen:
     codes: bool = True  # blank barcodes and QR codes (extra "codes")
     unlesbar: str = "schwaerzen"  # lines OCR could not read: "schwaerzen" or "lassen"
     ner: bool = False  # people and places the rules do not know (extra "ner")
+    fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
@@ -104,7 +106,8 @@ class _Seite:
 def _lese_seiten(
     doc: pymupdf.Document, regeln: list[Regel], ziele: list[Ziel], opt: Ablaufoptionen,
     backend: ocrmodul.OCRBackend | None, vergabe: Pseudonymvergabe | None = None,
-    ner: nermodul.NER | None = None,
+    ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
+    verschont: list[str] | None = None,
 ) -> tuple[list[_Seite], list[int]]:
     """Text layer and, where needed and possible, OCR per page; returns the pages and
     the numbers (1-based) of pages that needed OCR but got none."""
@@ -115,7 +118,8 @@ def _lese_seiten(
         eintrag = _Seite(i, textebene)
         eintrag.fundstellen = finde(textebene, regeln)
         if ner is not None and vergabe is not None and textebene.hat_textebene:
-            neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text")
+            neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
+                                      fachbegriffe, verschont)
             eintrag.fundstellen += neue
         if ocrmodul.braucht_ocr(page, textebene):
             if backend is None:
@@ -125,10 +129,12 @@ def _lese_seiten(
                 genau = finde(eintrag.ocr, regeln)
                 for f in genau:
                     f.quelle = "ocr"
-                eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau)
+                eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau,
+                                                              fachbegriffe)
                 if ner is not None and vergabe is not None:
                     ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
-                    neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr")
+                    neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr",
+                                              fachbegriffe, verschont)
                     eintrag.fundstellen = [f for f in eintrag.fundstellen
                                            if f.quelle != "ocr" or f in ocr_treffer] + neue
                 if opt.unlesbar == "schwaerzen":
@@ -180,7 +186,8 @@ def _gegenprobe_bilder(
             nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, opt.ocr_dpi)
             spannen = pseudonymspannen(nachher.text, pseudonyme)
             genau = finde(nachher, regeln)
-            for f in genau + finde_unscharf(nachher, ziele, genau):
+            fach = fachmodul.standard() if opt.fachbegriffe else None
+            for f in genau + finde_unscharf(nachher, ziele, genau, fach):
                 if toleranzschluessel(f.regel, f.text) in toleriert \
                         or in_pseudonym(f.start, f.ende, spannen):
                     continue
@@ -299,10 +306,13 @@ def vorbereiten(
             else:
                 warnungen.append("NER gewünscht, aber spaCy oder das deutsche Modell fehlt"
                                  " (Extra 'ner', siehe Anleitung); ohne NER fortgefahren.")
+        fachbegriffe = fachmodul.standard() if opt.fachbegriffe else None
+        verschont: list[str] = []
         doc = oeffne(quelle)
         original = oeffne(quelle)
         try:
-            seiten, ohne_text = _lese_seiten(doc, regeln, ziele, opt, backend, vergabe, ner)
+            seiten, ohne_text = _lese_seiten(doc, regeln, ziele, opt, backend, vergabe, ner,
+                                             fachbegriffe, verschont)
         except Exception:
             doc.close()
             original.close()
@@ -319,8 +329,10 @@ def vorbereiten(
     ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
     ner_treffer = sum(1 for s in seiten for f in s.fundstellen if f.regel.startswith("ner."))
     if ner is not None:
-        warnungen.append(f"NER ({ner.name}): {ner_treffer} zusätzliche Personen/Orte gefunden;"
-                         " NER rät, Treffer im Prüfschritt ansehen.")
+        schutz = (f", {len(verschont)} Kandidaten als Fachbegriffe verschont"
+                  f" ({fachbegriffe.anzahl} Begriffe)" if fachbegriffe is not None else "")
+        warnungen.append(f"NER ({ner.name}): {ner_treffer} zusätzliche Personen/Orte gefunden"
+                         f"{schutz}; NER rät, Treffer im Prüfschritt ansehen.")
     if ocr_seiten:
         unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
         unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")

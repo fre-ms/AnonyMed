@@ -16,10 +16,14 @@ from __future__ import annotations
 
 import importlib.util
 import re
+from typing import TYPE_CHECKING
 
 from anonymed.dokument.textebene import Seitentext
 from anonymed.kern.modell import Art, Fundstelle
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+
+if TYPE_CHECKING:
+    from anonymed.erkennung.fachbegriffe import Fachbegriffe
 
 MODELLE = ("de_core_news_lg", "de_core_news_md", "de_core_news_sm")
 _TITEL = {"dr", "prof", "med", "dent", "phil", "pd", "dipl", "univ", "herr", "herrn", "frau",
@@ -102,17 +106,22 @@ _TEILNAMEN = (Art.NACHNAME, Art.VORNAME, Art.GEBURTSNAME)
 
 def finde_ner(
     seite: Seitentext, ner: NER, vergabe: Pseudonymvergabe, vorhandene: list[Fundstelle],
-    quelle: str = "text",
+    quelle: str = "text", fachbegriffe: Fachbegriffe | None = None,
+    verschont: list[str] | None = None,
 ) -> list[Fundstelle]:
     """People and places the rules did not know.
 
-    A hit that only overlaps existing hits is dropped, with one exception: when
-    the entity completely contains hits on a lone surname or first name (the
-    rules saw "Flantz" in "Hildegund Flantz"), those partial hits are removed
-    from ``vorhandene`` and the full name takes their place, because it is a
-    different person than the one the rules assumed.
+    Entities made up of medical terms of ``fachbegriffe`` are left alone (and
+    listed in ``verschont`` when given): "Morbus Wilson" or "Babinski" is not
+    a patient, "Erika Hoffmann" still is although Hoffmann names a sign.
+    A hit that only overlaps existing hits is dropped,
+    with one exception: when the entity completely contains hits on a lone
+    surname or first name (the rules saw "Flantz" in "Hildegund Flantz"), those
+    partial hits are removed from ``vorhandene`` and the full name takes their
+    place, because it is a different person than the one the rules assumed.
     """
     treffer: list[Fundstelle] = []
+    schutz = fachbegriffe.spannen(seite.text) if fachbegriffe is not None else []
     for start, ende, label, text in ner.entitaeten(seite.text):
         if label == "PER":
             kern = _personenkern(text)
@@ -130,6 +139,11 @@ def finde_ner(
         if a < 0:
             continue
         b = a + len(kern)
+        if fachbegriffe is not None and fachbegriffe.geschuetzt(seite.text, a, b, schutz,
+                                                                ganz=True):
+            if verschont is not None:
+                verschont.append(kern)
+            continue
         ueberlappend = [f for f in vorhandene + treffer
                         if f.ende > f.start and a < f.ende and b > f.start]
         ersetzbar = [f for f in ueberlappend if f in vorhandene and f.art in _TEILNAMEN

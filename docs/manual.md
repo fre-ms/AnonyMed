@@ -54,6 +54,12 @@ uv pip install https://github.com/explosion/spacy-models/releases/download/de_co
 
 People it finds become `Person <code>`, places `[Ort <code>]`, with the same keyed hash as the patient's identifier, so the same name gets the same code and the re-identification knows it.
 
+## Medical vocabulary: what guesswork must never touch
+
+NER and the fuzzy OCR search run behind a guard: before they look at a page, every medical term on it is marked, and those spans are off limits to both. The deterministic rules for the patient's own identifiers are unaffected (a patient really called Herz is still redacted). The bundled base vocabulary (about 40 000 German terms) comes from Wikidata (CC0): German labels and synonyms of every item with an ICD-10 code, an ATC code, an INN or a MeSH descriptor in the medical MeSH trees (anatomy, organisms, diseases, drugs, techniques, psychiatry, phenomena); geography and occupations are excluded so that towns and surnames remain recognisable. Inflection, hyphenated compounds (*Parkinson-Syndrom*) and umlaut transliteration are recognised, multi-word terms as a whole.
+
+Your own lists: `anonymed fachbegriffe importieren FILE --name NAME` from MeSH XML (`--format mesh-xml`, the NLM file or a translation), from ICD-10-GM, Alpha-ID-SE or ATC tables (`--format csv --spalte N`) or from any plain list (one term per line). `anonymed fachbegriffe pruefen WORD` tells whether a word is protected, `anonymed fachbegriffe status` lists the sources. SNOMED CT cannot be shipped (a BfArM licence is required); a locally licensed description file imports like any CSV.
+
 ## Pseudonyms
 
 The main person is `Patient K7Q4MX` (letters and digits from a keyed hash of name and date of birth, with a check character), relatives `Angehörige K7Q4MX-1`, referrers `Dr. Z1`, streets `[Straße …]`, towns `[Ort …]` and `[PLZ Ort …]`, the date of birth `[geb. 1959]` or `[Alter 66]`. Spelling variants of the same name give the same identifier; when a person only roughly resembles an existing entry, AnonyMed asks. Details in `docs/pseudonyme.md`.
