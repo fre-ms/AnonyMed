@@ -45,6 +45,51 @@ def test_sitzung_ohne_oberflaeche(tmp_path: Path, befund: Path, patient: Patient
     s.schliessen()
 
 
+def test_sitzung_ueber_threads(tmp_path: Path, befund: Path, patient: Patient) -> None:
+    """The desktop runs analysis and export in different worker threads; the store
+    opened by the first must still serve the second (and be closed from a third).
+    The first thread is kept alive meanwhile, otherwise the OS may hand its thread
+    id to the second and hide the problem."""
+    import threading
+
+    sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
+    sitzung.patient = patient
+    d = sitzung.fuege_hinzu(befund)
+    fehler: list[BaseException] = []
+    analysiert = threading.Event()
+    exportiert = threading.Event()
+
+    def analyse() -> None:
+        try:
+            sitzung.analysiere(d)
+        except BaseException as e:  # noqa: BLE001
+            fehler.append(e)
+        finally:
+            analysiert.set()
+        exportiert.wait(timeout=300)  # stay alive while the export runs
+
+    def export() -> None:
+        try:
+            sitzung.exportiere(d)
+        except BaseException as e:  # noqa: BLE001
+            fehler.append(e)
+        finally:
+            exportiert.set()
+
+    t1 = threading.Thread(target=analyse)
+    t1.start()
+    assert analysiert.wait(timeout=300) and not fehler, fehler
+    t2 = threading.Thread(target=export)
+    t2.start()
+    t2.join(timeout=300)
+    t1.join(timeout=60)
+    assert not fehler, fehler
+    assert d.ergebnis is not None and d.ergebnis.freigegeben
+    t3 = threading.Thread(target=sitzung.schliessen)
+    t3.start()
+    t3.join(timeout=60)
+
+
 def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
                           patient: Patient) -> None:
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")

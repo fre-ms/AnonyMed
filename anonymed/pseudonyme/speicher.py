@@ -126,7 +126,10 @@ class Pseudonymspeicher:
                 os.chmod(self.pfad.parent, 0o700)
             except OSError:
                 pass
-        self.verbindung = sqlite3.connect(str(self.pfad) if self.pfad else ":memory:")
+        # The desktop opens the store in one worker thread (analysis) and uses it in
+        # another (export); access is sequential, so the same-thread check can go.
+        self.verbindung = sqlite3.connect(str(self.pfad) if self.pfad else ":memory:",
+                                          check_same_thread=False)
         self.verbindung.row_factory = sqlite3.Row
         self.verbindung.executescript(_SCHEMA)
         if self.pfad is not None:
