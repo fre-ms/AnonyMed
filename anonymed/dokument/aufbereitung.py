@@ -480,9 +480,10 @@ def _hintergrund(bild: Any) -> Any:
 
 
 def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
-    """Apply the steps in their fixed order: rotate, unwarp, straighten, upscale,
-    background, black-and-white, masks.  ``skala`` is pixels per point of ``bild``
-    (corners) and of the result (masks)."""
+    """Apply the steps in their fixed order: rotate, clean borders, unwarp, straighten,
+    drop colour, denoise, contrast, upscale (letter mode), sharpen, background, lines,
+    black-and-white, masks.  ``skala`` is pixels per point of ``bild`` (corners) and
+    of the result (masks)."""
     import cv2
     import numpy as np
 
@@ -490,12 +491,12 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
     if a.drehung in (90, 180, 270):
         aus = cv2.rotate(aus, {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180,
                                270: cv2.ROTATE_90_COUNTERCLOCKWISE}[a.drehung])
+    if a.raender:  # before straightening: the scanner border is still a straight strip
+        aus = _raender_saeubern(aus)
     if a.entzerren and a.ecken and len(a.ecken) == 4:
         aus = _entzerre(aus, a.ecken, skala)
     if a.begradigen and abs(a.winkel) >= 0.05:
         aus = _drehe(aus, a.winkel)  # counter-clockwise by the tilt
-    if a.raender:
-        aus = _raender_saeubern(aus)
     if a.farbe_entfernen:
         aus = _farbe_entfernen(aus)
     if a.entrauschen:
@@ -574,8 +575,9 @@ def seite_ersetzen(doc: pymupdf.Document, nummer: int, a: Aufbereitung, dpi: int
 
 
 def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100) -> bytes:
-    """The processed page as PNG for the before/after view, masks included."""
-    aus, _breite, _skala = _verarbeite(page, a, dpi)
+    """The processed page as PNG for the before/after view, masks included.  Not
+    enlarged, so that both views stay the same size; the letter mode is shown at 1×."""
+    aus, _breite, _skala = _verarbeite(page, a, dpi, mit_hochskalieren=False)
     return als_png(aus)
 
 
