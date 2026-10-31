@@ -25,25 +25,25 @@ class RueckersetzenSeite(QWidget):
         aussen = QVBoxLayout(self)
 
         oben = QHBoxLayout()
-        oben.addWidget(QLabel("Person:"))
+        oben.addWidget(QLabel(self.tr("Person:")))
         self.person = QComboBox()
         oben.addWidget(self.person, 1)
         self.form = QComboBox()
-        self.form.addItem("voller Name", "vollname")
-        self.form.addItem("Herr/Frau Nachname", "anrede")
+        self.form.addItem(self.tr("voller Name"), "vollname")
+        self.form.addItem(self.tr("Herr/Frau Nachname"), "anrede")
         oben.addWidget(self.form)
-        neu = QPushButton("Liste aktualisieren")
+        neu = QPushButton(self.tr("Liste aktualisieren"))
         neu.clicked.connect(self.aktualisiere)
         oben.addWidget(neu)
         aussen.addLayout(oben)
 
         self.eingabe = QPlainTextEdit()
-        self.eingabe.setPlaceholderText("Text des Sprachmodells hier einfügen …")
+        self.eingabe.setPlaceholderText(self.tr("Text des Sprachmodells hier einfügen …"))
         aussen.addWidget(self.eingabe, 1)
         mitte = QHBoxLayout()
-        laden = QPushButton("Datei laden …")
+        laden = QPushButton(self.tr("Datei laden …"))
         laden.clicked.connect(self.laden)
-        knopf = QPushButton("Rückersetzen")
+        knopf = QPushButton(self.tr("Rückersetzen"))
         knopf.clicked.connect(self.rueckersetzen)
         mitte.addWidget(laden)
         mitte.addStretch(1)
@@ -56,9 +56,9 @@ class RueckersetzenSeite(QWidget):
         unten = QHBoxLayout()
         self.hinweis = QLabel("")
         self.hinweis.setWordWrap(True)
-        kopieren = QPushButton("Kopieren")
+        kopieren = QPushButton(self.tr("Kopieren"))
         kopieren.clicked.connect(self.kopieren)
-        speichern = QPushButton("Speichern …")
+        speichern = QPushButton(self.tr("Speichern …"))
         speichern.clicked.connect(self.speichern)
         unten.addWidget(self.hinweis, 1)
         unten.addWidget(kopieren)
@@ -81,7 +81,8 @@ class RueckersetzenSeite(QWidget):
                     self.person.setCurrentIndex(i)
 
     def laden(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(self, "Text", "", "Text (*.txt *.md);;Alle (*)")
+        pfad, _ = QFileDialog.getOpenFileName(self, self.tr("Text"), "",
+                                              self.tr("Text (*.txt *.md);;Alle (*)"))
         if pfad:
             with open(pfad, encoding="utf-8", errors="replace") as f:
                 self.eingabe.setPlainText(f.read())
@@ -89,7 +90,7 @@ class RueckersetzenSeite(QWidget):
     def rueckersetzen(self) -> None:
         schluessel = self.person.currentData()
         if not schluessel:
-            self.hinweis.setText("Keine Person gewählt.")
+            self.hinweis.setText(self.tr("Keine Person gewählt."))
             return
         with self.sitzung.speicher() as sp:
             zuordnung = sp.zuordnung(schluessel)
@@ -101,15 +102,17 @@ class RueckersetzenSeite(QWidget):
         if r.verbleibend:
             teile = [f"{rest} ({r.hinweise[rest]})" if rest in r.hinweise else rest
                      for rest in r.verbleibend]
-            self.hinweis.setText(f"{r.ersetzt} Ersetzungen; nicht aufgelöst: " + ", ".join(teile))
+            self.hinweis.setText(self.tr("{n} Ersetzungen; nicht aufgelöst: ").format(n=r.ersetzt)
+                                 + ", ".join(teile))
         else:
-            self.hinweis.setText(f"{r.ersetzt} Ersetzungen, nichts offen.")
+            self.hinweis.setText(self.tr("{n} Ersetzungen, nichts offen.").format(n=r.ersetzt))
 
     def kopieren(self) -> None:
         QApplication.clipboard().setText(self.ausgabe.toPlainText())
 
     def speichern(self) -> None:
-        pfad, _ = QFileDialog.getSaveFileName(self, "Speichern", "", "Text (*.txt)")
+        pfad, _ = QFileDialog.getSaveFileName(self, self.tr("Speichern"), "",
+                                              self.tr("Text (*.txt)"))
         if pfad:
             with open(pfad, "w", encoding="utf-8") as f:
                 f.write(self.ausgabe.toPlainText())

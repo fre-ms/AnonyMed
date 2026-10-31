@@ -229,6 +229,9 @@ def anonymisieren(
     unlesbar: Annotated[str, typer.Option(
         "--unlesbar", help="Von der OCR nicht lesbare Zeilen: schwaerzen oder lassen.")]
     = "schwaerzen",
+    ner: Annotated[bool, typer.Option("--ner/--kein-ner", help="Unbekannte Personen und Orte"
+                                                              " per NER suchen (Extra 'ner').")]
+    = False,
 ) -> None:
     """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if unlesbar not in ("schwaerzen", "lassen"):
@@ -250,7 +253,7 @@ def anonymisieren(
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
-        unlesbar=unlesbar,
+        unlesbar=unlesbar, ner=ner,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True
@@ -412,11 +415,28 @@ def konfig(speicher: SpeicherOption = None) -> None:
 
     typer.echo(f"AnonyMed {__version__}")
     typer.echo(f"PyMuPDF {pymupdf.version[0]} (MuPDF {pymupdf.version[1]})")
+    from anonymed.dokument.ocr import tesseract_programm, tesseract_sprachen
+    from anonymed.konfig import lade_einstellungen
+
     backends = verfuegbare_backends()
+    einstellungen = lade_einstellungen()
     typer.echo("OCR-Backends:        " + (", ".join(backends) if backends else
-                                          "keine (Extra 'ocr' installieren oder Tesseract)"))
+                                          "keine (Extra 'ocr' installieren oder Tesseract)")
+               + f"  (bevorzugt: {einstellungen.ocr_backend})")
+    tess = tesseract_programm(einstellungen.tesseract_pfad or None)
+    if tess:
+        sprachen = tesseract_sprachen(tess)
+        relevante = [s for s in ("deu", "eng") if s in sprachen]
+        sprachtext = ", ".join(relevante) or "deu/eng fehlen"
+        typer.echo(f"Tesseract:           {tess}  (Sprachen: {sprachtext},"
+                   f" insgesamt {len(sprachen)})")
     typer.echo("Barcodes/QR:         " + ("zxing-cpp" if codes_verfuegbar() else
                                           "nicht verfügbar (Extra 'codes')"))
+    from anonymed.erkennung import ner as nermodul
+
+    typer.echo("NER:                 " + (f"spaCy mit {nermodul.verfuegbares_modell()}"
+                                          if nermodul.verfuegbar() else
+                                          "nicht verfügbar (Extra 'ner' + deutsches Modell)"))
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
     typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
                "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")

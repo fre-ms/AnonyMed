@@ -32,6 +32,7 @@ FARBEN = {
     "code": QColor(140, 40, 160),
     "manuell": QColor(200, 30, 30),
     "unlesbar": QColor(110, 110, 110),
+    "ner": QColor(0, 140, 130),
 }
 VORSCHAU_DPI = 100
 
@@ -39,6 +40,8 @@ VORSCHAU_DPI = 100
 def farbe(f: Fundstelle) -> QColor:
     if f.regel == "ocr.unlesbar":
         return FARBEN["unlesbar"]
+    if f.regel.startswith("ner."):
+        return FARBEN["ner"]
     return FARBEN.get(f.quelle, FARBEN["text"])
 
 
@@ -133,7 +136,7 @@ class PruefenSeite(QWidget):
         aussen = QVBoxLayout(self)
         teiler = QSplitter(Qt.Orientation.Horizontal)
         self.baum = QTreeWidget()
-        self.baum.setHeaderLabels(["Dokument / Seite"])
+        self.baum.setHeaderLabels([self.tr("Dokument / Seite")])
         self.baum.currentItemChanged.connect(self._seite_gewaehlt)
         teiler.addWidget(self.baum)
 
@@ -144,19 +147,21 @@ class PruefenSeite(QWidget):
 
         rechts = QWidget()
         r = QVBoxLayout(rechts)
-        legende = QLabel("Blau: Textebene · Orange: OCR · Lila: Code · Rot: manuell · "
-                         "Grau: unlesbar. Ziehen mit der Maus zeichnet einen Kasten.")
+        legende = QLabel(self.tr(
+            "Blau: Textebene · Orange: OCR · Lila: Code · Rot: manuell · Grau: unlesbar ·"
+            " Türkis: NER. Ziehen mit der Maus zeichnet einen Kasten."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
-        self.tabelle.setHorizontalHeaderLabels(["Seite", "Regel", "Pseudonym", "Quelle"])
+        self.tabelle.setHorizontalHeaderLabels([self.tr("Seite"), self.tr("Regel"),
+                                                self.tr("Pseudonym"), self.tr("Quelle")])
         self.tabelle.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabelle.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabelle.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabelle.itemSelectionChanged.connect(self._zeile_gewaehlt)
         r.addWidget(self.tabelle, 1)
         knoepfe = QHBoxLayout()
-        self.verwerfen = QPushButton("Treffer verwerfen")
+        self.verwerfen = QPushButton(self.tr("Treffer verwerfen"))
         self.verwerfen.clicked.connect(self.verwerfe)
         knoepfe.addWidget(self.verwerfen)
         for text, aktion in (("+", lambda: self.ansicht.zoom(1.25)),
@@ -180,10 +185,10 @@ class PruefenSeite(QWidget):
         for d in self.sitzung.dokumente:
             if d.vorbereitung is None or d.vorbereitung.abgeschlossen:
                 continue
-            knoten = QTreeWidgetItem([d.pfad.name])
+            knoten = QTreeWidgetItem([d.pfad.name])  # file name, not translated
             knoten.setData(0, Qt.ItemDataRole.UserRole, (id(d), -1))
             for s in d.vorbereitung.seiten:
-                kind = QTreeWidgetItem([f"Seite {s.nummer + 1}"
+                kind = QTreeWidgetItem([self.tr("Seite {nummer}").format(nummer=s.nummer + 1)
                                         + (" (OCR)" if s.ocr is not None else "")])
                 kind.setData(0, Qt.ItemDataRole.UserRole, (id(d), s.nummer))
                 knoten.addChild(kind)
@@ -255,10 +260,11 @@ class PruefenSeite(QWidget):
         if self.dokument is None or self.dokument.vorbereitung is None:
             return
         if pseudonym is None:
-            pseudonym, ok = QInputDialog.getText(self, "Kasten", "Ersatztext im Kasten:",
-                                                 text="[geschwärzt]")
+            pseudonym, ok = QInputDialog.getText(self, self.tr("Kasten"),
+                                                 self.tr("Ersatztext im Kasten:"),
+                                                 text=self.tr("[geschwärzt]"))
             if not ok:
                 return
-        self.dokument.vorbereitung.kasten(self.seite, rect, pseudonym or "[geschwärzt]")
+        self.dokument.vorbereitung.kasten(self.seite, rect, pseudonym or self.tr("[geschwärzt]"))
         self.gewaehlt = None
         self.zeichne()

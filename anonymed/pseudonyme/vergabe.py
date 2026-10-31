@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from anonymed.kern.modell import Art, Fundstelle, Patient, Person
+from anonymed.kern.modell import Art, Fundstelle, Patient, Person, normalisiere
 from anonymed.pseudonyme.kennung import hash_kennung, kanonische_strasse, kanonischer_ort
 
 PLATZHALTER: dict[Art, str] = {
@@ -148,3 +148,18 @@ class Pseudonymvergabe:
 
     def begriff(self, nummer: int, text: str) -> str:
         return self._merke(f"[Begriff {nummer}]", text, Art.BEGRIFF)
+
+    # -- people and places found by NER ----------------------------------------------------------
+    def person_unbekannt(self, name: str) -> str:
+        """A person the rules did not know: "Person <code>" from the keyed hash of the name."""
+        if self.geheimnis is None:
+            return self._merke("[Person]", name, Art.NAME)
+        code = hash_kennung(self.geheimnis, "person:" + normalisiere(name))
+        return self._merke(f"Person {code}", name, Art.NAME)
+
+    def ort_unbekannt(self, ort: str) -> str:
+        """A place the rules did not know, coded like the address places."""
+        if self.geheimnis is None:
+            return self._merke(PLATZHALTER[Art.ORT], ort, Art.ORT)
+        code = self._adresscode(kanonischer_ort(ort))
+        return self._merke(f"[Ort {code}]", ort, Art.ORT)

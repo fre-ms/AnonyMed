@@ -84,18 +84,66 @@ def vorverarbeite(pix: pymupdf.Pixmap) -> pymupdf.Pixmap:
 
 
 # -- Tesseract -----------------------------------------------------------------------------------
+_TESSERACT_ORTE = (
+    "/opt/homebrew/bin/tesseract",  # Homebrew on Apple silicon
+    "/usr/local/bin/tesseract",  # Homebrew on Intel, MacPorts, manual installs
+    "/usr/bin/tesseract",  # apt, dnf, pacman
+    "/snap/bin/tesseract",
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+)
+
+
+def tesseract_programm(pfad: str | None = None) -> str | None:
+    """The system's Tesseract: configured path, PATH, then the usual install locations.
+
+    Applications started from the Finder or a desktop menu get a minimal PATH
+    without Homebrew or /usr/local, so the fixed locations matter.
+    """
+    kandidaten = [pfad] if pfad else []
+    kandidaten.append(shutil.which("tesseract"))
+    kandidaten += list(_TESSERACT_ORTE)
+    for k in kandidaten:
+        if k and Path(k).is_file():
+            return str(k)
+    return None
+
+
+def tesseract_sprachen(programm: str) -> list[str]:
+    try:
+        lauf = subprocess.run([programm, "--list-langs"], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", check=False, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    zeilen = (lauf.stdout + lauf.stderr).splitlines()
+    return [z.strip() for z in zeilen if z.strip() and not z.lower().startswith("list of")
+            and " " not in z.strip()]
+
+
 class TesseractBackend:
     name = "tesseract"
 
-    def __init__(self, sprache: str = "deu+eng", programm: str | None = None) -> None:
-        self.programm = programm or shutil.which("tesseract")
+    def __init__(self, sprache: str | None = None, programm: str | None = None) -> None:
+        from anonymed.konfig import lade_einstellungen
+
+        einstellungen = lade_einstellungen()
+        self.programm = tesseract_programm(programm or einstellungen.tesseract_pfad or None)
         if not self.programm:
             raise OCRFehler("Tesseract ist nicht installiert (Programm 'tesseract' fehlt).")
-        self.sprache = sprache
+        gewuenscht = sprache or einstellungen.tesseract_sprachen
+        installiert = set(tesseract_sprachen(self.programm))
+        if gewuenscht:
+            self.sprache = gewuenscht
+        else:
+            vorhanden = [s for s in ("deu", "eng") if s in installiert]
+            self.sprache = "+".join(vorhanden) if vorhanden else "eng"
+        self.fehlende = [s for s in self.sprache.split("+") if installiert and s not in installiert]
 
     @staticmethod
     def verfuegbar() -> bool:
-        return shutil.which("tesseract") is not None
+        from anonymed.konfig import lade_einstellungen
+
+        return tesseract_programm(lade_einstellungen().tesseract_pfad or None) is not None
 
     def erkenne(self, pix: pymupdf.Pixmap, skala: float) -> list[OCRWort]:
         with tempfile.TemporaryDirectory() as ordner:
@@ -218,8 +266,16 @@ def _zerlege_zeile(zeile: OCRWort) -> list[OCRWort]:
 
 # -- selection -----------------------------------------------------------------------------------
 def backend(name: str = "auto") -> OCRBackend | None:
-    """Return the requested backend, the first available one for "auto", or None for "aus"."""
+    """Return the requested backend, or for "auto" the configured preference
+    ([ocr] backend in the configuration file, ANONYMED_OCR), else the first
+    available one; None for "aus"."""
     name = (name or "auto").lower()
+    if name == "auto":
+        from anonymed.konfig import lade_einstellungen
+
+        bevorzugt = (lade_einstellungen().ocr_backend or "auto").lower()
+        if bevorzugt in ("rapidocr", "tesseract", "aus"):
+            name = bevorzugt
     if name == "aus":
         return None
     if name == "rapidocr":

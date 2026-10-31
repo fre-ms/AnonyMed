@@ -35,24 +35,25 @@ class ExportSeite(QWidget):
         self._warteschlange: list[Dokument] = []
         aussen = QVBoxLayout(self)
 
-        optionen = QGroupBox("Ausgabe")
+        optionen = QGroupBox(self.tr("Ausgabe"))
         form = QFormLayout(optionen)
         zeile = QHBoxLayout()
         self.ziel = QLineEdit()
-        self.ziel.setPlaceholderText("leer = neben der Quelle")
+        self.ziel.setPlaceholderText(self.tr("leer = neben der Quelle"))
         waehlen = QPushButton("…")
         waehlen.clicked.connect(self.ziel_waehlen)
         zeile.addWidget(self.ziel, 1)
         zeile.addWidget(waehlen)
-        form.addRow("Zielordner", zeile)
-        self.textdatei = QCheckBox("Textdatei in Lesereihenfolge (Eingabe für das Sprachmodell)")
+        form.addRow(self.tr("Zielordner"), zeile)
+        self.textdatei = QCheckBox(
+            self.tr("Textdatei in Lesereihenfolge (Eingabe für das Sprachmodell)"))
         self.textdatei.setChecked(True)
-        self.bericht = QCheckBox("Prüfbericht (JSON)")
+        self.bericht = QCheckBox(self.tr("Prüfbericht (JSON)"))
         self.bericht.setChecked(True)
-        self.vermerk = QCheckBox("Vermerk in den PDF-Metadaten")
+        self.vermerk = QCheckBox(self.tr("Vermerk in den PDF-Metadaten"))
         self.vermerk.setChecked(True)
-        self.rastern = QCheckBox("PDF vollständig rastern (nur Bild, keine Textebene)")
-        self.vorschau = QCheckBox("Vorschaubilder immer schreiben")
+        self.rastern = QCheckBox(self.tr("PDF vollständig rastern (nur Bild, keine Textebene)"))
+        self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
         for w in (self.textdatei, self.bericht, self.vermerk, self.rastern, self.vorschau):
             form.addRow(w)
         aussen.addWidget(optionen)
@@ -63,10 +64,10 @@ class ExportSeite(QWidget):
 
         unten = QHBoxLayout()
         self.status = QLabel("")
-        self.oeffnen = QPushButton("Zielordner öffnen")
+        self.oeffnen = QPushButton(self.tr("Zielordner öffnen"))
         self.oeffnen.clicked.connect(self.ordner_oeffnen)
         self.oeffnen.setEnabled(False)
-        self.knopf = QPushButton("Exportieren")
+        self.knopf = QPushButton(self.tr("Exportieren"))
         self.knopf.clicked.connect(self.exportieren)
         unten.addWidget(self.status, 1)
         unten.addWidget(self.oeffnen)
@@ -74,7 +75,7 @@ class ExportSeite(QWidget):
         aussen.addLayout(unten)
 
     def ziel_waehlen(self) -> None:
-        ordner = QFileDialog.getExistingDirectory(self, "Zielordner")
+        ordner = QFileDialog.getExistingDirectory(self, self.tr("Zielordner"))
         if ordner:
             self.ziel.setText(ordner)
 
@@ -92,7 +93,8 @@ class ExportSeite(QWidget):
         self._warteschlange = [d for d in self.sitzung.dokumente
                                if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen]
         if not self._warteschlange:
-            QMessageBox.information(self, "Export", "Keine analysierten Dokumente.")
+            QMessageBox.information(self, self.tr("Export"),
+                                    self.tr("Keine analysierten Dokumente."))
             return
         self.ausgabe.clear()
         self._naechstes()
@@ -100,12 +102,12 @@ class ExportSeite(QWidget):
     def _naechstes(self) -> None:
         if not self._warteschlange:
             self.knopf.setEnabled(True)
-            self.status.setText("Fertig.")
+            self.status.setText(self.tr("Fertig."))
             self.oeffnen.setEnabled(True)
             return
         d = self._warteschlange.pop(0)
         self.knopf.setEnabled(False)
-        self.status.setText(f"Exportiere {d.pfad.name} …")
+        self.status.setText(self.tr("Exportiere {name} …").format(name=d.pfad.name))
         if self.synchron:
             try:
                 self._fertig(self.sitzung.exportiere(d))
@@ -120,19 +122,20 @@ class ExportSeite(QWidget):
     def _fertig(self, ergebnis) -> None:
         text = als_text(ergebnis.bericht)
         if ergebnis.freigegeben:
-            text += f"Freigegeben: {ergebnis.ziel_pdf}\n"
+            text += self.tr("Freigegeben: {pfad}").format(pfad=ergebnis.ziel_pdf) + "\n"
             if ergebnis.ziel_txt:
-                text += f"Text: {ergebnis.ziel_txt}\n"
+                text += self.tr("Text: {pfad}").format(pfad=ergebnis.ziel_txt) + "\n"
         else:
-            text += "NICHT freigegeben.\n"
+            text += self.tr("NICHT freigegeben.") + "\n"
         if ergebnis.vorschau:
-            text += f"Vorschau: {ergebnis.vorschau[0].parent}\n"
+            text += self.tr("Vorschau: {pfad}").format(pfad=ergebnis.vorschau[0].parent) + "\n"
         self.ausgabe.appendPlainText(text + "\n")
         self._naechstes()
 
     def _fehler(self, e: Exception, d: Dokument) -> None:
         d.fehler = str(e)
-        self.ausgabe.appendPlainText(f"{d.pfad.name}: Fehler: {e}\n")
+        self.ausgabe.appendPlainText(
+            self.tr("{name}: Fehler: {fehler}").format(name=d.pfad.name, fehler=e) + "\n")
         self._naechstes()
 
     def ordner_oeffnen(self) -> None:

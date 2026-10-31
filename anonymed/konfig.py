@@ -43,6 +43,60 @@ def konfigpfad() -> Path:
     return basis / "konfig.toml"
 
 
+@dataclass
+class Einstellungen:
+    """The non-CardDAV part of the configuration file."""
+
+    ocr_backend: str = "auto"  # auto, rapidocr, tesseract, aus
+    tesseract_pfad: str = ""  # explicit path to the tesseract program
+    tesseract_sprachen: str = ""  # e.g. "deu+eng"; empty = whatever of deu/eng is installed
+    gui_sprache: str = ""  # "de", "en" or empty = system locale
+
+
+def _lese_toml(pfad: Path) -> dict:
+    if not pfad.exists():
+        return {}
+    with pfad.open("rb") as f:
+        return tomllib.load(f)
+
+
+def lade_einstellungen(pfad: str | Path | None = None) -> Einstellungen:
+    """[ocr] and [gui] sections; ANONYMED_OCR and ANONYMED_SPRACHE override."""
+    daten = _lese_toml(Path(pfad) if pfad else konfigpfad())
+    ocr = daten.get("ocr", {})
+    gui = daten.get("gui", {})
+    e = Einstellungen(
+        ocr_backend=str(ocr.get("backend", "auto")),
+        tesseract_pfad=str(ocr.get("tesseract", "")),
+        tesseract_sprachen=str(ocr.get("sprachen", "")),
+        gui_sprache=str(gui.get("sprache", "")),
+    )
+    e.ocr_backend = os.environ.get("ANONYMED_OCR", e.ocr_backend).strip() or "auto"
+    e.tesseract_pfad = os.environ.get("ANONYMED_TESSERACT", e.tesseract_pfad).strip()
+    e.gui_sprache = os.environ.get("ANONYMED_SPRACHE", e.gui_sprache).strip()
+    return e
+
+
+def speichere_einstellungen(e: Einstellungen, pfad: str | Path | None = None) -> Path:
+    """Write [ocr] and [gui], keeping the [carddav] section as it is."""
+    pfad = Path(pfad) if pfad else konfigpfad()
+    carddav = _lese_toml(pfad).get("carddav", {})
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    zeilen = ["[carddav]"]
+    for k in ("url", "benutzer", "adressbuch"):
+        zeilen.append(f"{k} = {_toml_wert(str(carddav.get(k, '')))}")
+    zeilen += ["", "[ocr]", f"backend = {_toml_wert(e.ocr_backend)}",
+               f"tesseract = {_toml_wert(e.tesseract_pfad)}",
+               f"sprachen = {_toml_wert(e.tesseract_sprachen)}",
+               "", "[gui]", f"sprache = {_toml_wert(e.gui_sprache)}"]
+    pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
+    try:
+        os.chmod(pfad, 0o600)
+    except OSError:
+        pass
+    return pfad
+
+
 def lade_konfig(pfad: str | Path | None = None) -> CardDAVKonfig:
     """File values, overridden by ANONYMED_CARDDAV_URL/BENUTZER/ADRESSBUCH."""
     pfad = Path(pfad) if pfad else konfigpfad()
@@ -66,15 +120,17 @@ def _toml_wert(text: str) -> str:
 
 
 def speichere_konfig(k: CardDAVKonfig, pfad: str | Path | None = None) -> Path:
+    """Write the [carddav] section, keeping [ocr] and [gui] as they are."""
     pfad = Path(pfad) if pfad else konfigpfad()
+    e = lade_einstellungen(pfad) if pfad.exists() else Einstellungen()
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(
-        "[carddav]\n"
-        f"url = {_toml_wert(k.url)}\n"
-        f"benutzer = {_toml_wert(k.benutzer)}\n"
-        f"adressbuch = {_toml_wert(k.adressbuch)}\n",
-        encoding="utf-8",
-    )
+    zeilen = ["[carddav]", f"url = {_toml_wert(k.url)}", f"benutzer = {_toml_wert(k.benutzer)}",
+              f"adressbuch = {_toml_wert(k.adressbuch)}", "", "[ocr]",
+              f"backend = {_toml_wert(e.ocr_backend)}",
+              f"tesseract = {_toml_wert(e.tesseract_pfad)}",
+              f"sprachen = {_toml_wert(e.tesseract_sprachen)}", "", "[gui]",
+              f"sprache = {_toml_wert(e.gui_sprache)}"]
+    pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
     try:
         os.chmod(pfad, 0o600)
     except OSError:

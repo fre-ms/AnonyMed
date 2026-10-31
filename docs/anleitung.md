@@ -13,7 +13,9 @@ uv sync --extra ocr --extra codes --extra gui
 uv run anonymed gui
 ```
 
-Tesseract wird als zweites OCR-Programm benutzt, wenn es installiert ist (macOS: `brew install tesseract tesseract-lang`, Ubuntu: `apt install tesseract-ocr tesseract-ocr-deu`); nötig ist es nicht, RapidOCR ist enthalten.
+Tesseract wird als zweites OCR-Programm benutzt, wenn es installiert ist (macOS: `brew install tesseract tesseract-lang`, Ubuntu: `apt install tesseract-ocr tesseract-ocr-deu`); es wird an den üblichen Orten gefunden, auch wenn die App aus dem Finder startet. Nötig ist es nicht, RapidOCR ist enthalten. Wer Tesseract bevorzugt, trägt `backend = "tesseract"` unter `[ocr]` in die Konfigurationsdatei ein (`anonymed konfig` zeigt den Pfad) oder setzt `ANONYMED_OCR=tesseract`.
+
+**Sprache.** Die Oberfläche folgt der Systemsprache; `--sprache en` oder `--sprache de` beim Start, das Menü *Sprache* im Fenster oder `ANONYMED_SPRACHE=en` legen sie fest. Berichte und Kommandozeile bleiben deutsch.
 
 ## Erster Start
 
@@ -30,8 +32,8 @@ Das App-Passwort (Nextcloud → Einstellungen → Sicherheit) wird im Schlüssel
 ## Die fünf Schritte
 
 1. **Patient.** Im Adressbuch suchen (Name, Geburtsjahr), eine Patientendatei oder eine vCard laden. Prüfen Sie die Felder: Alles, was dort steht, wird geschwärzt. Tragen Sie Angehörige, Zuweiser und weitere Begriffe ein (je Zeile einer); aus den Notizen einer Kontaktkarte werden sie nicht automatisch übernommen. „Patient übernehmen“.
-2. **Dokumente.** PDFs oder Fotos hineinziehen. Seiten ohne Textebene (Scans, Fotos) werden per OCR gelesen. „Analysieren“.
-3. **Prüfen.** Jede Seite erscheint mit farbigen Kästen: blau aus der Textebene, orange aus der OCR, lila Barcodes, rot manuell, grau unlesbare Zeilen. Ein Fehltreffer (etwa ein Medikamentenname, der wie ein Nachname aussieht): anklicken, „Treffer verwerfen“. Etwas Übersehenes, zum Beispiel ein handschriftlicher Name: mit der Maus einen Kasten darüber ziehen. Zoom mit Strg/Cmd und Mausrad oder den Knöpfen.
+2. **Dokumente.** PDFs oder Fotos hineinziehen. Seiten ohne Textebene (Scans, Fotos) werden per OCR gelesen. Wahlweise NER einschalten, um Personen und Orte zu finden, die niemand eingetragen hat. „Analysieren“.
+3. **Prüfen.** Jede Seite erscheint mit farbigen Kästen: blau aus der Textebene, orange aus der OCR, lila Barcodes, rot manuell, grau unlesbare Zeilen, türkis NER. Ein Fehltreffer (etwa ein Medikamentenname, der wie ein Nachname aussieht): anklicken, „Treffer verwerfen“. Etwas Übersehenes, zum Beispiel ein handschriftlicher Name: mit der Maus einen Kasten darüber ziehen. Zoom mit Strg/Cmd und Mausrad oder den Knöpfen.
 4. **Exportieren.** Zielordner wählen. Je Dokument entstehen `name_anonym.pdf`, `name_anonym.txt` (der Text in Lesereihenfolge, das geben Sie dem Sprachmodell) und `name_anonym.bericht.json`. Die Gegenprobe liest das Ergebnis erneut; bleibt ein Identifikator übrig, wird nichts freigegeben und der Bericht sagt warum. Bei OCR-Seiten entstehen Vorschaubilder: Sehen Sie sie an, bevor Sie einen Scan weitergeben.
 5. **Rückersetzen.** Den Text des Sprachmodells einfügen, die Person wählen, „Rückersetzen“. „Herr/Frau Nachname“ setzt die Anrede nach Fall, „voller Name“ den Namen. Verdrehte Pseudonyme (falsches Prüfzeichen) werden gemeldet, mit Vorschlag.
 
@@ -41,6 +43,17 @@ Geschwärzt: Name in allen Schreibweisen, Geburtsdatum in allen Formaten, Anschr
 
 Nicht geschwärzt: Diagnosen, Medikamente, Messwerte, Befundtexte, Termine. Nicht erkannt werden unbekannte Namen (ein Angehöriger, der nirgends eingetragen ist) und Handschrift, die die OCR nicht als Text findet; dafür gibt es den Prüfschritt.
 
+## NER
+
+Named-Entity-Recognition ist ein statistisches Modell (spaCy, trainiert auf deutschen Nachrichten), das Personen- und Ortsnamen im Fließtext ohne Liste erkennt. Es findet die Angehörige oder den Kollegen, die niemand eingetragen hat, aber es rät: Es kann ein Medikament oder eine Abteilung für eine Person halten und einen Namen übersehen. Deshalb ist es standardmäßig aus, seine Treffer erscheinen im Prüfschritt in eigener Farbe, medizinische Eponyme (Alzheimer, Parkinson, Babinski …) sind ausgenommen, und es entscheidet nie über die Freigabe. Installation:
+
+```sh
+uv sync --extra ner
+uv pip install https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.8.0/de_core_news_md-3.8.0-py3-none-any.whl
+```
+
+Gefundene Personen werden zu `Person <Code>`, Orte zu `[Ort <Code>]`, mit demselben Schlüssel-Hash wie die Patientenkennung; derselbe Name bekommt denselben Code, und die Rückersetzung kennt ihn.
+
 ## Pseudonyme
 
 Die Hauptperson heißt `Patient K7Q4MX` (Buchstaben und Ziffern aus einem Schlüssel-Hash über Name und Geburtsdatum, mit Prüfzeichen), Angehörige `Angehörige K7Q4MX-1`, Zuweiser `Dr. Z1`, Straßen `[Straße …]`, Orte `[Ort …]` und `[PLZ Ort …]`, das Geburtsdatum `[geb. 1959]` oder `[Alter 66]`. Schreibvarianten desselben Namens ergeben dieselbe Kennung; ähnelt eine Person einem vorhandenen Eintrag nur ungefähr, fragt AnonyMed nach. Einzelheiten: `docs/pseudonyme.md`.
@@ -49,7 +62,7 @@ Die Hauptperson heißt `Patient K7Q4MX` (Buchstaben und Ziffern aus einem Schlü
 
 ```sh
 anonymed anonymisieren befund.pdf --kontakt "Müller 1959"
-anonymed anonymisieren scan.pdf --patient patient.json --ocr tesseract
+anonymed anonymisieren scan.pdf --patient patient.json --ocr tesseract --ner
 anonymed pruefen befund_anonym.pdf --patient patient.json
 anonymed rueckersetzen brief.txt --kennung K7Q4MX --form anrede
 anonymed pseudonyme

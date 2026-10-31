@@ -12,12 +12,14 @@ from anonymed.pseudonyme.kennung import ist_hashkennung, kennung_gueltig
 
 _KENNUNG = r"(?:[A-Z]{1,3}|[A-Z2-9]{4,9})"
 _PATIENT = re.compile(rf"^(Patient|Patientin) ({_KENNUNG})$")
+_PERSON = re.compile(rf"^Person ({_KENNUNG})$")
 _ANGEHOERIGE = re.compile(rf"^Angehörige ({_KENNUNG})-(\d+)$")
 _ZUWEISER = re.compile(r"^Dr\. Z(\d+)$")
 _KLAMMER = re.compile(r"^\[(.+)\]$")
 
 _REST_MUSTER = [
     re.compile(rf"\bPatient(?:in|en)?\s+{_KENNUNG}(?![\w])"),
+    re.compile(rf"\bPerson\s+{_KENNUNG}(?![\w])"),
     re.compile(rf"\bAngehörige[nr]?\s+{_KENNUNG}-\d+(?!\d)"),
     re.compile(r"\bDr\.\s*Z\d+(?!\d)"),
     re.compile(r"\[(?:geb\.|Alter|Wohnort|Straße|Strasse|PLZ Ort|Ort|Telefon|E-Mail|"
@@ -59,6 +61,10 @@ def _ersetzer(pseudonym: str, klartext: str, person: Person | None, form: str):
             return klartext.split("; ")[0]
 
         return muster, ersetze
+    m = _PERSON.match(pseudonym)
+    if m:
+        code = m.group(1)
+        return re.compile(rf"\bPerson\s+{re.escape(code)}(?![\w])"), lambda t: klartext
     m = _ANGEHOERIGE.match(pseudonym)
     if m:
         b, n = m.groups()

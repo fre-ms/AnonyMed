@@ -15,7 +15,7 @@ Status (31 October 2026): milestones M0 (core), M1 (command line), M2 (CardDAV a
 
 ## Install
 
-**Packaged:** unpack the archive for your system (macOS: `AnonyMed.app`; Windows and Linux: the folder `AnonyMed` with `anonymed-gui` and the command line `anonymed`). The packages are built by `packaging/build.py` with PyInstaller and are not code-signed yet; macOS asks on first start (right-click, Open). A German manual is in `docs/anleitung.md`.
+**Packaged:** unpack the archive for your system (macOS: `AnonyMed.app`; Windows and Linux: the folder `AnonyMed` with `anonymed-gui` and the command line `anonymed`). The packages are built by `packaging/build.py` with PyInstaller and are not code-signed yet; macOS asks on first start (right-click, Open). Manuals: `docs/anleitung.md` (German), `docs/manual.md` (English).
 
 **From source:** Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
@@ -80,15 +80,23 @@ Exit codes: 0 released, 1 input error, 2 not released (check failed or page with
 
 ### Scans and photos
 
-Install the extras once: `uv sync --extra ocr --extra codes` (RapidOCR with bundled models, pillow-heif, zxing-cpp). Tesseract is used instead when it is installed and RapidOCR is not (`--ocr tesseract` forces it, `--ocr aus` disables OCR).
+Install the extras once: `uv sync --extra ocr --extra codes` (RapidOCR with bundled models, pillow-heif, zxing-cpp). A locally installed Tesseract (Homebrew, apt, the Windows installer) is found in the usual places even when the app starts from the Finder and is used when RapidOCR is missing or preferred (`--ocr tesseract`, `[ocr] backend = "tesseract"` in the configuration file, or `ANONYMED_OCR=tesseract`; `--ocr aus` disables OCR). German and English language packs are picked up when installed.
 
 Pages without a text layer, image files (JPEG, PNG, TIFF, HEIC) and pages whose area is largely covered by images are read by OCR after a median filter against scanner noise. Hits are blanked **in the image pixels**: the OCR word box is snapped outward to the next word gap in the image and padded, so that an imprecise box never leaves a character standing; the pseudonym is written on top. The text file gets the OCR text as a separate block marked as unchecked; the output pages are OCR-read again and any leftover blocks the release. Barcodes and QR codes are blanked as `[Code]`.
 
 OCR misreads are met in three ways: codes such as insurance numbers are matched tolerant to the usual confusions (0/O, 1/I, 5/S, 8/B); values behind labels like "Versicherten-Nr.", "Pat.-ID" or "AZ" are blanked even when misread; and every identifier is additionally searched with a small edit-distance tolerance that grows with its length, also across tokens OCR split ("gotthard. flantz@example. org"). Lines OCR could not read at all (fragments, low confidence) are blanked as `[unlesbar]` because what cannot be read cannot be checked (`--unlesbar lassen` keeps them). This also removes handwriting the detector finds but cannot read; handwriting it does not find stays. Preview images of every OCR page are written to `<name>_anonym_vorschau/`: look at them before handing a scan to a model, over-covered neighbours and `[unlesbar]` bars show what was lost.
 
+### Unknown names (NER, optional)
+
+`uv sync --extra ner` plus a German spaCy model (see `docs/manual.md`) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it is off by default, excludes medical eponyms, shows its hits in their own colour in the review tab and never runs in the re-check.
+
+### Languages
+
+The interface is German with an en-GB translation (`anonymed gui --language en`, the *Language* menu, or `ANONYMED_SPRACHE=en`); manuals: `docs/anleitung.md` (German), `docs/manual.md` (English). Reports and command-line messages are German.
+
 ## What it does not do yet
 
-* No NER: unknown names (a relative not listed in the patient file) are not found. Add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`).
+* Without NER, unknown names (a relative not listed in the patient file) are not found; add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`) or switch NER on and review its hits.
 * Handwriting and text inside photos of screens or odd angles are beyond OCR; the review tab shows every page so that you can draw a box over what was missed.
 
 ## Safety notes

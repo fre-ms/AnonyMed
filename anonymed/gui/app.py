@@ -1,4 +1,7 @@
-"""Entry point of the desktop interface: ``anonymed gui`` or ``anonymed-gui``."""
+"""Entry point of the desktop interface: ``anonymed gui`` or ``anonymed-gui``.
+
+Options: ``--sprache de|en`` (also ``--language``) and ``--selbsttest``.
+"""
 
 from __future__ import annotations
 
@@ -11,15 +14,19 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         print("Die Oberfläche braucht das Extra 'gui': uv sync --extra gui", file=sys.stderr)
         return 1
+    from anonymed.gui import uebersetzung
     from anonymed.gui.hauptfenster import Hauptfenster
 
     argumente = list(argv if argv is not None else sys.argv[1:])
     selbsttest = "--selbsttest" in argumente
     if selbsttest:
         argumente.remove("--selbsttest")
+    sprache = uebersetzung.sprache_bestimmen(argumente)
+    argumente = uebersetzung.ohne_sprachargumente(argumente)
     app = QApplication.instance() or QApplication([sys.argv[0], *argumente])
     app.setApplicationName("AnonyMed")
     app.setOrganizationName("AnonyMed")
+    app.uebersetzer = uebersetzung.installiere(app, sprache)  # keep a reference
     fenster = Hauptfenster()
     fenster.show()
     if selbsttest:
@@ -28,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
         print("Selbsttest bestanden:", ", ".join(tabs))
         fenster.close()
+        if app.uebersetzer is not None:
+            app.removeTranslator(app.uebersetzer)
         return 0
     return app.exec()
 

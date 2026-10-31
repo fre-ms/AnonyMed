@@ -113,3 +113,27 @@ def test_selbsttest(qapp: QApplication, capsys: pytest.CaptureFixture[str]) -> N
 
     assert main(["--selbsttest"]) == 0
     assert "Selbsttest bestanden" in capsys.readouterr().out
+
+
+def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPatch) -> None:
+    from anonymed.gui import uebersetzung
+
+    assert uebersetzung.sprache_bestimmen(["--sprache", "en"]) == "en"
+    assert uebersetzung.sprache_bestimmen(["--language=EN-GB"]) == "en-gb"
+    assert uebersetzung.ohne_sprachargumente(["x", "--sprache", "en", "y"]) == ["x", "y"]
+    monkeypatch.setenv("ANONYMED_SPRACHE", "en")
+    assert uebersetzung.sprache_bestimmen([]) == "en"
+    uebersetzer = uebersetzung.installiere(qapp, "en_gb")
+    assert uebersetzer is not None
+    try:
+        fenster = Hauptfenster(Sitzung(speicherpfad=None))
+        tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
+        assert tabs == ["1 Patient", "2 Documents", "3 Review", "4 Export", "5 Re-identify"]
+        assert fenster.patient.f["nachname"].placeholderText() == ""
+        assert fenster.export.knopf.text() == "Export"
+        fenster.close()
+    finally:
+        qapp.removeTranslator(uebersetzer)
+    fenster = Hauptfenster(Sitzung(speicherpfad=None))
+    assert fenster.tabs.tabText(1) == "2 Dokumente"
+    fenster.close()

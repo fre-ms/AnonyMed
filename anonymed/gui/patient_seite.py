@@ -60,16 +60,16 @@ class PatientSeite(QWidget):
         self._treffer: list[Patient] = []
         aussen = QVBoxLayout(self)
 
-        quelle = QGroupBox("Quelle")
+        quelle = QGroupBox(self.tr("Quelle"))
         q = QHBoxLayout(quelle)
         self.suche = QLineEdit()
-        self.suche.setPlaceholderText("Name, Geburtsjahr oder Geburtsdatum …")
+        self.suche.setPlaceholderText(self.tr("Name, Geburtsjahr oder Geburtsdatum …"))
         self.suche.returnPressed.connect(self.suchen)
-        knopf_suche = QPushButton("Im Adressbuch suchen")
+        knopf_suche = QPushButton(self.tr("Im Adressbuch suchen"))
         knopf_suche.clicked.connect(self.suchen)
-        knopf_datei = QPushButton("Patientendatei …")
+        knopf_datei = QPushButton(self.tr("Patientendatei …"))
         knopf_datei.clicked.connect(self.datei_laden)
-        knopf_vcf = QPushButton("vCard …")
+        knopf_vcf = QPushButton(self.tr("vCard …"))
         knopf_vcf.clicked.connect(self.vcf_laden)
         q.addWidget(self.suche, 1)
         q.addWidget(knopf_suche)
@@ -82,32 +82,35 @@ class PatientSeite(QWidget):
         self.liste.itemSelectionChanged.connect(self._treffer_gewaehlt)
         aussen.addWidget(self.liste)
 
-        felder = QGroupBox("Identifikatoren (werden geschwärzt)")
+        felder = QGroupBox(self.tr("Identifikatoren (werden geschwärzt)"))
         form = QFormLayout(felder)
         self.f: dict[str, QLineEdit] = {}
-        for name, titel in (("nachname", "Nachname"), ("vorname", "Vorname(n)"),
-                            ("geburtsname", "Geburtsname"), ("titel", "Titel"),
-                            ("geburtsdatum", "Geburtsdatum (TT.MM.JJJJ)"),
-                            ("strasse", "Straße und Hausnummer"), ("plz", "PLZ"), ("ort", "Ort"),
-                            ("telefone", "Telefon (mehrere mit ;)"), ("emails", "E-Mail"),
-                            ("versichertennummer", "Versichertennummer"),
-                            ("patienten_id", "Patienten-ID"),
-                            ("aktenzeichen", "Aktenzeichen (mehrere mit ;)")):
+        for name, titel in (("nachname", self.tr("Nachname")), ("vorname", self.tr("Vorname(n)")),
+                            ("geburtsname", self.tr("Geburtsname")), ("titel", self.tr("Titel")),
+                            ("geburtsdatum", self.tr("Geburtsdatum (TT.MM.JJJJ)")),
+                            ("strasse", self.tr("Straße und Hausnummer")), ("plz", self.tr("PLZ")),
+                            ("ort", self.tr("Ort")),
+                            ("telefone", self.tr("Telefon (mehrere mit ;)")),
+                            ("emails", self.tr("E-Mail")),
+                            ("versichertennummer", self.tr("Versichertennummer")),
+                            ("patienten_id", self.tr("Patienten-ID")),
+                            ("aktenzeichen", self.tr("Aktenzeichen (mehrere mit ;)"))):
             self.f[name] = QLineEdit()
             form.addRow(titel, self.f[name])
         self.geschlecht = QComboBox()
-        self.geschlecht.addItems(["unbekannt", "Herr", "Frau"])
-        form.addRow("Anrede", self.geschlecht)
+        self.geschlecht.addItems([self.tr("unbekannt"), self.tr("Herr"),
+                                  self.tr("Frau")])
+        form.addRow(self.tr("Anrede"), self.geschlecht)
         aussen.addWidget(felder)
 
-        zusatz = QGroupBox("Weitere Personen und Begriffe (eine je Zeile)")
+        zusatz = QGroupBox(self.tr("Weitere Personen und Begriffe (eine je Zeile)"))
         z = QHBoxLayout(zusatz)
         self.angehoerige = QPlainTextEdit()
-        self.angehoerige.setPlaceholderText("Angehörige: Vorname Nachname")
+        self.angehoerige.setPlaceholderText(self.tr("Angehörige: Vorname Nachname"))
         self.zuweiser = QPlainTextEdit()
-        self.zuweiser.setPlaceholderText("Zuweiser: Dr. med. Vorname Nachname")
+        self.zuweiser.setPlaceholderText(self.tr("Zuweiser: Dr. med. Vorname Nachname"))
         self.begriffe = QPlainTextEdit()
-        self.begriffe.setPlaceholderText("Begriffe: weitere Namen, Praxen, Nummern")
+        self.begriffe.setPlaceholderText(self.tr("Begriffe: weitere Namen, Praxen, Nummern"))
         for w in (self.angehoerige, self.zuweiser, self.begriffe):
             w.setMaximumHeight(90)
             z.addWidget(w)
@@ -116,7 +119,7 @@ class PatientSeite(QWidget):
         unten = QHBoxLayout()
         self.hinweis = QLabel("")
         self.hinweis.setWordWrap(True)
-        knopf = QPushButton("Patient übernehmen")
+        knopf = QPushButton(self.tr("Patient übernehmen"))
         knopf.setDefault(True)
         knopf.clicked.connect(self.uebernehmen)
         unten.addWidget(self.hinweis, 1)
@@ -131,28 +134,29 @@ class PatientSeite(QWidget):
         k = lade_konfig()
         passwort = passwort_laden(k) if k.vollstaendig else None
         if not k.vollstaendig or not passwort:
-            QMessageBox.information(self, "Adressbuch", "CardDAV ist nicht eingerichtet. Bitte"
-                                    " zuerst 'anonymed kontakte einrichten' ausführen.")
+            QMessageBox.information(self, self.tr("Adressbuch"), self.tr(
+                "CardDAV ist nicht eingerichtet. Bitte zuerst 'anonymed kontakte einrichten'"
+                " ausführen."))
             return
         try:
             client = CardDAVClient(k.url, k.benutzer, passwort)
             kontakte = client.suche(client.adressbuch(k.adressbuch), begriff)
         except CardDAVFehler as e:
-            QMessageBox.warning(self, "Adressbuch", str(e))
+            QMessageBox.warning(self, self.tr("Adressbuch"), str(e))
             return
         self.zeige_treffer([kk.patient for kk in kontakte])
 
     def datei_laden(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(self, "Patientendatei", "",
-                                              "JSON/TOML (*.json *.toml)")
+        pfad, _ = QFileDialog.getOpenFileName(self, self.tr("Patientendatei"), "",
+                                              self.tr("JSON/TOML (*.json *.toml)"))
         if pfad:
             try:
                 self.zeige_treffer([lade_patient(pfad)])
             except (OSError, ValueError) as e:
-                QMessageBox.warning(self, "Patientendatei", str(e))
+                QMessageBox.warning(self, self.tr("Patientendatei"), str(e))
 
     def vcf_laden(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(self, "vCard", "", "vCard (*.vcf)")
+        pfad, _ = QFileDialog.getOpenFileName(self, self.tr("vCard"), "", self.tr("vCard (*.vcf)"))
         if pfad:
             self.zeige_treffer([p for p in patienten_aus_vcf(pfad) if p.nachname or p.vorname])
 
@@ -162,11 +166,12 @@ class PatientSeite(QWidget):
         for p in patienten:
             geb = p.geburtsdatum.strftime("%d.%m.%Y") if p.geburtsdatum else "–"
             ort = " ".join(t for t in (p.plz, p.ort) if t)
-            QListWidgetItem(f"{p.nachname}, {p.vorname}  geb. {geb}  {ort}", self.liste)
+            QListWidgetItem(self.tr("{nachname}, {vorname}  geb. {geb}  {ort}").format(
+                nachname=p.nachname, vorname=p.vorname, geb=geb, ort=ort), self.liste)
         if len(patienten) == 1:
             self.liste.setCurrentRow(0)
         elif not patienten:
-            self.hinweis.setText("Kein Treffer.")
+            self.hinweis.setText(self.tr("Kein Treffer."))
 
     def _treffer_gewaehlt(self) -> None:
         zeile = self.liste.currentRow()
@@ -191,7 +196,7 @@ class PatientSeite(QWidget):
                                              for z in p.zuweiser))
         self.begriffe.setPlainText("\n".join(p.begriffe))
         if p.hinweise:
-            self.hinweis.setText("Notizen der Karte: " + " | ".join(p.hinweise))
+            self.hinweis.setText(self.tr("Notizen der Karte: ") + " | ".join(p.hinweise))
         else:
             self.hinweis.setText("")
 
@@ -224,14 +229,15 @@ class PatientSeite(QWidget):
     def uebernehmen(self) -> None:
         p = self.patient()
         if not p.nachname:
-            QMessageBox.warning(self, "Patient", "Der Nachname fehlt.")
+            QMessageBox.warning(self, self.tr("Patient"), self.tr("Der Nachname fehlt."))
             return
         if self.f["geburtsdatum"].text().strip() and p.geburtsdatum is None:
-            QMessageBox.warning(self, "Patient", "Das Geburtsdatum ist nicht lesbar (TT.MM.JJJJ).")
+            QMessageBox.warning(self, self.tr("Patient"),
+                                self.tr("Das Geburtsdatum ist nicht lesbar (TT.MM.JJJJ)."))
             return
         self.sitzung.patient = p
         self.sitzung.abgleich = None
-        self.hinweis.setText(f"Übernommen: {p.vollname}")
+        self.hinweis.setText(self.tr("Übernommen: {name}").format(name=p.vollname))
         self.uebernommen.emit(p)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802

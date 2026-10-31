@@ -1,8 +1,9 @@
-"""The main window: five steps as tabs."""
+"""The main window: five steps as tabs, a language menu."""
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMainWindow, QTabWidget
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow, QMessageBox, QTabWidget
 
 from anonymed import WERKZEUG
 from anonymed.gui.dokumente_seite import DokumenteSeite
@@ -11,6 +12,7 @@ from anonymed.gui.patient_seite import PatientSeite
 from anonymed.gui.pruefen_seite import PruefenSeite
 from anonymed.gui.rueckersetzen_seite import RueckersetzenSeite
 from anonymed.gui.sitzung import Sitzung
+from anonymed.konfig import lade_einstellungen, speichere_einstellungen
 
 
 class Hauptfenster(QMainWindow):
@@ -25,16 +27,33 @@ class Hauptfenster(QMainWindow):
         self.pruefen = PruefenSeite(self.sitzung)
         self.export = ExportSeite(self.sitzung)
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
-        for seite, titel in ((self.patient, "1 Patient"), (self.dokumente, "2 Dokumente"),
-                             (self.pruefen, "3 Prüfen"), (self.export, "4 Exportieren"),
-                             (self.rueckersetzen, "5 Rückersetzen")):
+        for seite, titel in ((self.patient, self.tr("1 Patient")),
+                             (self.dokumente, self.tr("2 Dokumente")),
+                             (self.pruefen, self.tr("3 Prüfen")),
+                             (self.export, self.tr("4 Exportieren")),
+                             (self.rueckersetzen, self.tr("5 Rückersetzen"))):
             self.tabs.addTab(seite, titel)
         self.setCentralWidget(self.tabs)
         self.patient.uebernommen.connect(lambda _p: self.tabs.setCurrentWidget(self.dokumente))
         self.dokumente.analysiert.connect(self._nach_analyse)
         self.tabs.currentChanged.connect(self._tab_gewechselt)
-        self.statusBar().showMessage("Alles bleibt auf diesem Rechner; nur das Adressbuch wird"
-                                     " über das Netz gelesen.")
+        self.statusBar().showMessage(self.tr(
+            "Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen."))
+        self._sprachmenue()
+
+    def _sprachmenue(self) -> None:
+        menue = self.menuBar().addMenu(self.tr("Sprache"))
+        for code, name in (("de", "Deutsch"), ("en", "English")):
+            aktion = QAction(name, self)
+            aktion.triggered.connect(lambda _c=False, code=code: self.sprache_waehlen(code))
+            menue.addAction(aktion)
+
+    def sprache_waehlen(self, code: str) -> None:
+        e = lade_einstellungen()
+        e.gui_sprache = code
+        speichere_einstellungen(e)
+        QMessageBox.information(self, self.tr("Sprache"), self.tr(
+            "Die Sprache gilt ab dem nächsten Start von AnonyMed."))
 
     def _nach_analyse(self) -> None:
         self.pruefen.aktualisiere()
