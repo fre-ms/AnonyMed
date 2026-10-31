@@ -75,7 +75,10 @@ def test_hochskalieren_hintergrund_masken(befund: Path) -> None:
     sw = auf.wende_an(bild, auf.Aufbereitung(schwarzweiss=True))
     assert set(np.unique(sw)) <= {0, 255}
     maskiert = auf.wende_an(bild, auf.Aufbereitung(masken=[(10, 10, 60, 30)]), skala)
-    assert maskiert[15:25, 15:55].max() == 0 and maskiert[100:, 100:].max() == 255
+    assert maskiert[15:25, 15:55].min() == 255  # the clean-up erases (white)
+    geschwaerzt = auf.wende_an(bild, auf.Aufbereitung(masken=[(10, 10, 60, 30)],
+                                                     maskenfarbe="schwarz"), skala)
+    assert geschwaerzt[15:25, 15:55].max() == 0 and geschwaerzt[100:, 100:].max() == 255
     v = auf.vorschlag(bild, aufloesung=120)
     assert v.hochskalieren == 2 and not v.entzerren and not v.begradigen
     assert v.als_dict()["hochskalieren"] == 2
@@ -91,7 +94,94 @@ def test_seite_ersetzen(befund: Path, tmp_path: Path) -> None:
     assert skala > 0 and len(doc) == 2 and abs(doc[0].rect.width - breite) < 0.01
     assert doc[0].get_images() and not doc[0].get_text("text").strip()  # an image page now
     pix = doc[0].get_pixmap(clip=pymupdf.Rect(60, 65, 290, 85), colorspace=pymupdf.csGRAY)
-    assert max(pix.samples) < 30  # the mask is black on the new page
+    assert min(pix.samples) > 240  # the erased region is white on the new page
     png = auf.vorschau_png(doc[1], auf.Aufbereitung(drehung=90), dpi=50)
     assert png.startswith(b"\x89PNG")
     doc.close()
+
+
+def test_weitere_schritte(befund: Path) -> None:
+    import cv2
+    import numpy as np
+
+    bild, skala = auf.rendere(_seite(befund), 100)
+    h, w = bild.shape[:2]
+    # dark scanner border
+    gerahmt = bild.copy()
+    gerahmt[:, :25] = 20
+    gerahmt[-30:, :] = 30
+    assert auf.raender_dunkel(gerahmt) and not auf.raender_dunkel(bild)
+    sauber = auf.wende_an(gerahmt, auf.Aufbereitung(raender=True))
+    assert sauber[:, :20].min() == 255 and sauber[-20:, :].min() == 255
+    assert sauber[100:200, 100:300].min() < 50  # the text is still there
+    # a red stamp and a blue signature vanish, black print stays
+    gestempelt = bild.copy()
+    cv2.rectangle(gestempelt, (400, 600), (700, 700), (40, 40, 220), thickness=-1)
+    cv2.line(gestempelt, (100, 900), (600, 960), (200, 60, 30), 8)
+    assert auf.farbanteil(gestempelt) > 0.003 > auf.farbanteil(bild)
+    ohne = auf.wende_an(gestempelt, auf.Aufbereitung(farbe_entfernen=True))
+    assert ohne.ndim == 2 and ohne[620:680, 450:650].min() == 255
+    assert ohne[100:200, 100:300].min() < 50
+    # salt-and-pepper grain
+    rng = np.random.default_rng(1)
+    grau = cv2.cvtColor(bild, cv2.COLOR_BGR2GRAY)
+    koernig = grau.copy()
+    maske = rng.random(grau.shape) < 0.02
+    koernig[maske] = 0
+    assert auf.rauschanteil(koernig) > 0.35 > auf.rauschanteil(grau)
+    entrauscht = auf.wende_an(koernig, auf.Aufbereitung(entrauschen=True))
+    assert auf.rauschanteil(entrauscht) < auf.rauschanteil(koernig) / 2
+    # contrast and sharpening keep size and type
+    for a in (auf.Aufbereitung(kontrast=True), auf.Aufbereitung(schaerfen=True)):
+        aus = auf.wende_an(bild, a)
+        assert aus.shape[:2] == (h, w) and aus.dtype == np.uint8
+    # ruled lines vanish, letters survive
+    liniert = bild.copy()
+    cv2.line(liniert, (50, 500), (w - 50, 500), (0, 0, 0), 3)
+    cv2.line(liniert, (300, 50), (300, h - 50), (0, 0, 0), 3)
+    ohne_linien = auf.wende_an(liniert, auf.Aufbereitung(linien_entfernen=True))
+    assert ohne_linien[497:504, 400:800].min() == 255
+    assert ohne_linien[100:200, 100:300].min() < 50
+    # erasing masks are white in the clean-up, black in redaction
+    weiss = auf.wende_an(bild, auf.Aufbereitung(masken=[(10, 10, 60, 30)]), skala)
+    assert weiss[15:25, 15:55].min() == 255
+    schwarz = auf.wende_an(bild, auf.Aufbereitung(masken=[(10, 10, 60, 30)],
+                                                 maskenfarbe="schwarz"), skala)
+    assert schwarz[15:25, 15:55].max() == 0
+    assert "gelöscht" in auf.beschreibung(auf.Aufbereitung(masken=[(0, 0, 1, 1)]))
+
+
+def test_buchstabenmodus_und_faktoren(befund: Path) -> None:
+    import numpy as np
+
+    bild, _ = auf.rendere(_seite(befund), 72)
+    h, w = bild.shape[:2]
+    for faktor in (2, 3, 4):
+        gross = auf.wende_an(bild, auf.Aufbereitung(hochskalieren=faktor, textmodus=True))
+        assert gross.shape == (faktor * h, faktor * w) and gross.dtype == np.uint8
+        # letter mode: clean paper, dark strokes, soft edges in between
+        assert np.median(gross) == 255 and gross.min() == 0
+        assert 0 < np.mean((gross > 30) & (gross < 225)) < 0.2
+    fein = auf.textverfeinerung(bild, faktor=1)
+    assert fein.shape == (h, w) and np.median(fein) == 255
+    v = auf.vorschlag(bild, aufloesung=100)
+    assert v.hochskalieren == 2 and v.textmodus
+    assert "Buchstabenmodus" in auf.beschreibung(v)
+
+
+def test_ausrichtung(befund: Path) -> None:
+    import cv2
+
+    bild, _ = auf.rendere(_seite(befund), 100)
+    assert auf.schaetze_ausrichtung(bild) == 0
+    quer = cv2.rotate(bild, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    assert auf.schaetze_ausrichtung(quer) == 90
+    aufrecht = auf.wende_an(quer, auf.Aufbereitung(drehung=90))
+    assert aufrecht.shape[:2] == bild.shape[:2]
+    from anonymed.dokument import ocr as ocrmodul
+
+    if ocrmodul.verfuegbare_backends():
+        backend = ocrmodul.backend("auto")
+        kopf = cv2.rotate(bild, cv2.ROTATE_180)
+        assert auf.schaetze_ausrichtung(kopf, backend) == 180
+        assert auf.schaetze_ausrichtung(bild, backend) == 0

@@ -41,21 +41,35 @@ class Aufbereitung:
     winkel: float = 0.0  # estimated tilt, positive = text runs downhill to the right
     entzerren: bool = False  # perspective correction with ``ecken``
     ecken: list[Ecke] | None = None  # four corners of the page in the (rotated) image
-    hochskalieren: int = 1  # 1 or 2: OCR reads the page at that multiple of the resolution
+    hochskalieren: int = 1  # 1 to 4: OCR reads the page at that multiple of the resolution
+    textmodus: bool = False  # letter-aware upscaling: Lanczos, Sauvola strokes, smooth edges
+    raender: bool = False  # dark scanner borders -> white
+    farbe_entfernen: bool = False  # coloured ink (stamps, highlighter) -> white
+    entrauschen: bool = False  # non-local means against grain and specks
+    kontrast: bool = False  # CLAHE on faint copies
+    schaerfen: bool = False  # unsharp mask
     hintergrund: bool = False  # even out illumination, white paper
+    linien_entfernen: bool = False  # long ruled and table lines -> white
     schwarzweiss: bool = False  # binarise after that
-    masken: list[Rechteck] = field(default_factory=list)  # black regions, result page points
+    masken: list[Rechteck] = field(default_factory=list)  # regions to wipe, result page points
+    maskenfarbe: str = "weiss"  # "weiss" erases (clean-up step), "schwarz" redacts
 
     @property
     def aktiv(self) -> bool:
         return bool(self.drehung or self.begradigen or self.entzerren or self.hochskalieren > 1
-                    or self.hintergrund or self.schwarzweiss or self.masken)
+                    or self.textmodus or self.raender or self.farbe_entfernen or self.entrauschen
+                    or self.kontrast or self.schaerfen or self.hintergrund
+                    or self.linien_entfernen or self.schwarzweiss or self.masken)
 
     def als_dict(self) -> dict[str, Any]:
         return {"drehung": self.drehung, "begradigen": self.begradigen,
                 "winkel": round(self.winkel, 2), "entzerren": self.entzerren,
-                "hochskalieren": self.hochskalieren, "hintergrund": self.hintergrund,
-                "schwarzweiss": self.schwarzweiss, "masken": len(self.masken)}
+                "hochskalieren": self.hochskalieren, "textmodus": self.textmodus,
+                "raender": self.raender, "farbe_entfernen": self.farbe_entfernen,
+                "entrauschen": self.entrauschen, "kontrast": self.kontrast,
+                "schaerfen": self.schaerfen, "hintergrund": self.hintergrund,
+                "linien_entfernen": self.linien_entfernen, "schwarzweiss": self.schwarzweiss,
+                "masken": len(self.masken), "maskenfarbe": self.maskenfarbe}
 
 
 # -- rendering -----------------------------------------------------------------------------------
@@ -160,6 +174,43 @@ def finde_ecken(bild: Any, skala: float = 1.0) -> list[Ecke] | None:
     return [(float(x), float(y)) for x, y in geordnet]
 
 
+def raender_dunkel(bild: Any, breite: float = 0.04, grenze: int = 90) -> bool:
+    """A dark frame around the page (scanner lid, photographed table edge)."""
+    import numpy as np
+
+    grau, _ = _verkleinert(_grau(bild), 600)
+    h, w = grau.shape
+    r = max(2, int(min(h, w) * breite))
+    streifen = [grau[:r, :], grau[-r:, :], grau[:, :r], grau[:, -r:]]
+    return any(float(np.mean(s)) < grenze for s in streifen)
+
+
+def farbanteil(bild: Any) -> float:
+    """Share of clearly coloured pixels (stamps, highlighter, coloured print)."""
+    import cv2
+    import numpy as np
+
+    if bild.ndim != 3:
+        return 0.0
+    klein, _ = _verkleinert(bild, 600)
+    hsv = cv2.cvtColor(klein, cv2.COLOR_BGR2HSV)
+    bunt = (hsv[:, :, 1] > 70) & (hsv[:, :, 2] > 60)
+    return float(np.mean(bunt))
+
+
+def rauschanteil(bild: Any) -> float:
+    """Share of tiny isolated dark specks among all dark components (grain, dust)."""
+    import cv2
+
+    grau, _ = _verkleinert(_grau(bild), 1000)
+    _, bw = cv2.threshold(grau, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    n, _labels, stats, _ = cv2.connectedComponentsWithStats(bw, connectivity=8)
+    if n <= 1:
+        return 0.0
+    flaechen = stats[1:, cv2.CC_STAT_AREA]
+    return float((flaechen <= 2).sum() / len(flaechen))
+
+
 def hintergrund_ungleich(bild: Any) -> bool:
     """True when the paper is not evenly white (photo, shadow, grey scan)."""
     import cv2
@@ -198,7 +249,11 @@ def vorschlag(bild: Any, foto: bool = False, skala: float = 1.0,
     a.winkel = schaetze_winkel(grundlage)
     a.begradigen = abs(a.winkel) >= 0.3
     a.hochskalieren = 2 if aufloesung is not None and aufloesung < 150 else 1
+    a.textmodus = a.hochskalieren > 1
     a.hintergrund = foto or hintergrund_ungleich(grundlage)
+    a.raender = raender_dunkel(grundlage)
+    a.farbe_entfernen = farbanteil(grundlage) > 0.003
+    a.entrauschen = rauschanteil(grundlage) > 0.35
     return a
 
 
@@ -212,13 +267,29 @@ def beschreibung(a: Aufbereitung) -> str:
     if a.begradigen and abs(a.winkel) >= 0.05:
         teile.append(f"begradigt ({a.winkel:+.1f}°)".replace(".", ","))
     if a.hochskalieren > 1:
-        teile.append(f"{a.hochskalieren}× hochskaliert")
+        teile.append(f"{a.hochskalieren}× hochskaliert" + (" (Buchstabenmodus)" if a.textmodus
+                                                            else ""))
+    elif a.textmodus:
+        teile.append("Buchstabenmodus")
+    if a.raender:
+        teile.append("Ränder gesäubert")
+    if a.farbe_entfernen:
+        teile.append("farbige Tinte entfernt")
+    if a.entrauschen:
+        teile.append("entrauscht")
+    if a.kontrast:
+        teile.append("Kontrast angehoben")
+    if a.schaerfen:
+        teile.append("geschärft")
     if a.hintergrund:
         teile.append("Hintergrund geglättet")
+    if a.linien_entfernen:
+        teile.append("Linien entfernt")
     if a.schwarzweiss:
         teile.append("Schwarz-Weiß")
     if a.masken:
-        teile.append(f"{len(a.masken)} Maske(n)")
+        teile.append(f"{len(a.masken)} Bereich(e) "
+                     + ("gelöscht" if a.maskenfarbe == "weiss" else "geschwärzt"))
     return ", ".join(teile) if teile else "unverändert"
 
 
@@ -258,6 +329,143 @@ def _drehe(bild: Any, winkel: float) -> Any:
                           borderMode=cv2.BORDER_CONSTANT, borderValue=weiss)
 
 
+def _raender_saeubern(bild: Any, grenze: int = 90, maximal: float = 0.15) -> Any:
+    """Paint dark strips at the four edges white, as far as a row or column stays dark
+    (at most 15 % of the side)."""
+    import numpy as np
+
+    grau = _grau(bild)
+    h, w = grau.shape
+    aus = bild.copy()
+    weiss = (255, 255, 255) if aus.ndim == 3 else 255
+
+    def tiefe(reihen: Any, n: int) -> int:
+        t = 0
+        for r in reihen:
+            if float(np.mean(r)) < grenze and t < n:
+                t += 1
+            else:
+                break
+        return t
+
+    oben = tiefe((grau[i, :] for i in range(h)), int(h * maximal))
+    unten = tiefe((grau[h - 1 - i, :] for i in range(h)), int(h * maximal))
+    links = tiefe((grau[:, i] for i in range(w)), int(w * maximal))
+    rechts = tiefe((grau[:, w - 1 - i] for i in range(w)), int(w * maximal))
+    if oben:
+        aus[:oben + 2, :] = weiss
+    if unten:
+        aus[h - unten - 2:, :] = weiss
+    if links:
+        aus[:, :links + 2] = weiss
+    if rechts:
+        aus[:, w - rechts - 2:] = weiss
+    return aus
+
+
+def _farbe_entfernen(bild: Any) -> Any:
+    """Coloured ink (stamps, highlighter, signatures in blue) becomes white; black and
+    grey print stays.  Returns a grey image."""
+    import cv2
+    import numpy as np
+
+    if bild.ndim != 3:
+        return bild
+    hsv = cv2.cvtColor(bild, cv2.COLOR_BGR2HSV)
+    bunt = (hsv[:, :, 1] > 70) & (hsv[:, :, 2] > 60)
+    bunt = cv2.dilate(bunt.astype(np.uint8), np.ones((3, 3), np.uint8), iterations=1) > 0
+    grau = cv2.cvtColor(bild, cv2.COLOR_BGR2GRAY)
+    grau[bunt] = 255
+    return grau
+
+
+def _entrausche(bild: Any) -> Any:
+    """Median against isolated specks (dust, salt-and-pepper), then a light non-local
+    means pass against grain; both keep the strokes of letters."""
+    import cv2
+
+    glatt = cv2.medianBlur(bild, 3)
+    if glatt.ndim == 3:
+        return cv2.fastNlMeansDenoisingColored(glatt, None, 5, 5, 7, 21)
+    return cv2.fastNlMeansDenoising(glatt, None, 7, 7, 21)
+
+
+def _kontrast(bild: Any) -> Any:
+    import cv2
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    if bild.ndim == 3:
+        lab = cv2.cvtColor(bild, cv2.COLOR_BGR2LAB)
+        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+        return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    return clahe.apply(bild)
+
+
+def _schaerfe(bild: Any) -> Any:
+    import cv2
+
+    weich = cv2.GaussianBlur(bild, (0, 0), 1.0)
+    return cv2.addWeighted(bild, 1.6, weich, -0.6, 0)
+
+
+def _sauvola(grau: Any, fenster: int, k: float = 0.2, r: float = 128.0) -> Any:
+    """Sauvola's local threshold: strokes survive where the paper is grey or shaded."""
+    import cv2
+    import numpy as np
+
+    f = grau.astype(np.float32)
+    mittel = cv2.boxFilter(f, -1, (fenster, fenster), normalize=True,
+                           borderType=cv2.BORDER_REPLICATE)
+    quadrat = cv2.boxFilter(f * f, -1, (fenster, fenster), normalize=True,
+                            borderType=cv2.BORDER_REPLICATE)
+    streuung = np.sqrt(np.maximum(quadrat - mittel * mittel, 0))
+    schwelle = mittel * (1 + k * (streuung / r - 1))
+    return np.where(f > schwelle, 255, 0).astype(np.uint8)
+
+
+def textverfeinerung(grau: Any, faktor: int = 2) -> Any:
+    """Letter-aware finish for an upscaled (or large) rendering: sharpen, cut the strokes
+    out with Sauvola's local threshold, then smooth the edges a little so that the OCR
+    sees clean, anti-aliased glyphs instead of blurred grey or jagged black.  Exploits
+    that the content is text: two tones, thin strokes, local contrast."""
+    import cv2
+
+    grau = _grau(grau)
+    grau = _schaerfe(grau)
+    fenster = max(15, (12 * faktor) | 1)
+    bw = _sauvola(grau, fenster, k=0.2)
+    return cv2.GaussianBlur(bw, (0, 0), 0.4 * faktor)
+
+
+def _hochskaliere(bild: Any, faktor: int, textmodus: bool) -> Any:
+    import cv2
+
+    if textmodus:
+        grau = _grau(bild)
+        gross = cv2.resize(grau, None, fx=faktor, fy=faktor, interpolation=cv2.INTER_LANCZOS4)
+        return textverfeinerung(gross, faktor)
+    return cv2.resize(bild, None, fx=faktor, fy=faktor, interpolation=cv2.INTER_CUBIC)
+
+
+def _linien_entfernen(bild: Any) -> Any:
+    """Long horizontal and vertical lines (forms, tables, underlines) become white;
+    letters are far shorter than the kernels and survive."""
+    import cv2
+    import numpy as np
+
+    grau = _grau(bild)
+    h, w = grau.shape
+    _, bw = cv2.threshold(grau, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    waag = cv2.morphologyEx(bw, cv2.MORPH_OPEN, cv2.getStructuringElement(
+        cv2.MORPH_RECT, (max(30, w // 25), 1)))
+    senk = cv2.morphologyEx(bw, cv2.MORPH_OPEN, cv2.getStructuringElement(
+        cv2.MORPH_RECT, (1, max(30, h // 25))))
+    linien = cv2.dilate(cv2.bitwise_or(waag, senk), np.ones((3, 3), np.uint8))
+    aus = bild.copy()
+    aus[linien > 0] = (255, 255, 255) if aus.ndim == 3 else 255
+    return aus
+
+
 def _hintergrund(bild: Any) -> Any:
     """Divide by the blurred background: shadows and grey paper become white, ink stays."""
     import cv2
@@ -286,12 +494,25 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
         aus = _entzerre(aus, a.ecken, skala)
     if a.begradigen and abs(a.winkel) >= 0.05:
         aus = _drehe(aus, a.winkel)  # counter-clockwise by the tilt
+    if a.raender:
+        aus = _raender_saeubern(aus)
+    if a.farbe_entfernen:
+        aus = _farbe_entfernen(aus)
+    if a.entrauschen:
+        aus = _entrausche(aus)
+    if a.kontrast:
+        aus = _kontrast(aus)
     if a.hochskalieren > 1:
-        aus = cv2.resize(aus, None, fx=a.hochskalieren, fy=a.hochskalieren,
-                         interpolation=cv2.INTER_CUBIC)
-    if a.hintergrund:
+        aus = _hochskaliere(aus, a.hochskalieren, a.textmodus)
+    elif a.textmodus:
+        aus = textverfeinerung(aus, 1)
+    if a.schaerfen and not a.textmodus:
+        aus = _schaerfe(aus)
+    if a.hintergrund and not a.textmodus:
         aus = _hintergrund(aus)
-    if a.schwarzweiss:
+    if a.linien_entfernen:
+        aus = _linien_entfernen(aus)
+    if a.schwarzweiss and not a.textmodus:
         grau = _grau(aus)
         aus = cv2.adaptiveThreshold(grau, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                     cv2.THRESH_BINARY, 31, 15)
@@ -300,9 +521,10 @@ def wende_an(bild: Any, a: Aufbereitung, skala: float = 1.0) -> Any:
             aus = cv2.cvtColor(aus, cv2.COLOR_GRAY2BGR)
         else:
             aus = aus.copy()
+        farbe = (255, 255, 255) if a.maskenfarbe == "weiss" else (0, 0, 0)
         for x0, y0, x1, y1 in a.masken:
             cv2.rectangle(aus, (int(x0 * skala), int(y0 * skala)), (int(x1 * skala),
-                          int(y1 * skala)), (0, 0, 0), thickness=-1)
+                          int(y1 * skala)), farbe, thickness=-1)
     return np.ascontiguousarray(aus)
 
 
@@ -355,6 +577,50 @@ def vorschau_png(page: pymupdf.Page, a: Aufbereitung, dpi: int = 100) -> bytes:
     """The processed page as PNG for the before/after view, masks included."""
     aus, _breite, _skala = _verarbeite(page, a, dpi)
     return als_png(aus)
+
+
+def _np_zu_pixmap(bild: Any) -> pymupdf.Pixmap:
+    import cv2
+
+    rgb = cv2.cvtColor(bild, cv2.COLOR_BGR2RGB) if bild.ndim == 3 else cv2.cvtColor(
+        bild, cv2.COLOR_GRAY2RGB)
+    rgb = np_contig(rgb)
+    return pymupdf.Pixmap(pymupdf.csRGB, rgb.shape[1], rgb.shape[0], rgb.tobytes(), False)
+
+
+def np_contig(bild: Any) -> Any:
+    import numpy as np
+
+    return np.ascontiguousarray(bild)
+
+
+def schaetze_ausrichtung(bild: Any, backend: Any = None) -> int:
+    """Clockwise rotation in degrees that puts the page upright: 0 or 90 from the text
+    lines (rows vary most when lines are horizontal); 0 against 180 only with an OCR
+    backend, which reads both and keeps the one it is more confident about."""
+    import cv2
+    import numpy as np
+
+    grau, _ = _verkleinert(_grau(bild), 800)
+    _, bw = cv2.threshold(grau, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    waag = float(np.var(bw.sum(axis=1, dtype=np.float64)))
+    senk = float(np.var(bw.sum(axis=0, dtype=np.float64)))
+    # normalise by length: a page has more columns than rows or the other way round
+    waag /= bw.shape[1] ** 2
+    senk /= bw.shape[0] ** 2
+    grund = 0 if waag >= senk else 90
+    if backend is None:
+        return grund
+    aufrecht = cv2.rotate(bild, cv2.ROTATE_90_CLOCKWISE) if grund == 90 else bild
+    klein, f = _verkleinert(aufrecht, 1600)
+
+    def wert(kandidat: Any) -> float:
+        woerter = backend.erkenne(_np_zu_pixmap(kandidat), 1.0)
+        return sum(w.konfidenz for w in woerter if len(w.text.strip()) >= 3)
+
+    if wert(cv2.rotate(klein, cv2.ROTATE_180)) > wert(klein) * 1.15:
+        return (grund + 180) % 360
+    return grund
 
 
 def winkel_grad(ecken: list[Ecke]) -> float:

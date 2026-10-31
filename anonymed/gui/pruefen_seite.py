@@ -69,6 +69,8 @@ class Seitenansicht(QGraphicsView):
 
     treffer_gewaehlt = Signal(object)
     kasten_gezeichnet = Signal(object)  # (x0, y0, x1, y1) in page points
+    gescrollt = Signal(float, float)  # relative scroll position (0..1, 0..1)
+    gezoomt = Signal(float)  # absolute scale factor
 
     def __init__(self, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
@@ -79,7 +81,50 @@ class Seitenansicht(QGraphicsView):
         self._items: dict[int, Fundstelle] = {}
         self._start: QPointF | None = None
         self._gummi: QGraphicsRectItem | None = None
-        self.masken_modus = False  # drag draws a black mask instead of a labelled box
+        self.masken_modus = False  # drag draws a mask instead of a labelled box
+        self.loeschmodus = False  # the mask erases (white) rather than redacts (black)
+        self._folgt = False  # while following another view
+        self.horizontalScrollBar().valueChanged.connect(self._scroll_melden)
+        self.verticalScrollBar().valueChanged.connect(self._scroll_melden)
+
+    # -- linking two views -------------------------------------------------------------------------
+    def _relativ(self, leiste) -> float:
+        return leiste.value() / leiste.maximum() if leiste.maximum() > 0 else 0.0
+
+    def _scroll_melden(self, _wert: int) -> None:
+        if not self._folgt:
+            self.gescrollt.emit(self._relativ(self.horizontalScrollBar()),
+                                self._relativ(self.verticalScrollBar()))
+
+    def folge_scroll(self, x: float, y: float) -> None:
+        """Move to the same relative position as another view."""
+        self._folgt = True
+        try:
+            h, v = self.horizontalScrollBar(), self.verticalScrollBar()
+            h.setValue(round(x * h.maximum()))
+            v.setValue(round(y * v.maximum()))
+        finally:
+            self._folgt = False
+
+    def folge_zoom(self, faktor: float) -> None:
+        self._folgt = True
+        try:
+            self.resetTransform()
+            self.scale(faktor, faktor)
+        finally:
+            self._folgt = False
+
+    def _zoom_melden(self) -> None:
+        if not self._folgt:
+            self.gezoomt.emit(self.transform().m11())
+
+    @staticmethod
+    def koppeln(a: Seitenansicht, b: Seitenansicht) -> None:
+        """Keep two views congruent: pan one, the other follows; zoom too."""
+        a.gescrollt.connect(b.folge_scroll)
+        b.gescrollt.connect(a.folge_scroll)
+        a.gezoomt.connect(b.folge_zoom)
+        b.gezoomt.connect(a.folge_zoom)
 
     def _kasten(self, rect: tuple[float, float, float, float], farbe_: QColor, breite: float,
                 alpha: int, gestrichelt: bool = False, hinweis: str = "") -> QGraphicsRectItem:
@@ -137,19 +182,23 @@ class Seitenansicht(QGraphicsView):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             faktor = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
             self.scale(faktor, faktor)
+            self._zoom_melden()
             return
         super().wheelEvent(event)
 
     def zoom(self, faktor: float) -> None:
         self.scale(faktor, faktor)
+        self._zoom_melden()
 
     def zoom_zuruecksetzen(self) -> None:
         self.resetTransform()
+        self._zoom_melden()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
-        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier \
+        if event.modifiers() & (Qt.KeyboardModifier.ShiftModifier
+                                | Qt.KeyboardModifier.AltModifier) \
                 or event.button() == Qt.MouseButton.MiddleButton:
-            # Shift (or the middle button) + drag moves the view instead of drawing
+            # Shift or Option/Alt (or the middle button) + drag moves the view
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             if event.button() == Qt.MouseButton.MiddleButton:
                 event = _als_linksklick(event)
@@ -163,8 +212,9 @@ class Seitenansicht(QGraphicsView):
                 return
         self._start = pos
         self._gummi = QGraphicsRectItem(QRectF(pos, pos))
-        self._gummi.setPen(QPen(SCHWARZ if self.masken_modus else ROT, 1.5,
-                                Qt.PenStyle.SolidLine if self.masken_modus
+        farbe_ = QColor(120, 120, 120) if self.loeschmodus else (
+            SCHWARZ if self.masken_modus else ROT)
+        self._gummi.setPen(QPen(farbe_, 1.5, Qt.PenStyle.SolidLine if self.masken_modus
                                 else Qt.PenStyle.DashLine))
         self._szene.addItem(self._gummi)
 

@@ -3,6 +3,7 @@ redact, clean, check, report."""
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -203,26 +204,31 @@ class _Seite:
     korrektur_treffer: list[Fundstelle] = field(default_factory=list)
     ocr_dpi: int = ocrmodul.OCR_DPI  # resolution the page was (and is re-)read at
     ocr_max_pixel: int = ocrmodul.MAX_PIXEL
+    ocr_filter: object = None  # letter-aware finish applied before the engine
 
 
 def _lese_seiten(
     doc: pymupdf.Document, regeln: list[Regel], ziele: list[Ziel], opt: Ablaufoptionen,
     backend: ocrmodul.OCRBackend | None, vergabe: Pseudonymvergabe | None = None,
     ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
-    verschont: list[str] | None = None, faktoren: dict[int, int] | None = None,
+    verschont: list[str] | None = None,
+    plaene: dict[int, aufmodul.Aufbereitung] | None = None,
 ) -> tuple[list[_Seite], list[int]]:
     """Text layer and, where needed and possible, OCR per page; returns the pages and
-    the numbers (1-based) of pages that needed OCR but got none.  ``faktoren`` holds
-    the upscaling factor of cleaned-up pages: they are read at that multiple of the
-    OCR resolution."""
+    the numbers (1-based) of pages that needed OCR but got none.  ``plaene`` holds the
+    clean-up of pages: an upscaled page is read at that multiple of the OCR resolution
+    (capped), a page in letter mode gets the letter-aware finish before the engine."""
     seiten: list[_Seite] = []
     ohne_text: list[int] = []
     for i, page in enumerate(doc):
         textebene = lese_seite(page, i)
         eintrag = _Seite(i, textebene)
-        faktor = max(1, (faktoren or {}).get(i, 1))
+        plan = (plaene or {}).get(i)
+        faktor = max(1, plan.hochskalieren) if plan is not None else 1
         eintrag.ocr_dpi = opt.ocr_dpi * faktor
-        eintrag.ocr_max_pixel = ocrmodul.MAX_PIXEL * faktor
+        eintrag.ocr_max_pixel = min(ocrmodul.MAX_PIXEL * faktor, 9000)
+        if plan is not None and plan.textmodus:
+            eintrag.ocr_filter = functools.partial(aufmodul.textverfeinerung, faktor=faktor)
         eintrag.fundstellen = finde(textebene, regeln)
         if fachbegriffe is not None and textebene.hat_textebene:
             _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
@@ -235,7 +241,8 @@ def _lese_seiten(
                 ohne_text.append(i + 1)
             else:
                 eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, eintrag.ocr_dpi,
-                                                     max_pixel=eintrag.ocr_max_pixel)
+                                                     max_pixel=eintrag.ocr_max_pixel,
+                                                     filter_=eintrag.ocr_filter)
                 if fachbegriffe is not None:
                     _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
                 genau = finde(eintrag.ocr, regeln)
@@ -330,7 +337,7 @@ def _gegenprobe_bilder(
             continue
         if s.ocr is not None and backend is not None:
             nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, s.ocr_dpi,
-                                             max_pixel=s.ocr_max_pixel)
+                                             max_pixel=s.ocr_max_pixel, filter_=s.ocr_filter)
             spannen = pseudonymspannen_tolerant(nachher.text, pseudonyme)
             genau = finde(nachher, regeln)
             fach = fachmodul.standard() if opt.fachbegriffe else None
@@ -597,9 +604,8 @@ def vorbereiten(
             plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
             for nummer in sorted(plan):
                 aufmodul.seiten_ersetzen([doc, original], nummer, plan[nummer], opt.ocr_dpi)
-            faktoren = {n: a.hochskalieren for n, a in plan.items() if a.hochskalieren > 1}
             seiten, ohne_text = _lese_seiten(doc, r.regeln, r.ziele, opt, backend, r.vergabe,
-                                             r.ner, r.fachbegriffe, verschont, faktoren)
+                                             r.ner, r.fachbegriffe, verschont, plan)
         except Exception:
             doc.close()
             original.close()

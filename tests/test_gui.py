@@ -355,6 +355,24 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     assert d.aufbereitung[0].hintergrund and len(d.aufbereitung[0].masken) == 1
     au.auf_alle_uebertragen()
     assert d.aufbereitung[1].hintergrund
+    au.hochskalieren.setCurrentIndex(2)  # 3×
+    au.textmodus.setChecked(True)
+    au.farbe_entfernen.setChecked(True)
+    assert d.aufbereitung[0].hochskalieren == 3 and d.aufbereitung[0].textmodus
+    assert d.aufbereitung[0].farbe_entfernen and "Buchstabenmodus" in au.hinweis.text()
+    au.hochskalieren.setCurrentIndex(0)
+    au.textmodus.setChecked(False)
+    # the two views are linked: pan one, the other follows; zoom likewise
+    au.nachher.zoom(2.0)
+    assert abs(au.vorher.transform().m11() - au.nachher.transform().m11()) < 1e-6
+    au.vorher.verticalScrollBar().setValue(au.vorher.verticalScrollBar().maximum() // 2)
+    v1 = au.vorher.verticalScrollBar().value() / max(1, au.vorher.verticalScrollBar().maximum())
+    v2 = au.nachher.verticalScrollBar().value() / max(1, au.nachher.verticalScrollBar().maximum())
+    assert abs(v1 - v2) < 0.02, (v1, v2)
+    au.vorher.zoom_zuruecksetzen()
+    assert abs(au.nachher.transform().m11() - 1.0) < 1e-6
+    au.ausrichtung_erkennen()
+    assert d.aufbereitung[0].drehung == 0
     au.drehe(90)
     assert d.aufbereitung[0].drehung == 90 and not d.aufbereitung[0].masken
     au.drehe(270)

@@ -376,10 +376,23 @@ def unlesbare_regionen(seite: Seitentext, mindestanteil: float = 0.4) -> list[Fu
 
 def erkenne_seite(page: pymupdf.Page, backend_: OCRBackend, nummer: int | None = None,
                   dpi: int = OCR_DPI, vorverarbeitung: bool = True,
-                  max_pixel: int = MAX_PIXEL) -> Seitentext:
+                  max_pixel: int = MAX_PIXEL, filter_=None) -> Seitentext:
+    """OCR of one page.  ``filter_`` (NumPy BGR image -> image) runs on the rendering
+    before the engine, for the letter-aware finish of upscaled pages."""
     pix, skala = _rendere(page, dpi, max_pixel)
     if vorverarbeitung:
         pix = vorverarbeite(pix)
+    if filter_ is not None:
+        import numpy as np
+
+        bild = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+        bild = filter_(np.ascontiguousarray(bild[:, :, ::-1]) if pix.n == 3 else bild)
+        if bild.ndim == 2:
+            bild = np.repeat(bild[:, :, None], 3, axis=2)
+        else:
+            bild = bild[:, :, ::-1]
+        bild = np.ascontiguousarray(bild)
+        pix = pymupdf.Pixmap(pymupdf.csRGB, bild.shape[1], bild.shape[0], bild.tobytes(), False)
     woerter = backend_.erkenne(pix, skala)
     nummer = page.number if nummer is None else nummer
     return seitentext_aus_woerter(woerter, nummer, page.rect.width, page.rect.height)

@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from anonymed.dokument import aufbereitung as aufmodul
+from anonymed.dokument import ocr as ocrmodul
 from anonymed.gui.pruefen_seite import VORSCHAU_DPI, Seitenansicht
 from anonymed.gui.sitzung import Dokument, Sitzung
 
@@ -56,12 +58,17 @@ class AufbereitenSeite(QWidget):
         self.vorher.setEnabled(True)
         links.addWidget(self.vorher, 1)
         rechts_bild = QVBoxLayout()
-        rechts_bild.addWidget(QLabel(self.tr("Nachher (so sieht es die OCR; Ziehen zeichnet"
-                                             " eine schwarze Maske)")))
+        rechts_bild.addWidget(QLabel(self.tr("Nachher (so sieht es die OCR; Ziehen löscht den"
+                                             " Bereich weiß; Umschalt/Option + Ziehen"
+                                             " verschiebt beide Ansichten)")))
         self.nachher = Seitenansicht()
         self.nachher.masken_modus = True
+        self.nachher.loeschmodus = True
         self.nachher.kasten_gezeichnet.connect(self.maske)
         rechts_bild.addWidget(self.nachher, 1)
+        self.vorher.masken_modus = True  # drag on the left: nothing drawn, pan with modifier
+        self.vorher.kasten_gezeichnet.connect(lambda _r: None)
+        Seitenansicht.koppeln(self.vorher, self.nachher)
         b.addLayout(links, 1)
         b.addLayout(rechts_bild, 1)
         teiler.addWidget(bilder)
@@ -85,12 +92,40 @@ class AufbereitenSeite(QWidget):
         form.addRow(zeile)
         self.entzerren = QCheckBox(self.tr("Fotografiertes Blatt entzerren"))
         form.addRow(self.entzerren)
-        self.hochskalieren = QCheckBox(self.tr("Auf das Doppelte hochskalieren"))
-        form.addRow(self.hochskalieren)
+        self.hochskalieren = QComboBox()
+        for faktor, text in ((1, self.tr("nicht")), (2, "2×"), (3, "3×"), (4, "4×")):
+            self.hochskalieren.addItem(text, faktor)
+        self.hochskalieren.setToolTip(self.tr(
+            "Die OCR liest die Seite mit dem Vielfachen der Auflösung (bis 4×, Obergrenze"
+            " 9000 Pixel); die Seite selbst wird nicht vergrößert gespeichert."))
+        form.addRow(self.tr("Hochskalieren"), self.hochskalieren)
+        self.textmodus = QCheckBox(self.tr("Buchstabenmodus: Striche schärfen, Kanten glätten"))
+        self.textmodus.setToolTip(self.tr(
+            "Nutzt, dass der Inhalt Text ist: Lanczos-Vergrößerung, lokale Schwelle nach"
+            " Sauvola für saubere Striche, danach leicht geglättete Kanten. Ersetzt"
+            " Hintergrund, Schärfen und Schwarz-Weiß."))
+        form.addRow(self.textmodus)
         self.hintergrund = QCheckBox(self.tr("Hintergrund glätten (Schatten, graues Papier)"))
         form.addRow(self.hintergrund)
         self.schwarzweiss = QCheckBox(self.tr("Schwarz-Weiß"))
         form.addRow(self.schwarzweiss)
+        weitere = QGroupBox(self.tr("Weitere Schritte"))
+        wf = QFormLayout(weitere)
+        self.raender = QCheckBox(self.tr("Dunkle Ränder säubern"))
+        self.farbe_entfernen = QCheckBox(self.tr("Farbige Tinte entfernen (Stempel, Marker)"))
+        self.entrauschen = QCheckBox(self.tr("Entrauschen (Körnung, Staub)"))
+        self.kontrast = QCheckBox(self.tr("Kontrast anheben (blasse Kopien)"))
+        self.schaerfen = QCheckBox(self.tr("Schärfen"))
+        self.linien_entfernen = QCheckBox(self.tr("Linien entfernen (Formulare, Tabellen)"))
+        for w in (self.raender, self.farbe_entfernen, self.entrauschen, self.kontrast,
+                  self.schaerfen, self.linien_entfernen):
+            wf.addRow(w)
+        self.ausrichtung = QPushButton(self.tr("Ausrichtung erkennen"))
+        self.ausrichtung.setToolTip(self.tr(
+            "Hoch- oder Querformat aus den Textzeilen; ob der Text auf dem Kopf steht,"
+            " entscheidet ein kurzer OCR-Vergleich (dauert einige Sekunden)."))
+        self.ausrichtung.clicked.connect(self.ausrichtung_erkennen)
+        wf.addRow(self.ausrichtung)
         drehen = QHBoxLayout()
         for text, grad in ((self.tr("↺ 90°"), 270), (self.tr("↻ 90°"), 90),
                            (self.tr("180°"), 180)):
@@ -98,13 +133,16 @@ class AufbereitenSeite(QWidget):
             k.clicked.connect(lambda _c=False, g=grad: self.drehe(g))
             drehen.addWidget(k)
         form.addRow(self.tr("Drehen"), drehen)
-        self.masken_loeschen = QPushButton(self.tr("Masken löschen"))
+        self.masken_loeschen = QPushButton(self.tr("Gelöschte Bereiche zurückholen"))
         self.masken_loeschen.clicked.connect(self.loesche_masken)
         form.addRow(self.masken_loeschen)
         r.addWidget(schritte)
-        for w in (self.begradigen, self.entzerren, self.hochskalieren, self.hintergrund,
-                  self.schwarzweiss):
+        r.addWidget(weitere)
+        for w in (self.begradigen, self.entzerren, self.textmodus, self.hintergrund,
+                  self.schwarzweiss, self.raender, self.farbe_entfernen, self.entrauschen,
+                  self.kontrast, self.schaerfen, self.linien_entfernen):
             w.toggled.connect(lambda _an: self._formular_uebernehmen())
+        self.hochskalieren.currentIndexChanged.connect(lambda _i: self._formular_uebernehmen())
         self.winkel.valueChanged.connect(lambda _w: self._formular_uebernehmen())
 
         knoepfe = QVBoxLayout()
@@ -189,9 +227,16 @@ class AufbereitenSeite(QWidget):
             self.winkel.setValue(a.winkel)
             self.entzerren.setChecked(a.entzerren)
             self.entzerren.setEnabled(bool(a.ecken))
-            self.hochskalieren.setChecked(a.hochskalieren > 1)
+            self.hochskalieren.setCurrentIndex(max(0, min(3, a.hochskalieren - 1)))
+            self.textmodus.setChecked(a.textmodus)
             self.hintergrund.setChecked(a.hintergrund)
             self.schwarzweiss.setChecked(a.schwarzweiss)
+            self.raender.setChecked(a.raender)
+            self.farbe_entfernen.setChecked(a.farbe_entfernen)
+            self.entrauschen.setChecked(a.entrauschen)
+            self.kontrast.setChecked(a.kontrast)
+            self.schaerfen.setChecked(a.schaerfen)
+            self.linien_entfernen.setChecked(a.linien_entfernen)
         finally:
             self._stumm = False
 
@@ -204,9 +249,16 @@ class AufbereitenSeite(QWidget):
         a.begradigen = self.begradigen.isChecked()
         a.winkel = self.winkel.value()
         a.entzerren = self.entzerren.isChecked() and bool(a.ecken)
-        a.hochskalieren = 2 if self.hochskalieren.isChecked() else 1
+        a.hochskalieren = int(self.hochskalieren.currentData() or 1)
+        a.textmodus = self.textmodus.isChecked()
         a.hintergrund = self.hintergrund.isChecked()
         a.schwarzweiss = self.schwarzweiss.isChecked()
+        a.raender = self.raender.isChecked()
+        a.farbe_entfernen = self.farbe_entfernen.isChecked()
+        a.entrauschen = self.entrauschen.isChecked()
+        a.kontrast = self.kontrast.isChecked()
+        a.schaerfen = self.schaerfen.isChecked()
+        a.linien_entfernen = self.linien_entfernen.isChecked()
         self.zeichne()
 
     # -- actions -----------------------------------------------------------------------------------
@@ -230,6 +282,26 @@ class AufbereitenSeite(QWidget):
         if a is not None:
             a.masken = []
             self.zeichne()
+
+    def ausrichtung_erkennen(self) -> None:
+        """Rotate the page upright: portrait/landscape from the text lines, upside-down
+        decided by a quick OCR comparison when an engine is available."""
+        a = self.einstellung()
+        if a is None or self.dokument is None or self.dokument.vorlage is None:
+            return
+        try:
+            backend = ocrmodul.backend(self.sitzung.optionen.ocr)
+        except Exception:  # noqa: BLE001 - no engine: lines only
+            backend = None
+        bild, _skala = aufmodul.rendere(self.dokument.vorlage.doc[self.seite], 150)
+        try:
+            grad = aufmodul.schaetze_ausrichtung(bild, backend)
+        except Exception as e:  # noqa: BLE001
+            self.hinweis.setText(self.tr("Ausrichtung nicht erkannt: {fehler}").format(fehler=e))
+            return
+        a.drehung = grad
+        a.masken = []
+        self.zeichne()
 
     def vorschlag_wiederherstellen(self) -> None:
         if self.dokument is None or self.dokument.vorlage is None:
@@ -259,9 +331,10 @@ class AufbereitenSeite(QWidget):
                 ziel = d.aufbereitung.setdefault(n, _kopie(d.vorlage.vorschlaege.get(n)))
                 ziel.begradigen = quelle.begradigen and abs(ziel.winkel) >= 0.05
                 ziel.entzerren = quelle.entzerren and bool(ziel.ecken)
-                ziel.hochskalieren = quelle.hochskalieren
-                ziel.hintergrund = quelle.hintergrund
-                ziel.schwarzweiss = quelle.schwarzweiss
+                for feld in ("hochskalieren", "textmodus", "hintergrund", "schwarzweiss",
+                             "raender", "farbe_entfernen", "entrauschen", "kontrast",
+                             "schaerfen", "linien_entfernen"):
+                    setattr(ziel, feld, getattr(quelle, feld))
         self.zeichne()
 
     # -- drawing -----------------------------------------------------------------------------------
