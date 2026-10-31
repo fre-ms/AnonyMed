@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from anonymed.ablauf import Ablaufoptionen, Ergebnis, Vorbereitung, abschliessen, vorbereiten
+from anonymed.ablauf import (
+    Ablaufoptionen,
+    Ergebnis,
+    Textvorbereitung,
+    Vorbereitung,
+    abschliessen,
+    vorbereiten,
+)
+from anonymed.dokument.textdatei import TEXTENDUNGEN
 from anonymed.kern.modell import Patient
 from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
 
@@ -13,7 +21,7 @@ from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
 @dataclass
 class Dokument:
     pfad: Path
-    vorbereitung: Vorbereitung | None = None
+    vorbereitung: Vorbereitung | Textvorbereitung | None = None
     ergebnis: Ergebnis | None = None
     fehler: str = ""
 
@@ -25,6 +33,8 @@ class Dokument:
             return "freigegeben" if self.ergebnis.freigegeben else "nicht freigegeben"
         if self.vorbereitung is not None:
             v = self.vorbereitung
+            if v.ist_text:
+                return f"Text, {len(v.fundstellen)} Treffer"
             ocr = f", OCR auf Seite(n) {', '.join(map(str, v.ocr_seiten))}" if v.ocr_seiten else ""
             return f"{len(v.seiten)} Seite(n), {len(v.fundstellen)} Treffer{ocr}"
         return "noch nicht analysiert"
@@ -45,7 +55,7 @@ class Sitzung:
     def fuege_hinzu(self, pfad: str | Path) -> Dokument | None:
         pfad = Path(pfad)
         if pfad.suffix.lower() not in {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp",
-                                       ".heic", ".heif", ".webp"}:
+                                       ".heic", ".heif", ".webp", *TEXTENDUNGEN}:
             return None
         if any(d.pfad == pfad for d in self.dokumente):
             return None

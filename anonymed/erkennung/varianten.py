@@ -169,7 +169,8 @@ def email_muster(email: str) -> str | None:
     email = email.strip()
     if "@" not in email:
         return None
-    return rf"(?<![\w.+-])(?i:{re.escape(email)})(?![\w.-])"
+    # a full stop after the address (end of sentence) is fine, ".more" is a longer address
+    return rf"(?<![\w.+-])(?i:{re.escape(email)})(?![\w-])(?!\.[\w-])"
 
 
 def adresse_muster(strasse: str) -> str | None:

@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QImage, QPen, QPixmap
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QImage,
+    QPen,
+    QPixmap,
+    QTextCharFormat,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QCheckBox,
     QGraphicsPixmapItem,
@@ -16,8 +24,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
+    QTextEdit,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -36,6 +46,7 @@ FARBEN = {
     "ner": QColor(0, 140, 130),
     "fachbegriff": QColor(40, 160, 60),
 }
+FARBEN["unscharf"] = FARBEN["ocr"]  # a guess by tolerance, like OCR hits
 VORSCHAU_DPI = 100
 
 
@@ -138,6 +149,74 @@ class Seitenansicht(QGraphicsView):
                                          r.right() / self.skala, r.bottom() / self.skala))
 
 
+class Textansicht(QTextEdit):
+    """A text file with a coloured span per hit; a click on a span selects the hit,
+    a text selection can be marked by hand."""
+
+    treffer_gewaehlt = Signal(object)
+
+    def __init__(self, eltern: QWidget | None = None) -> None:
+        super().__init__(eltern)
+        self.setReadOnly(True)
+        self._treffer: list[Fundstelle] = []
+        self._text: str | None = None
+        self._schrift = self.font()
+
+    def zeige(self, text: str, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None,
+              fachspannen: list[tuple[int, int]] = ()) -> None:
+        if text != self._text:
+            self._text = text
+            self.setPlainText(text)
+        self._treffer = [f for f in fundstellen if f.ende > f.start]
+        auswahlen = [self._auswahl(a, b, FARBEN["fachbegriff"], 45) for a, b in fachspannen]
+        for f in self._treffer:
+            auswahlen.append(self._auswahl(f.start, f.ende, farbe(f),
+                                           170 if f is gewaehlt else 80))
+        self.setExtraSelections(auswahlen)
+        if gewaehlt is not None and gewaehlt.ende > gewaehlt.start:
+            cursor = self.textCursor()
+            cursor.setPosition(min(gewaehlt.start, len(text)))
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+
+    def _auswahl(self, a: int, b: int, c: QColor, alpha: int) -> QTextEdit.ExtraSelection:
+        s = QTextEdit.ExtraSelection()
+        cursor = QTextCursor(self.document())
+        cursor.setPosition(a)
+        cursor.setPosition(b, QTextCursor.MoveMode.KeepAnchor)
+        s.cursor = cursor
+        fmt = QTextCharFormat()
+        hell = QColor(c)
+        hell.setAlpha(alpha)
+        fmt.setBackground(QBrush(hell))
+        s.format = fmt
+        return s
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        super().mousePressEvent(event)
+        pos = self.cursorForPosition(event.position().toPoint()).position()
+        for f in self._treffer:
+            if f.start <= pos < f.ende:
+                self.treffer_gewaehlt.emit(f)
+                return
+
+    def auswahl(self) -> tuple[int, int] | None:
+        """Offsets of the current selection, or None."""
+        cursor = self.textCursor()
+        if not cursor.hasSelection():
+            return None
+        return cursor.selectionStart(), cursor.selectionEnd()
+
+    def zoom(self, faktor: float) -> None:
+        if faktor > 1:
+            self.zoomIn(1)
+        else:
+            self.zoomOut(1)
+
+    def zoom_zuruecksetzen(self) -> None:
+        self.setFont(self._schrift)
+
+
 class PruefenSeite(QWidget):
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
@@ -157,14 +236,20 @@ class PruefenSeite(QWidget):
         self.ansicht = Seitenansicht()
         self.ansicht.treffer_gewaehlt.connect(self.waehle)
         self.ansicht.kasten_gezeichnet.connect(self.kasten)
-        teiler.addWidget(self.ansicht)
+        self.textansicht = Textansicht()
+        self.textansicht.treffer_gewaehlt.connect(self.waehle)
+        self.stapel = QStackedWidget()
+        self.stapel.addWidget(self.ansicht)
+        self.stapel.addWidget(self.textansicht)
+        teiler.addWidget(self.stapel)
 
         rechts = QWidget()
         r = QVBoxLayout(rechts)
         legende = QLabel(self.tr(
-            "Blau: Textebene · Orange: OCR · Lila: Code · Rot: manuell · Grau: unlesbar ·"
-            " Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus zeichnet"
-            " einen Kasten."))
+            "Blau: Textebene · Orange: OCR oder unscharfe Suche · Lila: Code · Rot: manuell ·"
+            " Grau: unlesbar · Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus"
+            " zeichnet einen Kasten; in Textdateien markiert „Auswahl schwärzen“ den"
+            " ausgewählten Text."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
@@ -183,9 +268,13 @@ class PruefenSeite(QWidget):
         self.verwerfen = QPushButton(self.tr("Treffer verwerfen"))
         self.verwerfen.clicked.connect(self.verwerfe)
         knoepfe.addWidget(self.verwerfen)
-        for text, aktion in (("+", lambda: self.ansicht.zoom(1.25)),
-                             ("−", lambda: self.ansicht.zoom(0.8)),
-                             ("1:1", self.ansicht.zoom_zuruecksetzen)):
+        self.markieren = QPushButton(self.tr("Auswahl schwärzen"))
+        self.markieren.clicked.connect(lambda: self.markiere_auswahl())
+        self.markieren.setVisible(False)
+        knoepfe.addWidget(self.markieren)
+        for text, aktion in (("+", lambda: self._aktive_ansicht().zoom(1.25)),
+                             ("−", lambda: self._aktive_ansicht().zoom(0.8)),
+                             ("1:1", lambda: self._aktive_ansicht().zoom_zuruecksetzen())):
             k = QPushButton(text)
             k.setMaximumWidth(40)
             k.clicked.connect(aktion)
@@ -207,8 +296,11 @@ class PruefenSeite(QWidget):
             knoten = QTreeWidgetItem([d.pfad.name])  # file name, not translated
             knoten.setData(0, Qt.ItemDataRole.UserRole, (id(d), -1))
             for s in d.vorbereitung.seiten:
-                kind = QTreeWidgetItem([self.tr("Seite {nummer}").format(nummer=s.nummer + 1)
-                                        + (" (OCR)" if s.ocr is not None else "")])
+                if d.vorbereitung.ist_text:
+                    kind = QTreeWidgetItem([self.tr("Text")])
+                else:
+                    kind = QTreeWidgetItem([self.tr("Seite {nummer}").format(nummer=s.nummer + 1)
+                                            + (" (OCR)" if s.ocr is not None else "")])
                 kind.setData(0, Qt.ItemDataRole.UserRole, (id(d), s.nummer))
                 knoten.addChild(kind)
             self.baum.addTopLevelItem(knoten)
@@ -234,13 +326,28 @@ class PruefenSeite(QWidget):
             return []
         return [f for f in self.dokument.vorbereitung.fundstellen if f.seite == self.seite]
 
+    def _aktive_ansicht(self):
+        return self.stapel.currentWidget()
+
+    def _zeige_ansicht(self, treffer: list[Fundstelle]) -> None:
+        v = self.dokument.vorbereitung
+        zeigen = self.fach_anzeigen.isChecked()
+        if v.ist_text:
+            fach = v.fachbegriffe_spannen(self.seite) if zeigen else []
+            self.textansicht.zeige(v.text, treffer, self.gewaehlt, fach)
+            self.stapel.setCurrentWidget(self.textansicht)
+        else:
+            fach = v.fachbegriffe_rects(self.seite) if zeigen else []
+            self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), treffer, self.gewaehlt,
+                               fach)
+            self.stapel.setCurrentWidget(self.ansicht)
+        self.markieren.setVisible(v.ist_text)
+
     def zeichne(self) -> None:
         if self.dokument is None or self.dokument.vorbereitung is None:
             return
         v = self.dokument.vorbereitung
-        fach = v.fachbegriffe_rects(self.seite) if self.fach_anzeigen.isChecked() else []
-        self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), self.fundstellen(),
-                           self.gewaehlt, fach)
+        self._zeige_ansicht(self.fundstellen())
         self.tabelle.blockSignals(True)
         self.tabelle.setRowCount(0)
         for f in self.fundstellen():
@@ -251,7 +358,8 @@ class PruefenSeite(QWidget):
             if f is self.gewaehlt:
                 self.tabelle.selectRow(zeile)
         self.tabelle.blockSignals(False)
-        warnungen = [w for w in v.warnungen if "OCR" in w or "Textebene" in w]
+        warnungen = [w for w in v.warnungen
+                     if "OCR" in w or "Textebene" in w or w.startswith("Unscharfe Suche")]
         hinweis = self.tr("{n} Fachbegriffe markiert").format(n=v.fachbegriffe_anzahl)
         self.hinweis.setText(" · ".join([hinweis] + warnungen[:1]))
 
@@ -267,10 +375,7 @@ class PruefenSeite(QWidget):
             i = zeilen[0].row()
             if 0 <= i < len(treffer):
                 self.gewaehlt = treffer[i]
-                v = self.dokument.vorbereitung
-                fach = v.fachbegriffe_rects(self.seite) if self.fach_anzeigen.isChecked() else []
-                self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), treffer,
-                                   self.gewaehlt, fach)
+                self._zeige_ansicht(treffer)
 
     def verwerfe(self) -> None:
         if self.gewaehlt is None or self.dokument is None or self.dokument.vorbereitung is None:
@@ -289,5 +394,26 @@ class PruefenSeite(QWidget):
             if not ok:
                 return
         self.dokument.vorbereitung.kasten(self.seite, rect, pseudonym or self.tr("[geschwärzt]"))
+        self.gewaehlt = None
+        self.zeichne()
+
+    def markiere_auswahl(self, pseudonym: str | None = None) -> None:
+        """Text files: the selected text becomes a manual hit."""
+        if self.dokument is None or self.dokument.vorbereitung is None \
+                or not self.dokument.vorbereitung.ist_text:
+            return
+        spanne = self.textansicht.auswahl()
+        if spanne is None:
+            if self.synchron:
+                raise ValueError("Keine Auswahl.")
+            return
+        if pseudonym is None:
+            pseudonym, ok = QInputDialog.getText(self, self.tr("Auswahl schwärzen"),
+                                                 self.tr("Ersatztext:"),
+                                                 text=self.tr("[geschwärzt]"))
+            if not ok:
+                return
+        self.dokument.vorbereitung.markiere(self.seite, spanne[0], spanne[1],
+                                            pseudonym or self.tr("[geschwärzt]"))
         self.gewaehlt = None
         self.zeichne()

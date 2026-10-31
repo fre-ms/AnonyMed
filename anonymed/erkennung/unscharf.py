@@ -157,14 +157,21 @@ def ziele_fuer(patient: Patient, vergabe: Pseudonymvergabe) -> list[Ziel]:
     return ziele
 
 
+_GROSS = (Art.NAME, Art.NACHNAME, Art.VORNAME, Art.GEBURTSNAME, Art.ORT, Art.ADRESSE)
+
+
 def finde_unscharf(
     seite: Seitentext, ziele: list[Ziel], vorhandene: list[Fundstelle],
-    fachbegriffe: Fachbegriffe | None = None,
+    fachbegriffe: Fachbegriffe | None = None, grossschreibung: bool = False,
+    quelle: str = "ocr",
 ) -> list[Fundstelle]:
-    """Fuzzy hits on an OCR page that do not overlap exact hits.
+    """Fuzzy hits on an OCR page (or a transcript) that do not overlap exact hits.
 
     An inexact match whose text is a medical term ("Bauch" for a patient
-    called Bauer) is not a hit; exact spellings still are.
+    called Bauer) is not a hit; exact spellings still are.  With
+    ``grossschreibung`` names and places must start with a capital letter,
+    which keeps "lang" or "hoch" safe in correctly cased text (OCR text is
+    not trusted that far).
     """
     tokens = [(m.start(), m.end(), m.group(0)) for m in _TOKEN.finditer(seite.text)]
     belegt = [(f.start, f.ende) for f in vorhandene if f.ende > f.start]
@@ -178,6 +185,8 @@ def finde_unscharf(
         while b > a and seite.text[b - 1] in _RAND:
             b -= 1
         gefunden = seite.text[a:b]
+        if grossschreibung and ziel.art in _GROSS and not gefunden[:1].isupper():
+            return
         genau = _kern(gefunden) == _kern(" ".join(ziel.tokens))
         if fachbegriffe is not None and not genau \
                 and fachbegriffe.geschuetzt(seite.text, a, b, schutz, ganz=True):
@@ -199,6 +208,8 @@ def finde_unscharf(
                            for k in range(1, breite)):
                         continue
                     zusammen = "".join(tokens[i + k][2] for k in range(breite))
+                    if len(_kern(zusammen)) > len(_kern(ziel.tokens[0])) + 2:
+                        continue  # a whole neighbouring word glued on is not a split token
                     if _passt(ziel.tokens[0], zusammen):
                         merke(i, i + breite - 1, ziel)
     kandidaten.sort(key=lambda k: (-(k[1] - k[0]), k[0]))
@@ -211,7 +222,7 @@ def finde_unscharf(
             seite=seite.nummer, start=a, ende=b, text=seite.text[a:b], art=ziel.art,
             regel=f"unscharf.{ziel.regel}", pseudonym=ziel.pseudonym,
             rects=[tuple(r) for r in seite.rects(a, b)], schriftgroesse=seite.schriftgroesse(a, b),
-            rolle=ziel.rolle, quelle="ocr",
+            rolle=ziel.rolle, quelle=quelle,
         ))
     treffer.sort(key=lambda f: f.start)
     return treffer

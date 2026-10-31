@@ -100,6 +100,53 @@ def befund_text(p: Patient) -> list[list[str]]:
     return [seite1, seite2]
 
 
+def verschrieben(name: str) -> str:
+    """The name as a speech recogniser might write it: one letter dropped."""
+    return name[:2] + name[3:] if len(name) >= 5 else name + "n"
+
+
+def transkript_text(p: Patient) -> list[str]:
+    """A consultation as a local transcriber would write it: the patient in many
+    forms, once misspelt, plus medical terms that must survive."""
+    geb = p.geburtsdatum
+    assert geb is not None
+    z = p.zuweiser[0]
+    a = p.angehoerige[0]
+    anrede = "Herr" if p.maennlich else "Frau"
+    return [
+        f"Arzt: Guten Tag, {anrede} {p.nachname}. Sie sind am {datum_lang(geb)} geboren?",
+        f"Patient: Ja, am {geb.strftime('%d.%m.%Y')}. Ich wohne in der {p.strasse} in {p.ort}.",
+        f"Arzt: {anrede} {verschrieben(p.nachname)}, was führt Sie zu mir?",
+        f"Patient: Meine Frau, {a.vollname}, hat gemerkt, dass ich Wörter vergesse.",
+        f"Arzt: Überwiesen hat Sie {z.titel} {z.nachname}. Nehmen Sie Medikamente?",
+        "Patient: Ramipril und Atorvastatin. Arterielle Hypertonie habe ich seit zehn Jahren.",
+        "Arzt: Der MoCA ergab 22 von 30 Punkten, das passt zu einer leichten kognitiven Störung.",
+        f"Patient: Erreichen können Sie mich unter {p.telefone[0]} oder {p.emails[0]}.",
+        f"Arzt: Danke, {p.vorname}. Wir sehen uns in sechs Monaten wieder.",
+    ]
+
+
+def erzeuge_transkript(pfad: Path, p: Patient, format_: str = "txt") -> Path:
+    """Write the transcript as plain text, SRT or WebVTT (one cue per line)."""
+    zeilen = transkript_text(p)
+    if format_ == "txt":
+        pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
+    elif format_ == "md":
+        pfad.write_text("# Gespräch\n\n" + "\n\n".join(f"- {z}" for z in zeilen) + "\n",
+                        encoding="utf-8")
+    elif format_ in ("srt", "vtt"):
+        trenner = "," if format_ == "srt" else "."
+        bloecke = ["WEBVTT", ""] if format_ == "vtt" else []
+        for i, zeile in enumerate(zeilen, 1):
+            von, bis = 4 * (i - 1), 4 * i - 1
+            zeit = (f"00:00:{von:02d}{trenner}000 --> 00:00:{bis:02d}{trenner}500")
+            bloecke += ([str(i)] if format_ == "srt" else []) + [zeit, zeile, ""]
+        pfad.write_text("\n".join(bloecke), encoding="utf-8")
+    else:
+        raise ValueError(format_)
+    return pfad
+
+
 def erzeuge_befund(pfad: Path, p: Patient, mit_metadaten: bool = True) -> Path:
     doc = pymupdf.open()
     for zeilen in befund_text(p):
@@ -134,7 +181,7 @@ def _falte(zeile: str) -> str:
 
 
 def _vcard_escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\;").replace("\n", "\\n")
+    return text.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n")
 
 
 def vcard_aus_patient(p: Patient, uid: str | None = None) -> str:

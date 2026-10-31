@@ -68,109 +68,119 @@
         <translation>Mark medical terms and protect them from NER and the fuzzy OCR search</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="103" />
+        <location filename="../dokumente_seite.py" line="104" />
+        <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
+        <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="107" />
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (a guess)</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="108" />
+        <location filename="../dokumente_seite.py" line="112" />
         <source>Extra 'ner' und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra 'ner' and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="114" />
-        <location filename="../dokumente_seite.py" line="197" />
-        <location filename="../dokumente_seite.py" line="200" />
+        <location filename="../dokumente_seite.py" line="118" />
+        <location filename="../dokumente_seite.py" line="205" />
+        <location filename="../dokumente_seite.py" line="208" />
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="122" />
+        <location filename="../dokumente_seite.py" line="126" />
         <source>Dokumente</source>
         <translation>Documents</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="123" />
-        <source>Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp)</source>
-        <translation>Documents (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp)</translation>
+        <location filename="../dokumente_seite.py" line="127" />
+        <source>Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt)</source>
+        <translation>Documents (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt)</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="154" />
+        <location filename="../dokumente_seite.py" line="159" />
         <source>Fehler: {fehler}</source>
         <translation>Error: {fehler}</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="157" />
+        <location filename="../dokumente_seite.py" line="162" />
         <source>freigegeben</source>
         <translation>released</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="158" />
+        <location filename="../dokumente_seite.py" line="163" />
         <source>nicht freigegeben</source>
         <translation>not released</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="161" />
+        <location filename="../dokumente_seite.py" line="167" />
+        <source>Text, {treffer} Treffer</source>
+        <translation>Text, {treffer} hits</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="168" />
         <source>{seiten} Seite(n), {treffer} Treffer</source>
         <translation>{seiten} page(s), {treffer} hits</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="164" />
+        <location filename="../dokumente_seite.py" line="171" />
         <source>, OCR auf Seite(n) {seiten}</source>
         <translation>, OCR on page(s) {seiten}</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="167" />
+        <location filename="../dokumente_seite.py" line="174" />
         <source>noch nicht analysiert</source>
         <translation>not analysed yet</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="178" />
+        <location filename="../dokumente_seite.py" line="185" />
         <source>{n} Dokument(e), {fertig} analysiert</source>
         <translation>{n} document(s), {fertig} analysed</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="197" />
+        <location filename="../dokumente_seite.py" line="205" />
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="200" />
+        <location filename="../dokumente_seite.py" line="208" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="215" />
+        <location filename="../dokumente_seite.py" line="223" />
         <source>Analysiere {name} …</source>
         <translation>Analysing {name} …</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="243" />
+        <location filename="../dokumente_seite.py" line="251" />
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="257" />
+        <location filename="../dokumente_seite.py" line="265" />
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="261" />
+        <location filename="../dokumente_seite.py" line="269" />
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="262" />
+        <location filename="../dokumente_seite.py" line="270" />
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="264" />
+        <location filename="../dokumente_seite.py" line="272" />
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="266" />
+        <location filename="../dokumente_seite.py" line="274" />
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -532,70 +542,88 @@
 <context>
     <name>PruefenSeite</name>
     <message>
-        <location filename="../pruefen_seite.py" line="153" />
+        <location filename="../pruefen_seite.py" line="232" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="165" />
-        <source>Blau: Textebene · Orange: OCR · Lila: Code · Rot: manuell · Grau: unlesbar · Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus zeichnet einen Kasten.</source>
-        <translation>Blue: text layer · Orange: OCR · Purple: code · Red: manual · Grey: unreadable · Teal: NER · Green: protected medical term. Drag with the mouse to draw a box.</translation>
+        <location filename="../pruefen_seite.py" line="249" />
+        <source>Blau: Textebene · Orange: OCR oder unscharfe Suche · Lila: Code · Rot: manuell · Grau: unlesbar · Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus zeichnet einen Kasten; in Textdateien markiert „Auswahl schwärzen“ den ausgewählten Text.</source>
+        <translation>Blue: text layer · Orange: OCR or fuzzy search · Purple: code · Red: manual · Grey: unreadable · Teal: NER · Green: protected medical term. Drag with the mouse to draw a box; in text files “Redact selection” marks the selected text.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="171" />
+        <location filename="../pruefen_seite.py" line="256" />
         <source>Seite</source>
         <translation>Page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="171" />
+        <location filename="../pruefen_seite.py" line="256" />
         <source>Regel</source>
         <translation>Rule</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="172" />
+        <location filename="../pruefen_seite.py" line="257" />
         <source>Pseudonym</source>
         <translation>Pseudonym</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="172" />
+        <location filename="../pruefen_seite.py" line="257" />
         <source>Quelle</source>
         <translation>Source</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="178" />
+        <location filename="../pruefen_seite.py" line="263" />
         <source>Fachbegriffe markieren</source>
         <translation>Mark medical terms</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="183" />
+        <location filename="../pruefen_seite.py" line="268" />
         <source>Treffer verwerfen</source>
         <translation>Discard hit</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="210" />
+        <location filename="../pruefen_seite.py" line="271" />
+        <location filename="../pruefen_seite.py" line="411" />
+        <source>Auswahl schwärzen</source>
+        <translation>Redact selection</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="300" />
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="302" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="255" />
+        <location filename="../pruefen_seite.py" line="363" />
         <source>{n} Fachbegriffe markiert</source>
         <translation>{n} medical terms marked</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="286" />
+        <location filename="../pruefen_seite.py" line="391" />
         <source>Kasten</source>
         <translation>Box</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="287" />
+        <location filename="../pruefen_seite.py" line="392" />
         <source>Ersatztext im Kasten:</source>
         <translation>Replacement text in the box:</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="288" />
-        <location filename="../pruefen_seite.py" line="291" />
+        <location filename="../pruefen_seite.py" line="393" />
+        <location filename="../pruefen_seite.py" line="396" />
+        <location filename="../pruefen_seite.py" line="413" />
+        <location filename="../pruefen_seite.py" line="417" />
         <source>[geschwärzt]</source>
         <translation>[redacted]</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="412" />
+        <source>Ersatztext:</source>
+        <translation>Replacement text:</translation>
     </message>
 </context>
 <context>
@@ -684,7 +712,7 @@
 <context>
     <name>Seitenansicht</name>
     <message>
-        <location filename="../pruefen_seite.py" line="82" />
+        <location filename="../pruefen_seite.py" line="93" />
         <source>Fachbegriff (geschützt)</source>
         <translation>Medical term (protected)</translation>
     </message>

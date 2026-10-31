@@ -100,6 +100,10 @@ class DokumenteSeite(QWidget):
             self.tr("Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen"))
         self.fachbegriffe.setChecked(True)
         form.addRow(self.fachbegriffe)
+        self.unscharf = QCheckBox(
+            self.tr("Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)"))
+        self.unscharf.setChecked(True)
+        form.addRow(self.unscharf)
         self.ner = QCheckBox(self.tr("Unbekannte Personen und Orte per NER suchen (rät)"))
         self.ner.setEnabled(nermodul.verfuegbar())
         self.ner.setChecked(nermodul.verfuegbar())
@@ -120,7 +124,8 @@ class DokumenteSeite(QWidget):
     # -- files -------------------------------------------------------------------------------------
     def dateien_waehlen(self) -> None:
         pfade, _ = QFileDialog.getOpenFileNames(self, self.tr("Dokumente"), "", self.tr(
-            "Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp)"))
+            "Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp"
+            " *.txt *.md *.srt *.vtt)"))
         self.hinzufuegen([Path(p) for p in pfade])
 
     def hinzufuegen(self, pfade: list[Path]) -> None:
@@ -158,6 +163,8 @@ class DokumenteSeite(QWidget):
             return self.tr("nicht freigegeben")
         if d.vorbereitung is not None:
             v = d.vorbereitung
+            if v.ist_text:
+                return self.tr("Text, {treffer} Treffer").format(treffer=len(v.fundstellen))
             text = self.tr("{seiten} Seite(n), {treffer} Treffer").format(
                 seiten=len(v.seiten), treffer=len(v.fundstellen))
             if v.ocr_seiten:
@@ -186,6 +193,7 @@ class DokumenteSeite(QWidget):
         o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"
         o.ner = self.ner.isChecked()
         o.fachbegriffe = self.fachbegriffe.isChecked()
+        o.unscharf_text = self.unscharf.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:
         if self.synchron:

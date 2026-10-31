@@ -124,8 +124,8 @@ class ExportSeite(QWidget):
     def _fertig(self, ergebnis) -> None:
         text = als_text(ergebnis.bericht)
         if ergebnis.freigegeben:
-            text += self.tr("Freigegeben: {pfad}").format(pfad=ergebnis.ziel_pdf) + "\n"
-            if ergebnis.ziel_txt:
+            text += self.tr("Freigegeben: {pfad}").format(pfad=ergebnis.ziel) + "\n"
+            if ergebnis.ziel_txt and not ergebnis.ist_text:
                 text += self.tr("Text: {pfad}").format(pfad=ergebnis.ziel_txt) + "\n"
         else:
             text += self.tr("NICHT freigegeben.") + "\n"

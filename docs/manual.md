@@ -32,10 +32,14 @@ The app password (Nextcloud → Settings → Security) goes into the operating s
 ## The five steps
 
 1. **Patient.** Search the address book (name, year of birth), load a patient file or a vCard. Check the fields: everything listed there will be redacted. Add relatives, referrers and further terms (one per line); they are not taken from a contact's notes automatically. *Use this patient*.
-2. **Documents.** Drop PDFs or photos. Pages without a text layer (scans, photos) are read by OCR. Two boxes are ticked by default: first the medical terms on every page are marked and protected, then NER (if the extra is installed) looks for people and places nobody entered. Both can be switched off here. *Analyse*.
-3. **Review.** Every page appears with coloured boxes: blue from the text layer, orange from OCR, purple barcodes, red manual, grey unreadable lines, teal NER; green outlines are the protected medical terms that NER and the fuzzy OCR search left alone (the *Mark medical terms* box hides them). A false hit (a drug name that looks like a surname): click it, *Discard hit*. Something missed, a handwritten name for instance: drag a box over it. Zoom with Ctrl/Cmd and the wheel or the buttons.
-4. **Export.** Choose a target folder. Per document you get `name_anonym.pdf`, `name_anonym.txt` (the text in reading order, this is what you give the language model) and `name_anonym.bericht.json`. The re-check reads the result again; if an identifier survives, nothing is released and the report says why. OCR pages get preview images: look at them before you pass a scan on.
+2. **Documents.** Drop PDFs, photos or text files (`.txt`, `.md`, `.srt`, `.vtt`, for instance the transcript of a recorded consultation). Pages without a text layer (scans, photos) are read by OCR. In text files misspelt names are searched fuzzily (box ticked by default), because speech recognition misspells names the way OCR does. Two boxes are ticked by default: first the medical terms on every page are marked and protected, then NER (if the extra is installed) looks for people and places nobody entered. Both can be switched off here. *Analyse*.
+3. **Review.** Every page appears with coloured boxes: blue from the text layer, orange from OCR, purple barcodes, red manual, grey unreadable lines, teal NER; green outlines are the protected medical terms that NER and the fuzzy OCR search left alone (the *Mark medical terms* box hides them). A false hit (a drug name that looks like a surname): click it, *Discard hit*. Something missed, a handwritten name for instance: drag a box over it. Zoom with Ctrl/Cmd and the wheel or the buttons. A text file appears as text with coloured spans instead of a page image; click a span to select the hit, select text and press *Redact selection* to turn it into a manual hit. Orange spans are the fuzzy search's hits: suggestions worth a look.
+4. **Export.** Choose a target folder. Per document you get `name_anonym.pdf`, `name_anonym.txt` (the text in reading order, this is what you give the language model) and `name_anonym.bericht.json`; a text file yields only `name_anonym.txt` (same extension as the input, subtitle timestamps preserved) and the report. The re-check reads the result again; if an identifier survives, nothing is released and the report says why. OCR pages get preview images: look at them before you pass a scan on.
 5. **Re-identify.** Paste the language model's text, pick the person, *Re-identify*. *Mr/Ms surname* inserts the salutation by grammatical case, *full name* the name. Mangled pseudonyms (wrong check character) are reported with a suggestion.
+
+## Texts and transcripts
+
+If you record consultations and transcribe them locally, the transcript is a text file: it runs through the same detection as a PDF, and the result is text again with pseudonyms and nothing else changed. Particulars: the fuzzy search finds the patient's name even when misspelt ("Flanz" for "Flantz") but requires a capital letter for names and places; at the start of a sentence it may suggest similar words ("Land" for Lang), which you discard in the review step. `--genau` switches it off. Numbers written as words ("einundzwanzigster Juli") are not recognised; Whisper's JSON is not read, use its `.txt`, `.srt` or `.vtt`.
 
 ## What is redacted and what is not
 
@@ -69,6 +73,8 @@ The main person is `Patient K7Q4MX` (letters and digits from a keyed hash of nam
 ```sh
 anonymed anonymisieren befund.pdf --kontakt "Müller 1959"
 anonymed anonymisieren scan.pdf --patient patient.json --ocr tesseract --ner
+anonymed anonymisieren gespraech.txt --kontakt "Müller 1959"          # transcript, fuzzy search on
+anonymed anonymisieren gespraech.srt --patient patient.json --genau   # exact hits only
 anonymed pruefen befund_anonym.pdf --patient patient.json
 anonymed rueckersetzen brief.txt --kennung K7Q4MX --form anrede
 anonymed pseudonyme

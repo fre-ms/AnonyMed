@@ -35,7 +35,7 @@ def test_sitzung_ohne_oberflaeche(tmp_path: Path, befund: Path, patient: Patient
     s.patient = patient
     assert s.fuege_hinzu(befund) is not None
     assert s.fuege_hinzu(befund) is None  # no duplicates
-    assert s.fuege_hinzu(tmp_path / "notiz.txt") is None
+    assert s.fuege_hinzu(tmp_path / "notiz.xyz") is None
     d = s.dokumente[0]
     assert d.zustand == "noch nicht analysiert"
     s.analysiere(d)
@@ -114,6 +114,66 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert patient.vollname in aus and patient.angehoerige[0].vollname in aus
     assert "nichts offen" in rs.hinweis.text()
     assert gefundene_klardaten(text, patient) == []  # the report shows no clear data
+    fenster.close()
+
+
+def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient) -> None:
+    """A transcript goes through the same five steps; the review shows text, not a page."""
+    from PySide6.QtGui import QTextCursor
+
+    from tests.synthetisch import erzeuge_transkript, verschrieben
+
+    quelle = erzeuge_transkript(tmp_path / "gespraech.txt", patient)
+    sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
+    fenster = Hauptfenster(sitzung)
+    fenster.dokumente.synchron = True
+    fenster.export.synchron = True
+    fenster.pruefen.synchron = True
+    fenster.patient.fuelle(patient)
+    fenster.patient.uebernehmen()
+    fenster.dokumente.hinzufuegen([quelle, tmp_path / "egal.xyz"])
+    assert fenster.dokumente.liste.count() == 1
+    assert fenster.dokumente.unscharf.isChecked()
+    fenster.dokumente.analysieren()
+    qapp.processEvents()
+    d = sitzung.dokumente[0]
+    assert d.vorbereitung is not None and d.vorbereitung.ist_text
+    assert "Text, " in fenster.dokumente.liste.item(0).text()
+
+    pr = fenster.pruefen
+    assert pr.stapel.currentWidget() is pr.textansicht and not pr.markieren.isHidden()
+    assert pr.baum.topLevelItem(0).child(0).text(0) == "Text"
+    assert pr.textansicht.toPlainText() == d.vorbereitung.text
+    assert pr.tabelle.rowCount() == len(pr.fundstellen()) > 5
+    assert any(f.quelle == "unscharf" for f in pr.fundstellen())
+    assert "Unscharfe Suche" in pr.hinweis.text()
+    unscharf = next(f for f in pr.fundstellen() if f.quelle == "unscharf")
+    pr.waehle(unscharf)
+    assert pr.textansicht.textCursor().position() == unscharf.start
+    pr.verwerfe()
+    assert unscharf not in pr.fundstellen()
+    with pytest.raises(ValueError):
+        pr.markiere_auswahl("[X]")  # nothing selected
+    text = d.vorbereitung.text
+    a = text.index("Wörter vergesse")
+    cursor = pr.textansicht.textCursor()
+    cursor.setPosition(a)
+    cursor.setPosition(a + len("Wörter vergesse"), QTextCursor.MoveMode.KeepAnchor)
+    pr.textansicht.setTextCursor(cursor)
+    pr.markiere_auswahl("[Symptom]")
+    assert any(f.quelle == "manuell" and f.pseudonym == "[Symptom]" for f in pr.fundstellen())
+    pr.fach_anzeigen.setChecked(False)
+    pr.fach_anzeigen.setChecked(True)
+
+    fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.exportieren()
+    qapp.processEvents()
+    protokoll = fenster.export.ausgabe.toPlainText()
+    assert "Gegenprobe: bestanden" in protokoll and "Freigegeben" in protokoll, protokoll
+    ziel = tmp_path / "aus" / "gespraech_anonym.txt"
+    aus = ziel.read_text(encoding="utf-8")
+    assert "[Symptom]" in aus and verschrieben(patient.nachname) in aus  # discarded = kept
+    assert patient.nachname not in aus and gefundene_klardaten(protokoll, patient) == []
     fenster.close()
 
 

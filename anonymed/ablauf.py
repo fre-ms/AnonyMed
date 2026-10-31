@@ -5,10 +5,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 import pymupdf
 
 from anonymed.dokument import ocr as ocrmodul
+from anonymed.dokument import textdatei as textmodul
 from anonymed.dokument.laden import oeffne
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
@@ -22,7 +24,7 @@ from anonymed.erkennung.deterministisch import (
     regeln_fuer,
 )
 from anonymed.erkennung.unscharf import Ziel, finde_unscharf, ziele_fuer
-from anonymed.kern.modell import Fundstelle, Gegenprobe, Patient, Pruefbericht
+from anonymed.kern.modell import Art, Fundstelle, Gegenprobe, Patient, Pruefbericht
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
 from anonymed.pruefung.gegenprobe import (
     in_pseudonym,
@@ -57,6 +59,7 @@ class Ablaufoptionen:
     unlesbar: str = "schwaerzen"  # lines OCR could not read: "schwaerzen" or "lassen"
     ner: bool = False  # people and places the rules do not know (extra "ner")
     fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
+    unscharf_text: bool = True  # text files: fuzzy search for misspelt identifiers (transcripts)
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
@@ -70,6 +73,8 @@ class Ablaufoptionen:
             "ocr": self.ocr,
             "codes": self.codes,
             "ner": self.ner,
+            "fachbegriffe": self.fachbegriffe,
+            "unscharf_text": self.unscharf_text,
         }
 
 
@@ -84,10 +89,16 @@ class Ergebnis:
     ziel_bericht: Path | None = None
     vorschau: list[Path] = field(default_factory=list)
     text: str = ""
+    ist_text: bool = False  # the source was a text file; ``ziel_txt`` is the output itself
 
     @property
     def freigegeben(self) -> bool:
-        return self.ziel_pdf is not None
+        return self.ziel_pdf is not None or (self.ist_text and self.ziel_txt is not None)
+
+    @property
+    def ziel(self) -> Path | None:
+        """The released file: the PDF, or the text for a text source."""
+        return self.ziel_txt if self.ist_text else self.ziel_pdf
 
 
 def zielpfad(quelle: Path, opt: Ablaufoptionen, endung: str = ".pdf") -> Path:
@@ -102,6 +113,7 @@ class _Seite:
     ocr: Seitentext | None = None
     fundstellen: list[Fundstelle] = field(default_factory=list)
     fachrects: list[tuple[float, float, float, float]] = field(default_factory=list)
+    fachspannen: list[tuple[int, int]] = field(default_factory=list)
     fachanzahl: int = 0
 
 
@@ -159,6 +171,7 @@ def _merke_fachbegriffe(eintrag: _Seite, seite: Seitentext,
     """Remember where medical terms sit, for the green marks of the review step."""
     spannen = fachbegriffe.spannen(seite.text)
     eintrag.fachanzahl += len(spannen)
+    eintrag.fachspannen += spannen
     for a, b in spannen:
         eintrag.fachrects += [tuple(r) for r in seite.rects(a, b)]
 
@@ -223,6 +236,8 @@ class Vorbereitung:
     object is discarded without finishing.
     """
 
+    ist_text: ClassVar[bool] = False
+
     quelle: Path
     patient: Patient
     opt: Ablaufoptionen
@@ -252,6 +267,10 @@ class Vorbereitung:
     def fachbegriffe_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
         """Rectangles of the medical terms on page ``nummer`` (0-based), for display."""
         return list(self.seiten[nummer].fachrects)
+
+    def fachbegriffe_spannen(self, nummer: int) -> list[tuple[int, int]]:
+        """Text offsets of the medical terms on page ``nummer`` (0-based)."""
+        return list(self.seiten[nummer].fachspannen)
 
     @property
     def fachbegriffe_anzahl(self) -> int:
@@ -296,46 +315,79 @@ class Vorbereitung:
             self.speicher.close()
 
 
+@dataclass
+class _Ruestzeug:
+    """What detection needs for one patient: identity, pseudonyms, rules, helpers."""
+
+    kennung: str
+    vergabe: Pseudonymvergabe
+    regeln: list[Regel]
+    ziele: list[Ziel]
+    warnungen: list[str]
+    ner: nermodul.NER | None
+    fachbegriffe: fachmodul.Fachbegriffe | None
+
+
+def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher) -> _Ruestzeug:
+    kennung = speicher.kennung_fuer(patient, opt.abgleich)
+    vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform,
+                               geheimnis=speicher.geheimnis)
+    warnungen: list[str] = []
+    if kennung.verknuepft and kennung.abgleich is not None:
+        a = kennung.abgleich
+        felder = ", ".join(f"{k} {v:.2f}" for k, v in a.felder.items())
+        warnungen.append(
+            f"Patient dem vorhandenen Eintrag {a.kennung} zugeordnet"
+            f" (Abgleich {a.score:.2f}: {felder})."
+        )
+    ner = None
+    if opt.ner:
+        if nermodul.verfuegbar():
+            ner = nermodul.NER()
+        else:
+            warnungen.append("NER gewünscht, aber spaCy oder das deutsche Modell fehlt"
+                             " (Extra 'ner', siehe Anleitung); ohne NER fortgefahren.")
+    fachbegriffe = fachmodul.standard() if opt.fachbegriffe else None
+    return _Ruestzeug(kennung.kennung, vergabe, regeln_fuer(patient, vergabe),
+                      ziele_fuer(patient, vergabe), warnungen, ner, fachbegriffe)
+
+
+def _ner_warnung(r: _Ruestzeug, fundstellen: list[Fundstelle], verschont: list[str]) -> str | None:
+    if r.ner is None:
+        return None
+    ner_treffer = sum(1 for f in fundstellen if f.regel.startswith("ner."))
+    schutz = (f", {len(verschont)} Kandidaten als Fachbegriffe verschont"
+              f" ({r.fachbegriffe.anzahl} Begriffe)" if r.fachbegriffe is not None else "")
+    return (f"NER ({r.ner.name}): {ner_treffer} zusätzliche Personen/Orte gefunden{schutz};"
+            " NER rät, Treffer im Prüfschritt ansehen.")
+
+
 def vorbereiten(
     pfad: str | Path,
     patient: Patient,
     opt: Ablaufoptionen | None = None,
     speicher: Pseudonymspeicher | None = None,
-) -> Vorbereitung:
-    """Phase one of :func:`anonymisiere`: read the file and find the hits."""
+) -> Vorbereitung | Textvorbereitung:
+    """Phase one of :func:`anonymisiere`: read the file and find the hits.
+
+    PDFs and images yield a :class:`Vorbereitung`, text files (``.txt``,
+    ``.md``, ``.srt``, ``.vtt``) a :class:`Textvorbereitung`.
+    """
     opt = opt or Ablaufoptionen()
     quelle = Path(pfad)
     eigener_speicher = speicher is None
     speicher = speicher or Pseudonymspeicher()
     try:
-        kennung = speicher.kennung_fuer(patient, opt.abgleich)
-        vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform,
-                                   geheimnis=speicher.geheimnis)
-        regeln = regeln_fuer(patient, vergabe)
-        ziele = ziele_fuer(patient, vergabe)
-        warnungen: list[str] = []
-        if kennung.verknuepft and kennung.abgleich is not None:
-            a = kennung.abgleich
-            felder = ", ".join(f"{k} {v:.2f}" for k, v in a.felder.items())
-            warnungen.append(
-                f"Patient dem vorhandenen Eintrag {a.kennung} zugeordnet"
-                f" (Abgleich {a.score:.2f}: {felder})."
-            )
-        backend = ocrmodul.backend(opt.ocr)
-        ner = None
-        if opt.ner:
-            if nermodul.verfuegbar():
-                ner = nermodul.NER()
-            else:
-                warnungen.append("NER gewünscht, aber spaCy oder das deutsche Modell fehlt"
-                                 " (Extra 'ner', siehe Anleitung); ohne NER fortgefahren.")
-        fachbegriffe = fachmodul.standard() if opt.fachbegriffe else None
+        r = _ruestzeug(patient, opt, speicher)
+        if textmodul.ist_textdatei(quelle):
+            return _vorbereiten_text(quelle, patient, opt, speicher, eigener_speicher, r)
         verschont: list[str] = []
+        backend = ocrmodul.backend(opt.ocr)
         doc = oeffne(quelle)
         original = oeffne(quelle)
         try:
-            seiten, ohne_text = _lese_seiten(doc, regeln, ziele, opt, backend, vergabe, ner,
-                                             fachbegriffe, verschont)
+            seiten, ohne_text = _lese_seiten(doc, r.regeln, r.ziele, opt, backend, r.vergabe,
+                                             r.ner, r.fachbegriffe, verschont)
         except Exception:
             doc.close()
             original.close()
@@ -344,18 +396,16 @@ def vorbereiten(
         if eigener_speicher:
             speicher.close()
         raise
+    warnungen = list(r.warnungen)
     if ohne_text:
         warnungen.append(
             "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
             + " – OCR-Backend installieren (Extra 'ocr' oder Tesseract) oder --ocr prüfen."
         )
     ocr_seiten = [s.nummer + 1 for s in seiten if s.ocr is not None]
-    ner_treffer = sum(1 for s in seiten for f in s.fundstellen if f.regel.startswith("ner."))
-    if ner is not None:
-        schutz = (f", {len(verschont)} Kandidaten als Fachbegriffe verschont"
-                  f" ({fachbegriffe.anzahl} Begriffe)" if fachbegriffe is not None else "")
-        warnungen.append(f"NER ({ner.name}): {ner_treffer} zusätzliche Personen/Orte gefunden"
-                         f"{schutz}; NER rät, Treffer im Prüfschritt ansehen.")
+    hinweis = _ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont)
+    if hinweis:
+        warnungen.append(hinweis)
     if ocr_seiten:
         unsicher = sum(s.ocr.unsichere_woerter for s in seiten if s.ocr is not None)
         unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
@@ -367,16 +417,203 @@ def vorbereiten(
         )
     return Vorbereitung(
         quelle=quelle, patient=patient, opt=opt, speicher=speicher,
-        eigener_speicher=eigener_speicher, kennung=kennung.kennung, vergabe=vergabe,
-        regeln=regeln, ziele=ziele, backend=backend, doc=doc, original=original, seiten=seiten,
-        ohne_text=ohne_text, warnungen=warnungen,
+        eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
+        regeln=r.regeln, ziele=r.ziele, backend=backend, doc=doc, original=original,
+        seiten=seiten, ohne_text=ohne_text, warnungen=warnungen,
     )
 
 
-def abschliessen(v: Vorbereitung) -> Ergebnis:
+# -- text files ------------------------------------------------------------------------------------
+
+
+@dataclass
+class Textvorbereitung:
+    """Phase one for a text file (transcript, note, subtitles).
+
+    Same surface as :class:`Vorbereitung` as far as a user interface needs it:
+    ``fundstellen``, ``verwerfe``, ``toleriert``, ``warnungen``; instead of
+    boxes the user marks spans (``markiere``).  The hits' offsets refer to the
+    analysis copy, which has the same length as ``text``.
+    """
+
+    ist_text: ClassVar[bool] = True
+
+    quelle: Path
+    patient: Patient
+    opt: Ablaufoptionen
+    speicher: Pseudonymspeicher
+    eigener_speicher: bool
+    kennung: str
+    vergabe: Pseudonymvergabe
+    regeln: list[Regel]
+    ziele: list[Ziel]
+    text: str
+    seiten: list[_Seite]
+    ohne_text: list[int] = field(default_factory=list)
+    warnungen: list[str] = field(default_factory=list)
+    verworfen: list[Fundstelle] = field(default_factory=list)
+    abgeschlossen: bool = False
+
+    @property
+    def fundstellen(self) -> list[Fundstelle]:
+        return sorted((f for s in self.seiten for f in s.fundstellen), key=lambda f: f.start)
+
+    @property
+    def ocr_seiten(self) -> list[int]:
+        return []
+
+    def fachbegriffe_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
+        return []
+
+    def fachbegriffe_spannen(self, nummer: int) -> list[tuple[int, int]]:
+        return list(self.seiten[nummer].fachspannen)
+
+    @property
+    def fachbegriffe_anzahl(self) -> int:
+        return sum(s.fachanzahl for s in self.seiten)
+
+    def verwerfe(self, fundstelle: Fundstelle) -> None:
+        for s in self.seiten:
+            if fundstelle in s.fundstellen:
+                s.fundstellen.remove(fundstelle)
+                self.verworfen.append(fundstelle)
+                return
+
+    @property
+    def toleriert(self) -> set[tuple[str, str]]:
+        return {toleranzschluessel(f.regel, f.text) for f in self.verworfen if f.text}
+
+    def markiere(self, nummer: int, start: int, ende: int,
+                 pseudonym: str = "[geschwärzt]") -> Fundstelle:
+        """Mark ``[start, ende)`` by hand; hits it overlaps are replaced by it."""
+        seite = self.seiten[nummer]
+        text = seite.text.text  # the analysis copy, same length as ``self.text``
+        start, ende = max(0, start), min(ende, len(text))
+        while start < ende and text[start].isspace():
+            start += 1
+        while ende > start and text[ende - 1].isspace():
+            ende -= 1
+        if ende <= start:
+            raise ValueError("Leere Auswahl.")
+        seite.fundstellen = [f for f in seite.fundstellen
+                             if not (start < f.ende and ende > f.start)]
+        f = Fundstelle(seite=nummer, start=start, ende=ende, text=self.text[start:ende],
+                       art=Art.MANUELL, regel="manuell", pseudonym=pseudonym, quelle="manuell")
+        seite.fundstellen.append(f)
+        return f
+
+    def schliessen(self) -> None:
+        if self.eigener_speicher:
+            self.speicher.close()
+
+
+def _vorbereiten_text(
+    quelle: Path, patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher,
+    eigener_speicher: bool, r: _Ruestzeug,
+) -> Textvorbereitung:
+    """Rules, vocabulary, fuzzy search and NER over one text file, in that order: a
+    misspelt known name must get the patient's pseudonym, not a NER code."""
+    text = textmodul.lese_textdatei(quelle)
+    seite = textmodul.textseite(textmodul.analysetext(text, quelle.suffix))
+    eintrag = _Seite(0, seite)
+    eintrag.fundstellen = finde(seite, r.regeln)
+    if r.fachbegriffe is not None:
+        _merke_fachbegriffe(eintrag, seite, r.fachbegriffe)
+    if opt.unscharf_text:
+        eintrag.fundstellen += finde_unscharf(seite, r.ziele, eintrag.fundstellen, r.fachbegriffe,
+                                              grossschreibung=True, quelle="unscharf")
+    verschont: list[str] = []
+    if r.ner is not None:
+        eintrag.fundstellen += nermodul.finde_ner(seite, r.ner, r.vergabe, eintrag.fundstellen,
+                                                  "text", r.fachbegriffe, verschont)
+    warnungen = list(r.warnungen)
+    hinweis = _ner_warnung(r, eintrag.fundstellen, verschont)
+    if hinweis:
+        warnungen.append(hinweis)
+    unscharfe = sum(1 for f in eintrag.fundstellen if f.quelle == "unscharf")
+    if unscharfe:
+        warnungen.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"
+                         " (Transkript, Tippfehler); im Prüfschritt ansehen.")
+    return Textvorbereitung(
+        quelle=quelle, patient=patient, opt=opt, speicher=speicher,
+        eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
+        regeln=r.regeln, ziele=r.ziele, text=text, seiten=[eintrag], warnungen=warnungen,
+    )
+
+
+def gegenprobe_text(
+    text: str, endung: str, regeln: list[Regel], ziele: list[Ziel] | None = None,
+    fachbegriffe: fachmodul.Fachbegriffe | None = None,
+    toleriert: set[tuple[str, str]] | None = None, pseudonyme: list[str] | None = None,
+) -> Gegenprobe:
+    """Re-run the rules (and, with ``ziele``, the fuzzy search) over an anonymised text."""
+    toleriert = toleriert or set()
+    analyse = textmodul.analysetext(text, endung)
+    seite = textmodul.textseite(analyse)
+    spannen = pseudonymspannen(analyse, pseudonyme or [])
+    genau = finde(seite, regeln)
+    rest = list(genau)
+    if ziele is not None:
+        rest += finde_unscharf(seite, ziele, genau, fachbegriffe, grossschreibung=True,
+                               quelle="unscharf")
+    g = Gegenprobe()
+    for f in rest:
+        if toleranzschluessel(f.regel, f.text) in toleriert \
+                or in_pseudonym(f.start, f.ende, spannen):
+            continue
+        g.resttreffer.append(f.ohne_klartext())
+    return g
+
+
+def gegenprobe_textdatei(pfad: str | Path, regeln: list[Regel],
+                         pseudonyme: list[str] | None = None) -> Gegenprobe:
+    """``anonymed pruefen`` for a text file: the rules alone, nothing tolerated; inside
+    ``pseudonyme`` (at least the patient's code) no rule counts."""
+    pfad = Path(pfad)
+    return gegenprobe_text(textmodul.lese_textdatei(pfad), pfad.suffix, regeln,
+                           pseudonyme=pseudonyme)
+
+
+def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
+    """Phase two for a text file: replace, check, write, report."""
+    v.abgeschlossen = True
+    opt, quelle, warnungen = v.opt, v.quelle, list(v.warnungen)
+    try:
+        fundstellen = v.fundstellen
+        v.vergabe.registriere_treffer(fundstellen)
+        ausgabe = textmodul.ersetze(v.text, fundstellen)
+        pseudonyme = list(v.vergabe.zuordnung) + [f.pseudonym for f in fundstellen]
+        fach = fachmodul.standard() if opt.fachbegriffe else None
+        gegenprobe = gegenprobe_text(ausgabe, quelle.suffix, v.regeln,
+                                     v.ziele if opt.unscharf_text else None, fach,
+                                     v.toleriert, pseudonyme)
+        v.speicher.merke(v.patient, v.vergabe)
+        ziel = zielpfad(quelle, opt, quelle.suffix)
+        ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
+                            kennung=v.kennung, text=ausgabe, ist_text=True)
+        if gegenprobe.bestanden:
+            ziel.parent.mkdir(parents=True, exist_ok=True)
+            ziel.write_text(ausgabe, encoding="utf-8")
+            ergebnis.ziel_txt = ziel
+        else:
+            warnungen.append("Nicht freigegeben: keine Ausgabe geschrieben.")
+        ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
+                                            gegenprobe, opt.als_dict(), warnungen)
+        if opt.bericht:
+            ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")
+            speichere_bericht(ergebnis.bericht, ergebnis.ziel_bericht)
+        return ergebnis
+    finally:
+        if v.eigener_speicher:
+            v.speicher.close()
+
+
+def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
     """Phase two: redact, clean, save, check, report.  Closes the documents."""
     if v.abgeschlossen:
         raise RuntimeError("Diese Vorbereitung wurde bereits abgeschlossen.")
+    if isinstance(v, Textvorbereitung):
+        return _abschliessen_text(v)
     v.abgeschlossen = True
     opt, quelle, seiten, warnungen = v.opt, v.quelle, v.seiten, list(v.warnungen)
     try:

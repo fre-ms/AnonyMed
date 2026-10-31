@@ -14,8 +14,14 @@ from anonymed.kern.modell import Art
 
 VERSICHERTENNUMMER = re.compile(r"(?<![A-Z0-9])[A-Z]\d{9}(?!\d)")
 IBAN = re.compile(r"(?<![A-Z0-9])DE\d{2}(?:\s?\d{4}){4}\s?\d{2}(?![0-9])")
+# OCR may put a space around dots and the @; a line break is never part of an address,
+# and a full stop that ends the sentence is not part of it either.
+# After a dot a space is only tolerated before a short lower-case segment ("example. org"),
+# so that a sentence going on after the address ("….org. Arzt") is not swallowed.
 EMAIL = re.compile(
-    r"(?<![\w.+-])[\w+-]+(?:\.\s?[\w+-]+)*\s?@\s?[\w-]+(?:\s?\.\s?[\w-]+)+(?![\w.-])"
+    r"(?<![\w.+-])[\w+-]+(?:\.[ \t]?[\w+-]+)*[ \t]?@[ \t]?[\w-]+"
+    r"(?:[ \t]?\.(?:[\w-]+|[ \t][a-z0-9-]{2,6}))+"
+    r"(?![\w-])(?!\.[\w-])"
 )
 
 _SEP = r"\s*[:.]?\s*"

@@ -13,6 +13,7 @@ import typer
 from anonymed import __version__
 from anonymed.ablauf import Ablaufoptionen, anonymisiere
 from anonymed.dokument.ocr import OCRFehler, verfuegbare_backends
+from anonymed.dokument.textdatei import ist_textdatei
 from anonymed.erkennung.codes import verfuegbar as codes_verfuegbar
 from anonymed.kern.modell import Patient
 from anonymed.konfig import (
@@ -198,7 +199,8 @@ def _hauptbefehl() -> None:
 
 @app.command()
 def anonymisieren(
-    dateien: Annotated[list[Path], typer.Argument(help="PDF- oder Bilddateien.", exists=True)],
+    dateien: Annotated[list[Path], typer.Argument(
+        help="PDF-, Bild- oder Textdateien (.txt, .md, .srt, .vtt).", exists=True)],
     patient: PatientOption = None,
     vcf: VcfOption = None,
     kontakt: KontaktOption = None,
@@ -235,8 +237,11 @@ def anonymisieren(
     fachbegriffe: Annotated[bool, typer.Option(
         "--fachbegriffe/--keine-fachbegriffe",
         help="Medizinische Fachbegriffe vor NER und unscharfer OCR-Suche schützen.")] = True,
+    unscharf: Annotated[bool, typer.Option(
+        "--unscharf/--genau",
+        help="Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte).")] = True,
 ) -> None:
-    """Dokumente schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
+    """Dokumente und Texte schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     if unlesbar not in ("schwaerzen", "lassen"):
         typer.echo("--unlesbar muss 'schwaerzen' oder 'lassen' sein.", err=True)
         raise typer.Exit(code=1)
@@ -256,7 +261,7 @@ def anonymisieren(
     opt = Ablaufoptionen(
         datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
-        unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe,
+        unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
     )
     alles_frei = True
@@ -275,8 +280,8 @@ def anonymisieren(
             if erg.vorschau:
                 typer.echo(f"Vorschau:    {erg.vorschau[0].parent} ({len(erg.vorschau)} Seiten)")
             if erg.freigegeben:
-                typer.echo(f"Freigegeben: {erg.ziel_pdf}")
-                if erg.ziel_txt:
+                typer.echo(f"Freigegeben: {erg.ziel}")
+                if erg.ziel_txt and not erg.ist_text:
                     typer.echo(f"Text:        {erg.ziel_txt}")
             else:
                 alles_frei = False
@@ -291,7 +296,8 @@ def anonymisieren(
 
 @app.command()
 def pruefen(
-    datei: Annotated[Path, typer.Argument(exists=True, help="Bereits anonymisierte PDF-Datei.")],
+    datei: Annotated[Path, typer.Argument(exists=True,
+                                          help="Bereits anonymisierte PDF- oder Textdatei.")],
     patient: PatientOption = None,
     vcf: VcfOption = None,
     kontakt: KontaktOption = None,
@@ -318,8 +324,14 @@ def pruefen(
             raise typer.Exit(code=4) from e
         geheimnis = sp.geheimnis
     regeln = regeln_fuer(p, Pseudonymvergabe(p, kennung, geheimnis=geheimnis))
-    with pymupdf.open(datei) as doc:
-        g = pruefe(doc, regeln)
+    # the patient's own code may look like a file number ("AZ…"): never a leftover
+    if ist_textdatei(datei):
+        from anonymed.ablauf import gegenprobe_textdatei
+
+        g = gegenprobe_textdatei(datei, regeln, pseudonyme=[kennung])
+    else:
+        with pymupdf.open(datei) as doc:
+            g = pruefe(doc, regeln, pseudonyme=[kennung])
     if g.bestanden:
         typer.echo(f"{datei.name}: Gegenprobe bestanden.")
         return

@@ -88,6 +88,12 @@ Pages without a text layer, image files (JPEG, PNG, TIFF, HEIC) and pages whose 
 
 OCR misreads are met in three ways: codes such as insurance numbers are matched tolerant to the usual confusions (0/O, 1/I, 5/S, 8/B); values behind labels like "Versicherten-Nr.", "Pat.-ID" or "AZ" are blanked even when misread; and every identifier is additionally searched with a small edit-distance tolerance that grows with its length, also across tokens OCR split ("gotthard. flantz@example. org"). Lines OCR could not read at all (fragments, low confidence) are blanked as `[unlesbar]` because what cannot be read cannot be checked (`--unlesbar lassen` keeps them). This also removes handwriting the detector finds but cannot read; handwriting it does not find stays. Preview images of every OCR page are written to `<name>_anonym_vorschau/`: look at them before handing a scan to a model, over-covered neighbours and `[unlesbar]` bars show what was lost.
 
+### Texts and transcripts
+
+Plain text goes through the same pipeline: `.txt`, `.md`, `.srt` and `.vtt` files, for instance the transcript a local speech recogniser wrote from a recorded consultation. The output is a text file again, `name_anonym.txt` (same extension as the input), with every identifier replaced by its pseudonym and nothing else touched: line structure, SRT and WebVTT timestamps, cue numbers and Whisper-style `[00:00.000 --> 00:04.000]` stamps stay as they are. The report is written as for a PDF, and the re-check runs over the output before it is released.
+
+Speech recognisers misspell names the way OCR does, so for text files the fuzzy search of the OCR path is on by default (`--genau` switches it off): the patient's identifiers are also searched with a small edit distance, names and places only when capitalised, so that *lang* stays safe for a patient called Lang while *Lanq* is caught. Fuzzy hits are guesses and are shown in orange in the review tab. The review shows the text with coloured spans instead of a page image; click a span to select the hit, select any text and press *Redact selection* to mark what was missed. NER and the medical vocabulary work as for PDFs. Numbers written as words ("einundzwanzigster Juli") are not recognised; Whisper's JSON output is not read.
+
 ### Unknown names (NER, optional)
 
 `uv sync --extra ner` (spaCy and the German model) adds named-entity recognition: `--ner` on the command line or the checkbox in the documents tab tags people and places the rules do not know and gives them reproducible codes (`Person K7Q4MX`, `[Ort 2F7QV4]`). It guesses, so it keeps its hands off everything the medical vocabulary marks (see below), shows its hits in their own colour in the review tab and never runs in the re-check. The graphical interface switches it on by default once the extra is installed, after the vocabulary has marked the page; on the command line it stays opt-in.
@@ -106,6 +112,7 @@ The interface is German with an en-GB translation (`anonymed gui --language en`,
 
 * Without NER, unknown names (a relative not listed in the patient file) are not found; add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`) or switch NER on and review its hits.
 * Handwriting and text inside photos of screens or odd angles are beyond OCR; the review tab shows every page so that you can draw a box over what was missed.
+* Office documents (DOCX, ODT) and Whisper's JSON are not read; convert them to PDF or plain text first.
 
 ## Safety notes
 
