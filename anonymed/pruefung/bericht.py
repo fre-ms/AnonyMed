@@ -58,8 +58,16 @@ def als_text(b: Pruefbericht) -> str:
         zeilen.append("Gegenprobe: nicht durchgeführt")
     elif g.bestanden:
         zeilen.append("Gegenprobe: bestanden")
+        if g.geprueft:
+            zeilen.append("  Erneut geprüft nach dem Prüfschritt: " + ", ".join(g.geprueft)
+                          + " – nichts gefunden")
+        if g.belassen:
+            zaehlung = Counter(g.belassen)
+            zeilen.append("  Bewusst belassen (im Prüfschritt verworfen): "
+                          + ", ".join(f"{r} ×{n}" for r, n in sorted(zaehlung.items())))
     else:
-        zeilen.append(f"Gegenprobe: NICHT bestanden ({len(g.resttreffer)} Resttreffer)")
+        zeilen.append(f"Gegenprobe: NICHT bestanden ({len(g.resttreffer)} Resttreffer)"
+                      " – nichts exportiert")
         for r in g.resttreffer[:20]:
             zeilen.append(f"  Seite {r['seite']}: {r['regel']} ({r['quelle']})")
     if g and g.anmerkungen:

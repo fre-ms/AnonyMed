@@ -29,6 +29,7 @@ from anonymed.erkennung.unscharf import Ziel, finde_unscharf, ziele_fuer
 from anonymed.kern.modell import Art, Fundstelle, Gegenprobe, Patient, Pruefbericht
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
 from anonymed.pruefung.gegenprobe import (
+    geprueft_aus,
     in_pseudonym,
     pruefe,
     pseudonymspannen,
@@ -67,6 +68,7 @@ class Ablaufoptionen:
     fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
     unscharf_text: bool = True  # text files: fuzzy search for misspelt identifiers (transcripts)
     aufbereiten: str = "auto"  # image-only pages: "auto" (suggested clean-up) or "aus"
+    verworfene_merken: bool = False  # remember discarded hits per patient in the store
     aufbereitung: dict[int, aufmodul.Aufbereitung] | None = None  # explicit choice per page
     vorschau: str = "auto"  # "auto" (pages that needed OCR), "immer", "nie"
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
@@ -333,8 +335,10 @@ def _gegenprobe_bilder(
             genau = finde(nachher, regeln)
             fach = fachmodul.standard() if opt.fachbegriffe else None
             for f in genau + finde_unscharf(nachher, ziele, genau, fach):
-                if toleranzschluessel(f.regel, f.text) in toleriert \
-                        or in_pseudonym(f.start, f.ende, spannen):
+                if in_pseudonym(f.start, f.ende, spannen):
+                    continue
+                if toleranzschluessel(f.regel, f.text) in toleriert:
+                    gegenprobe.belassen.append(f.regel)
                     continue
                 eintrag = f.ohne_klartext()
                 eintrag["quelle"] = "ocr"
@@ -373,6 +377,8 @@ class Vorbereitung:
     verworfen: list[Fundstelle] = field(default_factory=list)
     aufbereitet: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
     abgeschlossen: bool = False
+    version: int = 0  # grows with every change the user makes in the review
+    wiederhergestellt: set[tuple[str, str]] = field(default_factory=set)
 
     @property
     def fundstellen(self) -> list[Fundstelle]:
@@ -405,6 +411,9 @@ class Vorbereitung:
             if fundstelle in s.fundstellen:
                 s.fundstellen.remove(fundstelle)
                 self.verworfen.append(fundstelle)
+                self.wiederhergestellt.discard(toleranzschluessel(fundstelle.regel,
+                                                                  fundstelle.text))
+                self.version += 1
                 return
 
     def wiederherstelle(self, fundstelle: Fundstelle) -> None:
@@ -412,6 +421,8 @@ class Vorbereitung:
         if fundstelle in self.verworfen:
             self.verworfen.remove(fundstelle)
             self.seiten[fundstelle.seite].fundstellen.append(fundstelle)
+            self.wiederhergestellt.add(toleranzschluessel(fundstelle.regel, fundstelle.text))
+            self.version += 1
 
     @property
     def toleriert(self) -> set[tuple[str, str]]:
@@ -449,6 +460,7 @@ class Vorbereitung:
             f.quelle = "korrektur"
             f.rects = []
         s.korrektur_treffer = treffer
+        self.version += 1
         return treffer
 
     @property
@@ -477,6 +489,7 @@ class Vorbereitung:
         for f in neue:
             f.quelle = "manuell"
         seite.fundstellen += neue
+        self.version += 1
         return neue
 
     def maske(self, nummer: int, rect: tuple[float, float, float, float]) -> list[Fundstelle]:
@@ -598,6 +611,10 @@ def vorbereiten(
     for nummer in sorted(plan):
         warnungen.append(f"Seite {nummer + 1} vor der OCR aufbereitet:"
                          f" {aufmodul.beschreibung(plan[nummer])}.")
+    verworfen = _gemerkte_verwerfen(seiten, speicher.verworfene(patient))
+    if verworfen:
+        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
+                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
     if ohne_text:
         warnungen.append(
             "Seite(n) ohne Textebene und ohne OCR: " + ", ".join(map(str, ohne_text))
@@ -621,7 +638,22 @@ def vorbereiten(
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
         regeln=r.regeln, ziele=r.ziele, backend=backend, doc=doc, original=original,
         seiten=seiten, ohne_text=ohne_text, warnungen=warnungen, aufbereitet=plan,
+        verworfen=verworfen,
     )
+
+
+def _gemerkte_verwerfen(seiten: list[_Seite], gemerkt: set[tuple[str, str]]) -> list[Fundstelle]:
+    """Move hits the user discarded in an earlier session (same rule and text) out of
+    the pages; they come back green and can be restored."""
+    verworfen: list[Fundstelle] = []
+    if not gemerkt:
+        return verworfen
+    for s in seiten:
+        for f in list(s.fundstellen):
+            if f.text and toleranzschluessel(f.regel, f.text) in gemerkt:
+                s.fundstellen.remove(f)
+                verworfen.append(f)
+    return verworfen
 
 
 # -- text files ------------------------------------------------------------------------------------
@@ -655,6 +687,9 @@ class Textvorbereitung:
     warnungen: list[str] = field(default_factory=list)
     verworfen: list[Fundstelle] = field(default_factory=list)
     abgeschlossen: bool = False
+    version: int = 0
+    wiederhergestellt: set[tuple[str, str]] = field(default_factory=set)
+    aufbereitet: dict[int, aufmodul.Aufbereitung] = field(default_factory=dict)
 
     @property
     def fundstellen(self) -> list[Fundstelle]:
@@ -679,12 +714,17 @@ class Textvorbereitung:
             if fundstelle in s.fundstellen:
                 s.fundstellen.remove(fundstelle)
                 self.verworfen.append(fundstelle)
+                self.wiederhergestellt.discard(toleranzschluessel(fundstelle.regel,
+                                                                  fundstelle.text))
+                self.version += 1
                 return
 
     def wiederherstelle(self, fundstelle: Fundstelle) -> None:
         if fundstelle in self.verworfen:
             self.verworfen.remove(fundstelle)
             self.seiten[fundstelle.seite].fundstellen.append(fundstelle)
+            self.wiederhergestellt.add(toleranzschluessel(fundstelle.regel, fundstelle.text))
+            self.version += 1
 
     @property
     def toleriert(self) -> set[tuple[str, str]]:
@@ -710,6 +750,7 @@ class Textvorbereitung:
         f = Fundstelle(seite=nummer, start=start, ende=ende, text=self.text[start:ende],
                        art=Art.MANUELL, regel="manuell", pseudonym=pseudonym, quelle="manuell")
         seite.fundstellen.append(f)
+        self.version += 1
         return f
 
     def schliessen(self) -> None:
@@ -747,11 +788,15 @@ def _vorbereiten_text(
     if unscharfe:
         warnungen.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"
                          " (Transkript, Tippfehler); im Prüfschritt ansehen.")
+    verworfen = _gemerkte_verwerfen([eintrag], speicher.verworfene(patient))
+    if verworfen:
+        warnungen.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
+                         " (grün im Prüfschritt; Wiederherstellen hebt sie auf).")
     return Textvorbereitung(
         quelle=quelle, patient=patient, opt=opt, speicher=speicher,
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
         regeln=r.regeln, ziele=r.ziele, text=text, seiten=[eintrag], ausgabe_endung=endung,
-        warnungen=warnungen,
+        warnungen=warnungen, verworfen=verworfen,
     )
 
 
@@ -790,10 +835,12 @@ def gegenprobe_text(
     if ziele is not None:
         rest += finde_unscharf(seite, ziele, genau, fachbegriffe, grossschreibung=True,
                                quelle="unscharf")
-    g = Gegenprobe()
+    g = Gegenprobe(geprueft=geprueft_aus(regeln))
     for f in rest:
-        if toleranzschluessel(f.regel, f.text) in toleriert \
-                or in_pseudonym(f.start, f.ende, spannen):
+        if in_pseudonym(f.start, f.ende, spannen):
+            continue
+        if toleranzschluessel(f.regel, f.text) in toleriert:
+            g.belassen.append(f.regel)
             continue
         g.resttreffer.append(f.ohne_klartext())
     return g
@@ -807,9 +854,8 @@ def gegenprobe_textdatei(pfad: str | Path, regeln: list[Regel],
     return gegenprobe_text(text, endung, regeln, pseudonyme=pseudonyme)
 
 
-def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
+def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis:
     """Phase two for a text file: replace, check, write, report."""
-    v.abgeschlossen = True
     opt, quelle, warnungen = v.opt, v.quelle, list(v.warnungen)
     try:
         fundstellen = v.fundstellen
@@ -821,6 +867,8 @@ def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
                                      v.ziele if opt.unscharf_text else None, fach,
                                      v.toleriert, pseudonyme)
         v.speicher.merke(v.patient, v.vergabe)
+        if endgueltig:
+            _entscheidungen_merken(v)
         ziel = zielpfad(quelle, opt, v.ausgabe_endung)
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
                             kennung=v.kennung, text=ausgabe, ist_text=True)
@@ -836,12 +884,24 @@ def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
         ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
                                             gegenprobe, opt.als_dict(), warnungen)
         if opt.bericht:
+            ziel.parent.mkdir(parents=True, exist_ok=True)
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")
             speichere_bericht(ergebnis.bericht, ergebnis.ziel_bericht)
         return ergebnis
     finally:
-        if v.eigener_speicher:
-            v.speicher.close()
+        if endgueltig:
+            v.abgeschlossen = True
+            v.schliessen()
+
+
+def _entscheidungen_merken(v: Vorbereitung | Textvorbereitung) -> None:
+    """Store (or forget) the user's discard decisions for this patient when asked to."""
+    if not v.opt.verworfene_merken:
+        return
+    if v.toleriert:
+        v.speicher.merke_verworfen(v.patient, v.toleriert)
+    if v.wiederhergestellt:
+        v.speicher.vergiss_verworfen(v.patient, v.wiederhergestellt)
 
 
 def _textebene_einbetten(doc: pymupdf.Document, seiten: list[_Seite], gerastert: set[int],
@@ -860,36 +920,42 @@ def _textebene_einbetten(doc: pymupdf.Document, seiten: list[_Seite], gerastert:
                                   mit_pseudonymen=s.nummer in gerastert, opt=opt)
 
 
-def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
-    """Phase two: redact, clean, save, check, report.  Closes the documents."""
+def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) -> Ergebnis:
+    """Phase two: redact, clean, save, check, report.
+
+    Works on copies of the documents, so it can run more than once: the desktop
+    runs it as the check before the export and again for the export itself.  With
+    ``endgueltig`` the preparation is closed afterwards and the discard decisions
+    are stored when the options ask for it.
+    """
     if v.abgeschlossen:
         raise RuntimeError("Diese Vorbereitung wurde bereits abgeschlossen.")
     if isinstance(v, Textvorbereitung):
-        return _abschliessen_text(v)
-    v.abgeschlossen = True
+        return _abschliessen_text(v, endgueltig)
     opt, quelle, seiten, warnungen = v.opt, v.quelle, v.seiten, list(v.warnungen)
     try:
         fundstellen = v.fundstellen + v.korrektur_treffer
         v.vergabe.registriere_treffer(fundstellen)
         text = _text(seiten)
+        doc = pymupdf.open("pdf", v.doc.tobytes())
+        original = pymupdf.open("pdf", v.original.tobytes())
         try:
             gerastert: set[int] = set()
             for s in seiten:
-                lage = schwaerze_seite(v.doc[s.nummer], s.text, s.fundstellen, opt.schwaerzen)
+                lage = schwaerze_seite(doc[s.nummer], s.text, s.fundstellen, opt.schwaerzen)
                 if not lage.lage_intakt:
-                    rastere_seite(v.doc, s.nummer, v.original, s.text, s.fundstellen,
-                                  opt.schwaerzen)
+                    rastere_seite(doc, s.nummer, original, s.text, s.fundstellen, opt.schwaerzen)
                     gerastert.add(s.nummer)
                     warnungen.append(
                         f"Seite {s.nummer + 1}: Textlayout nach der Redaktion verschoben,"
                         " Seite deshalb gerastert."
                     )
             if opt.schwaerzen.textebene and not opt.schwaerzen.rastern:
-                _textebene_einbetten(v.doc, seiten, gerastert, opt.schwaerzen)
-            bereinige(v.doc, vermerk=opt.schwaerzen.vermerk)
-            ausgabe = v.doc
+                _textebene_einbetten(doc, seiten, gerastert, opt.schwaerzen)
+            bereinige(doc, vermerk=opt.schwaerzen.vermerk)
+            ausgabe = doc
             if opt.schwaerzen.rastern:
-                ausgabe = rastere(v.doc, opt.schwaerzen.dpi)
+                ausgabe = rastere(doc, opt.schwaerzen.dpi)
                 if opt.schwaerzen.textebene:
                     _textebene_einbetten(ausgabe, seiten, {s.nummer for s in seiten},
                                          opt.schwaerzen)
@@ -898,11 +964,11 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
             ziel = zielpfad(quelle, opt)
             ziel.parent.mkdir(parents=True, exist_ok=True)
             speichere(ausgabe, ziel)
-            if ausgabe is not v.doc:
+            if ausgabe is not doc:
                 ausgabe.close()
         finally:
-            v.doc.close()
-            v.original.close()
+            doc.close()
+            original.close()
 
         ocr_seiten = v.ocr_seiten
         vorschau: list[Path] = []
@@ -918,6 +984,8 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
                 vorschau = schreibe_vorschau(kontrolle, zielpfad(quelle, opt, "_vorschau"))
 
         v.speicher.merke(v.patient, v.vergabe)
+        if endgueltig:
+            _entscheidungen_merken(v)
 
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
                             kennung=v.kennung, text=text, vorschau=vorschau)
@@ -946,8 +1014,9 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
             speichere_bericht(ergebnis.bericht, ergebnis.ziel_bericht)
         return ergebnis
     finally:
-        if v.eigener_speicher:
-            v.speicher.close()
+        if endgueltig:
+            v.abgeschlossen = True
+            v.schliessen()
 
 
 def anonymisiere(

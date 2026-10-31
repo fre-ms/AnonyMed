@@ -14,6 +14,7 @@ import datetime as dt
 import os
 import secrets
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,13 @@ CREATE TABLE IF NOT EXISTS zuordnungen (
     art        TEXT NOT NULL DEFAULT '',
     geaendert  TEXT NOT NULL,
     PRIMARY KEY (schluessel, pseudonym)
+);
+CREATE TABLE IF NOT EXISTS verworfen (
+    schluessel TEXT NOT NULL,
+    regel      TEXT NOT NULL,
+    text       TEXT NOT NULL,
+    geaendert  TEXT NOT NULL,
+    PRIMARY KEY (schluessel, regel, text)
 );
 """
 
@@ -258,6 +266,33 @@ class Pseudonymspeicher:
         return self.kennung_fuer(patient).kennung
 
     # -- mappings ------------------------------------------------------------------------------
+    # -- discarded hits the user wants remembered ------------------------------------------------
+    def verworfene(self, patient: Patient) -> set[tuple[str, str]]:
+        """(rule, normalised text) pairs the user discarded for this patient before."""
+        schluessel = self._kanonischer_schluessel(patient.schluessel())
+        zeilen = self.verbindung.execute(
+            "SELECT regel, text FROM verworfen WHERE schluessel = ?", (schluessel,)).fetchall()
+        return {(z["regel"], z["text"]) for z in zeilen}
+
+    def merke_verworfen(self, patient: Patient, eintraege: Iterable[tuple[str, str]]) -> None:
+        schluessel = self._kanonischer_schluessel(patient.schluessel())
+        jetzt = _jetzt()
+        for regel, text in eintraege:
+            self.verbindung.execute(
+                "INSERT INTO verworfen (schluessel, regel, text, geaendert) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(schluessel, regel, text)"
+                " DO UPDATE SET geaendert = excluded.geaendert",
+                (schluessel, regel, text, jetzt))
+        self.verbindung.commit()
+
+    def vergiss_verworfen(self, patient: Patient, eintraege: Iterable[tuple[str, str]]) -> None:
+        schluessel = self._kanonischer_schluessel(patient.schluessel())
+        for regel, text in eintraege:
+            self.verbindung.execute(
+                "DELETE FROM verworfen WHERE schluessel = ? AND regel = ? AND text = ?",
+                (schluessel, regel, text))
+        self.verbindung.commit()
+
     def merke(self, patient: Patient, vergabe: Pseudonymvergabe) -> None:
         schluessel = self._kanonischer_schluessel(patient.schluessel())
         jetzt = _jetzt()

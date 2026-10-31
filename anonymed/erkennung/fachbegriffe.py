@@ -36,6 +36,7 @@ from pathlib import Path
 from platformdirs import user_data_path
 
 BASIS = Path(__file__).resolve().parent.parent / "daten" / "fachbegriffe_de.txt.gz"
+KOERPERTEILE = Path(__file__).resolve().parent.parent / "daten" / "koerperteile_de.txt"
 _TOKEN = re.compile(r"[^\W\d_][\w\-]*|\d+[\w\-]*")
 _SUFFIXE = ("ern", "en", "es", "er", "em", "e", "n", "s")
 _TRANS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -190,6 +191,8 @@ def laden(zusatz: Iterable[Path] = (), mit_basis: bool = True,
     fb = Fachbegriffe()
     if mit_basis and BASIS.exists():
         fb.fuege_hinzu(_lies_liste(BASIS), f"Basis ({BASIS.name})")
+    if mit_basis and KOERPERTEILE.exists():
+        fb.fuege_hinzu(_lies_liste(KOERPERTEILE), "Körperteile")
     fb.fuege_hinzu((e for e in EPONYME if len(e) >= 4), "Eponyme")
     pfade = list(zusatz)
     if mit_nutzerdaten and datenordner().is_dir():

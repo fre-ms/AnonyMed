@@ -209,17 +209,23 @@ def kasten_zu_fundstellen(
 ) -> list[Fundstelle]:
     """A box drawn by the user becomes hits with text spans where the page has text.
 
-    Characters whose centre lies inside the box are grouped per line into one
-    hit each, so that the text file, the layout check and the re-check see the
-    same thing as the redaction.  Without characters (image page) the box is a
-    hit of its own with the rectangle only.
+    Characters that the box covers (at least two fifths of the glyph box, so a
+    box drawn a little below the line's centre still takes the line) are grouped
+    per line into one hit each, so that the text file, the layout check and the
+    re-check see the same thing as the redaction.  Without characters (image
+    page) the box is a hit of its own with the rectangle only.
     """
     x0, y0, x1, y1 = rect
-    innen = [
-        i for i, box in enumerate(seite.boxen)
-        if box is not None and x0 <= (box[0] + box[2]) / 2 <= x1
-        and y0 <= (box[1] + box[3]) / 2 <= y1
-    ]
+
+    def bedeckt(box: tuple[float, float, float, float]) -> bool:
+        breite = min(x1, box[2]) - max(x0, box[0])
+        hoehe = min(y1, box[3]) - max(y0, box[1])
+        if breite <= 0 or hoehe <= 0:
+            return False
+        flaeche = max((box[2] - box[0]) * (box[3] - box[1]), 1e-6)
+        return breite * hoehe >= 0.4 * flaeche
+
+    innen = [i for i, box in enumerate(seite.boxen) if box is not None and bedeckt(box)]
     if not innen:
         return [Fundstelle(seite=seite.nummer, start=0, ende=0, text="", art=Art.MANUELL,
                            regel=quelle, pseudonym=pseudonym, rects=[tuple(rect)],

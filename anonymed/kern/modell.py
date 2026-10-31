@@ -228,6 +228,8 @@ class Gegenprobe:
     metadaten_leer: bool = True
     struktur_sauber: bool = True  # no annotations, form fields, attachments, bookmarks left
     anmerkungen: list[str] = field(default_factory=list)
+    geprueft: list[str] = field(default_factory=list)  # identifier kinds searched again
+    belassen: list[str] = field(default_factory=list)  # rules of hits kept on purpose
 
     @property
     def bestanden(self) -> bool:

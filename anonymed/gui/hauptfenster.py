@@ -71,6 +71,8 @@ class Hauptfenster(QMainWindow):
             self.rueckersetzen.aktualisiere()
         elif self.tabs.widget(index) is self.analysieren:
             self.analysieren.aktualisiere()
+        elif self.tabs.widget(index) is self.export:
+            self.export.aktualisiere()
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self.sitzung.schliessen()

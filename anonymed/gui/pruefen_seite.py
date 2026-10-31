@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QPlainTextEdit,
     QPushButton,
     QSplitter,
@@ -146,6 +147,14 @@ class Seitenansicht(QGraphicsView):
         self.resetTransform()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier \
+                or event.button() == Qt.MouseButton.MiddleButton:
+            # Shift (or the middle button) + drag moves the view instead of drawing
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            if event.button() == Qt.MouseButton.MiddleButton:
+                event = _als_linksklick(event)
+            super().mousePressEvent(event)
+            return
         pos = self.mapToScene(event.position().toPoint())
         for item in self._szene.items(pos):
             f = self._items.get(id(item))
@@ -160,11 +169,18 @@ class Seitenansicht(QGraphicsView):
         self._szene.addItem(self._gummi)
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag:
+            super().mouseMoveEvent(event)
+            return
         if self._start is not None and self._gummi is not None:
             pos = self.mapToScene(event.position().toPoint())
             self._gummi.setRect(QRectF(self._start, pos).normalized())
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
+        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag:
+            super().mouseReleaseEvent(event)
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            return
         if self._start is None or self._gummi is None:
             return
         r = self._gummi.rect()
@@ -173,6 +189,14 @@ class Seitenansicht(QGraphicsView):
         if r.width() > 4 and r.height() > 4:
             self.kasten_gezeichnet.emit((r.left() / self.skala, r.top() / self.skala,
                                          r.right() / self.skala, r.bottom() / self.skala))
+
+
+def _als_linksklick(event):
+    """The middle button as a left button, so that Qt's hand-drag accepts it."""
+    from PySide6.QtGui import QMouseEvent
+
+    return QMouseEvent(event.type(), event.position(), event.globalPosition(),
+                       Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, event.modifiers())
 
 
 class Textansicht(QTextEdit):
@@ -303,9 +327,10 @@ class PruefenSeite(QWidget):
             "Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) ·"
             " Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) ·"
             " Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder"
-            " her). Ziehen zeichnet einen Kasten mit Ersatztext, mit „Maske zeichnen“ eine"
-            " schwarze Maske; in Textdateien markiert „Auswahl schwärzen“ den ausgewählten"
-            " Text. Die Quelle jedes Treffers steht in der Tabelle."))
+            " her). Ziehen zeichnet einen Kasten mit dem Ersatztext aus dem Feld, mit „Maske"
+            " zeichnen“ eine schwarze Maske; Umschalt + Ziehen verschiebt den Ausschnitt,"
+            " Strg/Cmd + Rad zoomt. In Textdateien markiert „Auswahl schwärzen“ den"
+            " ausgewählten Text. Die Quelle jedes Treffers steht in der Tabelle."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
@@ -320,6 +345,17 @@ class PruefenSeite(QWidget):
         self.fach_anzeigen.setChecked(True)
         self.fach_anzeigen.toggled.connect(lambda _an: self.zeichne())
         r.addWidget(self.fach_anzeigen)
+        self.merken = QCheckBox(self.tr(
+            "Verworfene Treffer für diesen Patienten merken (beim Export gespeichert)"))
+        self.merken.setChecked(True)
+        self.sitzung.optionen.verworfene_merken = True
+        self.merken.toggled.connect(self._merken_uebernehmen)
+        r.addWidget(self.merken)
+        ersatz = QHBoxLayout()
+        ersatz.addWidget(QLabel(self.tr("Ersatztext für Kästen")))
+        self.ersatztext = QLineEdit(self.tr("[geschwärzt]"))
+        ersatz.addWidget(self.ersatztext, 1)
+        r.addLayout(ersatz)
         knoepfe = QHBoxLayout()
         self.verwerfen = QPushButton(self.tr("Treffer verwerfen"))
         self.verwerfen.clicked.connect(self.verwerfe)
@@ -461,24 +497,30 @@ class PruefenSeite(QWidget):
     def _maske_umschalten(self, an: bool) -> None:
         self.ansicht.masken_modus = an
 
+    def _merken_uebernehmen(self, an: bool) -> None:
+        self.sitzung.optionen.verworfene_merken = an
+
     def kasten(self, rect: tuple[float, float, float, float], pseudonym: str | None = None) -> None:
-        """A drawn rectangle: a black mask in mask mode, otherwise a box with a label."""
+        """A drawn rectangle: a black mask in mask mode, otherwise a box with the
+        replacement text from the field (no dialog, so nothing can get lost behind
+        the window).  The new hit is selected; errors are shown in the hint line."""
         if self.dokument is None or self.dokument.vorbereitung is None:
             return
-        if pseudonym is None and self.maske_modus.isChecked():
-            self.dokument.vorbereitung.maske(self.seite, rect)
-            self.gewaehlt = None
-            self.zeichne()
+        v = self.dokument.vorbereitung
+        try:
+            if pseudonym is None and self.maske_modus.isChecked():
+                neue = v.maske(self.seite, rect)
+            else:
+                text = pseudonym if pseudonym is not None else self.ersatztext.text().strip()
+                neue = v.kasten(self.seite, rect, text or self.tr("[geschwärzt]"))
+        except Exception as e:  # noqa: BLE001 - must be visible, never silent
+            self.hinweis.setText(self.tr("Kasten nicht gesetzt: {fehler}").format(fehler=e))
             return
-        if pseudonym is None:
-            pseudonym, ok = QInputDialog.getText(self, self.tr("Kasten"),
-                                                 self.tr("Ersatztext im Kasten:"),
-                                                 text=self.tr("[geschwärzt]"))
-            if not ok:
-                return
-        self.dokument.vorbereitung.kasten(self.seite, rect, pseudonym or self.tr("[geschwärzt]"))
-        self.gewaehlt = None
+        self.gewaehlt = neue[0] if neue else None
         self.zeichne()
+        if neue:
+            self.hinweis.setText(self.tr("{n} Kasten gesetzt: {pseudonym}").format(
+                n=len(neue), pseudonym=neue[0].pseudonym) + " · " + self.hinweis.text())
 
     # -- recognised text --------------------------------------------------------------------------
     def _ocr_feld_zeigen(self, v) -> None:

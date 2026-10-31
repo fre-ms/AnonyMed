@@ -131,3 +131,16 @@ def test_kurze_woerter_nur_grossgeschrieben() -> None:
     text = "Er hat Schmerzen im Arm und am Ohr; der Test HAT war positiv."
     woerter = {text[a:b] for a, b in fb.spannen(text)}
     assert "hat" not in woerter and {"Arm", "Ohr", "HAT"} <= woerter
+
+
+def test_koerperteile_sind_fachbegriffe() -> None:
+    """Body parts in everyday German are protected, including the side words, so that
+    NER cannot take "Linke Hand" or "Oberbauch" for a person."""
+    fb = fachmodul.standard()
+    for w in ("Kopf", "Nacken", "Oberbauch", "Unterschenkel", "Wade", "Knöchel",
+              "Lendenwirbelsäule", "Handfläche", "Schläfe", "Leiste", "Bein", "Hüfte"):
+        assert fb.ist_fachbegriff(w), w
+    text = "Schmerzen in der linken Hand und im rechten Oberbauch, Knie frei."
+    woerter = {text[a:b] for a, b in fb.spannen(text)}
+    assert {"linken", "Hand", "rechten", "Oberbauch", "Knie"} <= woerter
+    assert "Körperteile" in [q for q, _n in fb.quellen] if hasattr(fb, "quellen") else True

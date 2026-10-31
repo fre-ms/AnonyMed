@@ -17,6 +17,7 @@ from anonymed.pruefung.bericht import als_text
 from anonymed.pseudonyme.kennung import kennung_gueltig
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.schwaerzen.pdf import Schwaerzoptionen, Seitenergebnis, rastere
+from tests.conftest import TESTSCHLUESSEL
 from tests.synthetisch import datum_lang, erzeuge_befund
 
 
@@ -306,3 +307,64 @@ def test_versteckter_text_bleibt_textebene(tmp_path: Path, patient: Patient,
         text = d[0].get_text("text")
     assert "Ramipril" in text and "Hypertonie" in text
     assert patient.nachname not in text and f"Patient {erg.kennung}" in text
+
+
+def test_verworfene_treffer_merken(befund: Path, patient: Patient) -> None:
+    """A discard stored for the patient is applied next time (green, restorable); restoring
+    and exporting forgets it again."""
+    with Pseudonymspeicher(":memory:", geheimnis=TESTSCHLUESSEL) as sp:
+        v = vorbereiten(befund, patient, Ablaufoptionen(verworfene_merken=True), speicher=sp)
+        f = next(x for x in v.fundstellen if x.regel == "zuweiser1.name")
+        v.verwerfe(f)
+        erg = abschliessen(v)
+        assert erg.freigegeben and v.abgeschlossen
+        bericht = als_text(erg.bericht)
+        assert "Bewusst belassen (im Prüfschritt verworfen): zuweiser1.name ×1" in bericht
+        zeile = next(z for z in bericht.splitlines() if "Erneut geprüft" in z)
+        assert "Geburtsdatum" in zeile and "Zuweiser" in zeile and "nichts gefunden" in zeile
+        assert erg.bericht.gegenprobe.geprueft[0] == "Name"
+        assert sp.verworfene(patient) == {("zuweiser1.name", f.text.casefold())}
+        v2 = vorbereiten(befund, patient, Ablaufoptionen(verworfene_merken=True), speicher=sp)
+        assert any(x.regel == "zuweiser1.name" and x.text == f.text for x in v2.verworfen)
+        assert not any(x.text == f.text for x in v2.fundstellen)  # other spellings stay hits
+        assert any("gespeicherter Entscheidung" in w for w in v2.warnungen)
+        g = next(x for x in v2.verworfen if x.regel == "zuweiser1.name")
+        v2.wiederherstelle(g)
+        assert v2.version == 1 and v2.wiederhergestellt
+        erg2 = abschliessen(v2, endgueltig=False)  # a check run: nothing stored, v2 stays open
+        assert erg2.freigegeben and not v2.abgeschlossen and sp.verworfene(patient)
+        erg3 = abschliessen(v2)
+        assert erg3.freigegeben and sp.verworfene(patient) == set()
+        v3 = vorbereiten(befund, patient, Ablaufoptionen(), speicher=sp)
+        assert any(x.text == f.text for x in v3.fundstellen) and not v3.verworfen
+        v3.schliessen()
+
+
+def test_abschliessen_mehrfach(befund: Path, patient: Patient, speicher: Pseudonymspeicher,
+                               tmp_path: Path) -> None:
+    """The finishing phase can run as a check into one folder and again for the export."""
+    v = vorbereiten(befund, patient, Ablaufoptionen(ziel_ordner=tmp_path / "check"),
+                    speicher=speicher)
+    a = abschliessen(v, endgueltig=False)
+    assert a.freigegeben and a.ziel_pdf.parent == tmp_path / "check"
+    v.kasten(0, (56, 300, 400, 320), "[Nachtrag]")
+    v.opt = Ablaufoptionen(ziel_ordner=tmp_path / "aus")
+    b = abschliessen(v)
+    assert b.freigegeben and b.ziel_pdf.parent == tmp_path / "aus" and v.abgeschlossen
+    assert "[Nachtrag]" in b.ziel_txt.read_text(encoding="utf-8")
+    assert "[Nachtrag]" not in a.ziel_txt.read_text(encoding="utf-8")
+
+
+def test_kasten_knapp_unter_der_zeile(befund: Path, patient: Patient,
+                                      speicher: Pseudonymspeicher) -> None:
+    """A box drawn a little below the centre of a line still takes the line's text, so
+    that the text file and the PDF agree (the user's boxes are rarely centred)."""
+    v = vorbereiten(befund, patient, Ablaufoptionen(), speicher=speicher)
+    text = v.seiten[0].text
+    i = text.text.index("Sehr geehrte")
+    box = text.boxen[i]
+    mitte = (box[1] + box[3]) / 2
+    neue = v.kasten(0, (56, mitte + 0.5, 300, mitte + 12), "[Anrede]")
+    assert neue and neue[0].text.startswith("Sehr geehrte"), [n.text for n in neue]
+    erg = abschliessen(v)
+    assert erg.freigegeben and "[Anrede]" in erg.text and "Sehr geehrte" not in erg.text

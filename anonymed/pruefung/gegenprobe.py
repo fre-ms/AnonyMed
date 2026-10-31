@@ -14,8 +14,34 @@ import pymupdf
 from anonymed.dokument.textebene import lese_dokument
 from anonymed.erkennung.deterministisch import Regel, finde, finde_im_text
 from anonymed.erkennung.varianten import exakt_muster
-from anonymed.kern.modell import Gegenprobe
+from anonymed.kern.modell import Art, Gegenprobe, Rolle
 from anonymed.schwaerzen.pdf import ERLAUBTE_METADATEN, VERMERK_PRAEFIX
+
+ART_NAMEN = {
+    Art.NAME: "Name", Art.VORNAME: "Vorname", Art.NACHNAME: "Nachname",
+    Art.GEBURTSNAME: "Geburtsname", Art.GEBURTSDATUM: "Geburtsdatum", Art.ADRESSE: "Straße",
+    Art.ORT: "Ort", Art.TELEFON: "Telefon", Art.EMAIL: "E-Mail",
+    Art.VERSICHERTENNUMMER: "Versichertennummer", Art.PATIENTEN_ID: "Patienten-ID",
+    Art.AKTENZEICHEN: "Aktenzeichen", Art.IBAN: "IBAN", Art.BEGRIFF: "Begriffe",
+}
+
+
+def geprueft_aus(regeln: Iterable[Regel]) -> list[str]:
+    """Readable list of what the rules cover: the patient's identifiers by kind, then
+    the people around them, for the report's "searched again" line."""
+    namen: list[str] = []
+    rollen: list[str] = []
+    for r in regeln:
+        if r.rolle == Rolle.ANGEHOERIGE:
+            eintrag = "Angehörige"
+        elif r.rolle == Rolle.ZUWEISER:
+            eintrag = "Zuweiser"
+        else:
+            eintrag = ART_NAMEN.get(r.art, str(r.art))
+        ziel = rollen if r.rolle in (Rolle.ANGEHOERIGE, Rolle.ZUWEISER) else namen
+        if eintrag not in ziel:
+            ziel.append(eintrag)
+    return namen + rollen
 
 
 def toleranzschluessel(regel: str, text: str) -> tuple[str, str]:
@@ -69,13 +95,17 @@ def pruefe(
     """Re-run the rules on the output.  ``toleriert`` lists occurrences (rule, text)
     the user decided to keep; ``pseudonyme`` are the strings the redaction inserted,
     inside which no rule counts."""
-    ergebnis = Gegenprobe()
+    ergebnis = Gegenprobe(geprueft=geprueft_aus(regeln))
     gesehen: set[tuple[int, str, str]] = set()
     toleriert = set(toleriert)
     pseudonyme = [p for p in pseudonyme if p]
 
-    def erlaubt(regel: str, text: str) -> bool:
-        return toleranzschluessel(regel, text) in toleriert
+    def erlaubt(regel: str, text: str, zaehlen: bool = True) -> bool:
+        if toleranzschluessel(regel, text) in toleriert:
+            if zaehlen:
+                ergebnis.belassen.append(regel)
+            return True
+        return False
 
     for seite in lese_dokument(doc):
         spannen = pseudonymspannen(seite.text, pseudonyme)
@@ -99,10 +129,10 @@ def pruefe(
                  "pseudonym": regel.pseudonym, "rects": [], "quelle": "plaintext"}
             )
 
-    for n, text in enumerate(zusatztexte, 1):
+    for n, text in enumerate(zusatztexte, 1):  # repeats the pages: count nothing twice
         spannen = pseudonymspannen(text, pseudonyme)
         for a, b, regel in finde_im_text(text, regeln):
-            if erlaubt(regel.id, text[a:b]) or in_pseudonym(a, b, spannen):
+            if erlaubt(regel.id, text[a:b], zaehlen=False) or in_pseudonym(a, b, spannen):
                 continue
             ergebnis.resttreffer.append(
                 {"seite": 0, "art": str(regel.art), "regel": regel.id,

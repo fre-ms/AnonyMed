@@ -297,156 +297,217 @@
         <translation>not released</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="149" />
+        <location filename="../dokumente_seite.py" line="150" />
+        <source>Text, {treffer} Treffer</source>
+        <translation>Text, {treffer} hits</translation>
+    </message>
+    <message>
+        <location filename="../dokumente_seite.py" line="152" />
         <source>analysiert, {treffer} Treffer</source>
         <translation>analysed, {treffer} hits</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="154" />
+        <location filename="../dokumente_seite.py" line="157" />
         <source>{seiten} Seite(n), {n} ohne Textebene: unten aufbereiten</source>
         <translation>{seiten} page(s), {n} without text layer: clean up below</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="156" />
+        <location filename="../dokumente_seite.py" line="159" />
         <source>{seiten} Seite(n) mit Textebene</source>
         <translation>{seiten} page(s) with text layer</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="158" />
+        <location filename="../dokumente_seite.py" line="161" />
         <source>wird geladen …</source>
         <translation>loading …</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="159" />
+        <location filename="../dokumente_seite.py" line="162" />
         <source>Textdatei</source>
         <translation>Text file</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="169" />
+        <location filename="../dokumente_seite.py" line="172" />
         <source>{n} Dokument(e)</source>
         <translation>{n} document(s)</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="171" />
+        <location filename="../dokumente_seite.py" line="174" />
         <source>, {offen} mit Seiten zum Aufbereiten</source>
         <translation>, {offen} with pages to clean up</translation>
     </message>
     <message>
-        <location filename="../dokumente_seite.py" line="173" />
+        <location filename="../dokumente_seite.py" line="176" />
         <source> – lade …</source>
         <translation> – loading …</translation>
     </message>
-    </context>
+</context>
 <context>
     <name>ExportSeite</name>
     <message>
-        <location filename="../export_seite.py" line="38" />
+        <location filename="../export_seite.py" line="60" />
         <source>Ausgabe</source>
         <translation>Output</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="42" />
+        <location filename="../export_seite.py" line="64" />
         <source>leer = neben der Quelle</source>
         <translation>empty = next to the source</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="47" />
-        <location filename="../export_seite.py" line="84" />
+        <location filename="../export_seite.py" line="69" />
+        <location filename="../export_seite.py" line="107" />
         <source>Zielordner</source>
         <translation>Target folder</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="55" />
+        <location filename="../export_seite.py" line="77" />
         <source>Prüfbericht (JSON)</source>
         <translation>Report (JSON)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="57" />
+        <location filename="../export_seite.py" line="79" />
         <source>Vermerk in den PDF-Metadaten</source>
         <translation>Note in the PDF metadata</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="49" />
+        <location filename="../export_seite.py" line="71" />
         <source>PDF mit Textebene: OCR-Text unsichtbar einbetten (Scans bleiben durchsuchbar)</source>
         <translation>PDF with text layer: embed the OCR text invisibly (scans stay searchable)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="52" />
+        <location filename="../export_seite.py" line="48" />
+        <source>Erneute Prüfung des Ergebnisses:</source>
+        <translation>Re-check of the result:</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="55" />
+        <source>Erneut prüfen</source>
+        <translation>Check again</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="74" />
         <source>Textdatei (.txt) in Lesereihenfolge (Eingabe für das Sprachmodell)</source>
         <translation>Text file (.txt) in reading order (input for the language model)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="54" />
+        <location filename="../export_seite.py" line="76" />
         <source>Markdown-Datei (.md) zusätzlich</source>
         <translation>Markdown file (.md) as well</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="60" />
+        <location filename="../export_seite.py" line="82" />
         <source>PDF vollständig rastern (nur Bild; die Textebene wird danach unsichtbar ergänzt)</source>
         <translation>Rasterise the PDF completely (image only; the text layer is added invisibly afterwards)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="61" />
+        <location filename="../export_seite.py" line="83" />
         <source>Vorschaubilder immer schreiben</source>
         <translation>Always write preview images</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="73" />
+        <location filename="../export_seite.py" line="95" />
         <source>Zielordner öffnen</source>
         <translation>Open target folder</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="76" />
+        <location filename="../export_seite.py" line="98" />
         <source>Exportieren</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="106" />
+        <location filename="../export_seite.py" line="104" />
+        <source>Noch nicht geprüft.</source>
+        <translation>Not checked yet.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="149" />
+        <location filename="../export_seite.py" line="190" />
+        <source>Erneute Prüfung läuft …</source>
+        <translation>Re-check running …</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="165" />
+        <source>Abbruch: Bei der erneuten Prüfung wurden noch Daten aus „1 Patient“ gefunden. Es wird nichts exportiert. Bitte im Prüfschritt nacharbeiten (Kasten oder Maske) und erneut prüfen.</source>
+        <translation>Aborted: the re-check still found data from “1 Patient”. Nothing is exported. Please rework in the review step (box or mask) and check again.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="170" />
+        <source>Export nicht möglich</source>
+        <translation>Export not possible</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="172" />
+        <source>Bereit; bitte die Warnungen lesen.</source>
+        <translation>Ready; please read the warnings.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="174" />
+        <source>Bereit zum Export.</source>
+        <translation>Ready to export.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="183" />
         <source>Export</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="107" />
+        <location filename="../export_seite.py" line="184" />
         <source>Keine analysierten Dokumente.</source>
         <translation>No analysed documents.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="115" />
+        <location filename="../export_seite.py" line="207" />
         <source>Fertig.</source>
         <translation>Done.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="120" />
+        <location filename="../export_seite.py" line="217" />
+        <source>Prüfe {name} …</source>
+        <translation>Checking {name} …</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="218" />
         <source>Exportiere {name} …</source>
         <translation>Exporting {name} …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="135" />
+        <location filename="../export_seite.py" line="237" />
+        <source>Erneute Prüfung bestanden; Export möglich.</source>
+        <translation>Re-check passed; export possible.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="238" />
+        <source>Erneute Prüfung NICHT bestanden; Export gesperrt.</source>
+        <translation>Re-check NOT passed; export blocked.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="240" />
         <source>Freigegeben: {pfad}</source>
         <translation>Released: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="137" />
+        <location filename="../export_seite.py" line="242" />
         <source>Text: {pfad}</source>
         <translation>Text: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="139" />
+        <location filename="../export_seite.py" line="244" />
         <source>Markdown: {pfad}</source>
         <translation>Markdown: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="141" />
+        <location filename="../export_seite.py" line="248" />
         <source>NICHT freigegeben.</source>
         <translation>NOT released.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="143" />
+        <location filename="../export_seite.py" line="246" />
         <source>Vorschau: {pfad}</source>
         <translation>Preview: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="150" />
+        <location filename="../export_seite.py" line="255" />
         <source>{name}: Fehler: {fehler}</source>
         <translation>{name}: error: {fehler}</translation>
     </message>
@@ -719,127 +780,137 @@
 <context>
     <name>PruefenSeite</name>
     <message>
-        <location filename="../pruefen_seite.py" line="262" />
+        <location filename="../pruefen_seite.py" line="286" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="280" />
+        <location filename="../pruefen_seite.py" line="304" />
         <source>Erkannter Text (OCR), von Hand korrigierbar; „Text übernehmen“ sucht darin neu. Was die OCR im Bild falsch las, mit Kasten oder Maske schwärzen.</source>
         <translation>Recognised text (OCR), editable by hand; “Apply text” searches it again. What the OCR misread in the image: redact it with a box or a mask.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="285" />
+        <location filename="../pruefen_seite.py" line="309" />
         <source>Text übernehmen</source>
         <translation>Apply text</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="287" />
+        <location filename="../pruefen_seite.py" line="311" />
         <source>OCR-Text zurücksetzen</source>
         <translation>Reset OCR text</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="303" />
-        <source>Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) · Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) · Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder her). Ziehen zeichnet einen Kasten mit Ersatztext, mit „Maske zeichnen“ eine schwarze Maske; in Textdateien markiert „Auswahl schwärzen“ den ausgewählten Text. Die Quelle jedes Treffers steht in der Tabelle.</source>
-        <translation>Red: will be redacted (dashed: suggested by NER or the fuzzy search) · Yellow: read with low confidence (unreadable lines are blanked as a precaution) · Green: stays (medical term, discarded hit; click to restore it). Dragging draws a box with a label, with “Draw mask” a black mask; in text files “Redact selection” marks the selected text. The source of every hit is in the table.</translation>
+        <location filename="../pruefen_seite.py" line="327" />
+        <source>Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) · Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) · Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder her). Ziehen zeichnet einen Kasten mit dem Ersatztext aus dem Feld, mit „Maske zeichnen“ eine schwarze Maske; Umschalt + Ziehen verschiebt den Ausschnitt, Strg/Cmd + Rad zoomt. In Textdateien markiert „Auswahl schwärzen“ den ausgewählten Text. Die Quelle jedes Treffers steht in der Tabelle.</source>
+        <translation>Red: will be redacted (dashed: suggested by NER or the fuzzy search) · Yellow: read with low confidence (unreadable lines are blanked as a precaution) · Green: stays (medical term, discarded hit; click to restore it). Dragging draws a box with the replacement text from the field, with “Draw mask” a black mask; Shift + drag pans the view, Ctrl/Cmd + wheel zooms. In text files “Redact selection” marks the selected text. The source of every hit is in the table.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="312" />
+        <location filename="../pruefen_seite.py" line="337" />
         <source>Seite</source>
         <translation>Page</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="312" />
+        <location filename="../pruefen_seite.py" line="337" />
         <source>Regel</source>
         <translation>Rule</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="313" />
+        <location filename="../pruefen_seite.py" line="338" />
         <source>Pseudonym</source>
         <translation>Pseudonym</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="313" />
+        <location filename="../pruefen_seite.py" line="338" />
         <source>Quelle</source>
         <translation>Source</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="319" />
+        <location filename="../pruefen_seite.py" line="344" />
         <source>Fachbegriffe markieren</source>
         <translation>Mark medical terms</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="324" />
-        <location filename="../pruefen_seite.py" line="413" />
+        <location filename="../pruefen_seite.py" line="349" />
+        <source>Verworfene Treffer für diesen Patienten merken (beim Export gespeichert)</source>
+        <translation>Remember discarded hits for this patient (stored on export)</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="354" />
+        <source>Ersatztext für Kästen</source>
+        <translation>Replacement text for boxes</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="359" />
+        <location filename="../pruefen_seite.py" line="448" />
         <source>Treffer verwerfen</source>
         <translation>Discard hit</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="327" />
-        <location filename="../pruefen_seite.py" line="549" />
+        <location filename="../pruefen_seite.py" line="362" />
+        <location filename="../pruefen_seite.py" line="590" />
         <source>Auswahl schwärzen</source>
         <translation>Redact selection</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="331" />
+        <location filename="../pruefen_seite.py" line="366" />
         <source>Maske zeichnen</source>
         <translation>Draw mask</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="334" />
+        <location filename="../pruefen_seite.py" line="369" />
         <source>Eingeschaltet: Ziehen schwärzt den Bereich schwarz, ohne Ersatztext; Text und Bild darunter verschwinden.</source>
         <translation>When on, dragging blacks out the area without a label; text and image under it disappear.</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="363" />
+        <location filename="../pruefen_seite.py" line="398" />
         <source>Text</source>
         <translation>Text</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="365" />
+        <location filename="../pruefen_seite.py" line="400" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="412" />
+        <location filename="../pruefen_seite.py" line="447" />
         <source>Treffer wiederherstellen</source>
         <translation>Restore hit</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="432" />
+        <location filename="../pruefen_seite.py" line="467" />
         <source>{n} Fachbegriffe markiert</source>
         <translation>{n} medical terms marked</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="474" />
-        <source>Kasten</source>
-        <translation>Box</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="475" />
-        <source>Ersatztext im Kasten:</source>
-        <translation>Replacement text in the box:</translation>
-    </message>
-    <message>
-        <location filename="../pruefen_seite.py" line="476" />
-        <location filename="../pruefen_seite.py" line="479" />
-        <location filename="../pruefen_seite.py" line="551" />
-        <location filename="../pruefen_seite.py" line="555" />
+        <location filename="../pruefen_seite.py" line="355" />
+        <location filename="../pruefen_seite.py" line="514" />
+        <location filename="../pruefen_seite.py" line="592" />
+        <location filename="../pruefen_seite.py" line="596" />
         <source>[geschwärzt]</source>
         <translation>[redacted]</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="513" />
+        <location filename="../pruefen_seite.py" line="516" />
+        <source>Kasten nicht gesetzt: {fehler}</source>
+        <translation>Box not set: {fehler}</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="521" />
+        <source>{n} Kasten gesetzt: {pseudonym}</source>
+        <translation>{n} box(es) set: {pseudonym}</translation>
+    </message>
+    <message>
+        <location filename="../pruefen_seite.py" line="554" />
         <source>OCR-Text unverändert</source>
         <translation>OCR text unchanged</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="515" />
+        <location filename="../pruefen_seite.py" line="556" />
         <source>Korrigiert; {n} Treffer im Text</source>
         <translation>Corrected; {n} hits in the text</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="550" />
+        <location filename="../pruefen_seite.py" line="591" />
         <source>Ersatztext:</source>
         <translation>Replacement text:</translation>
     </message>
@@ -930,17 +1001,17 @@
 <context>
     <name>Seitenansicht</name>
     <message>
-        <location filename="../pruefen_seite.py" line="108" />
+        <location filename="../pruefen_seite.py" line="109" />
         <source>Fachbegriff (bleibt)</source>
         <translation>Medical term (stays)</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="110" />
+        <location filename="../pruefen_seite.py" line="111" />
         <source>unsicher gelesen</source>
         <translation>read with low confidence</translation>
     </message>
     <message>
-        <location filename="../pruefen_seite.py" line="115" />
+        <location filename="../pruefen_seite.py" line="116" />
         <source>verworfen, bleibt: {regel}</source>
         <translation>discarded, stays: {regel}</translation>
     </message>

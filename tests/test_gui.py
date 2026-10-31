@@ -10,7 +10,7 @@ import pytest
 pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QGraphicsView  # noqa: E402
 
 from anonymed.dokument import aufbereitung as aufmodul
 from anonymed.dokument import ocr as ocrmodul
@@ -160,20 +160,60 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     pr.maske_modus.setChecked(False)
     assert pr.tabelle.rowCount() == len(pr.fundstellen())
     assert pr.ocr_feld.isHidden()  # a page with a text layer has no OCR text to correct
+    # a real mouse drag draws a box with the replacement text from the field, no dialog
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
 
-    # 4 export
+    pr.ersatztext.setText("[Feld]")
+    vp = pr.ansicht.viewport()
+    vorher_kaesten = len(pr.fundstellen())
+    QTest.mousePress(vp, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                     QPoint(80, 296))  # over the salutation line (page points 212-228)
+    QTest.mouseMove(vp, QPoint(300, 316))
+    QTest.mouseRelease(vp, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+                       QPoint(300, 316))
+    assert len(pr.fundstellen()) == vorher_kaesten + 1
+    assert pr.gewaehlt is not None and pr.gewaehlt.pseudonym == "[Feld]"
+    assert "Kasten gesetzt" in pr.hinweis.text()
+    # Shift + drag pans instead of drawing
+    QTest.mousePress(vp, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier,
+                     QPoint(80, 600))
+    assert pr.ansicht.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+    QTest.mouseMove(vp, QPoint(120, 640))
+    QTest.mouseRelease(vp, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.ShiftModifier,
+                       QPoint(120, 640))
+    assert pr.ansicht.dragMode() == QGraphicsView.DragMode.NoDrag
+    assert len(pr.fundstellen()) == vorher_kaesten + 1
+    assert pr.merken.isChecked() and sitzung.optionen.verworfene_merken
+
+    # 5 export: the step re-checks first (traffic light), then copies the checked files
     fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.aktualisiere()
+    qapp.processEvents()
+    assert fenster.export.farbe in ("gruen", "gelb"), fenster.export.ampel_text.text()
+    assert d.vorpruefung_aktuell and fenster.export.knopf.isEnabled()
+    pruefprotokoll = fenster.export.ausgabe.toPlainText()
+    assert "Erneut geprüft nach dem Prüfschritt" in pruefprotokoll
+    assert "Bewusst belassen" in pruefprotokoll and "zuweiser1.name" in pruefprotokoll
     fenster.export.exportieren()
     qapp.processEvents()
     text = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in text, text
+    assert d.ergebnis is not None and d.ergebnis.freigegeben and d.vorbereitung.abgeschlossen
     assert (tmp_path / "aus" / "befund_anonym.pdf").exists()
     sidecar = (tmp_path / "aus" / "befund_anonym.txt").read_text(encoding="utf-8")
-    assert "[Kasten]" in sidecar
+    assert "[Kasten]" in sidecar and "[Feld]" in sidecar
+    assert (tmp_path / "aus" / "befund_anonym.bericht.json").exists()
     assert patient.nachname not in sidecar
     assert patient.zuweiser[0].nachname in sidecar  # deliberately kept
 
-    # 5 re-identify
+    # the decision to keep the referrer was stored for this patient
+    from anonymed.pseudonyme.speicher import Pseudonymspeicher
+
+    with Pseudonymspeicher(tmp_path / "s.sqlite") as sp:
+        assert any(r == "zuweiser1.name" for r, _t in sp.verworfene(patient))
+
+    # 6 re-identify
     fenster.tabs.setCurrentWidget(fenster.rueckersetzen)
     rs = fenster.rueckersetzen
     assert rs.person.count() == 1
@@ -238,6 +278,9 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient)
     pr.fach_anzeigen.setChecked(True)
 
     fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.aktualisiere()
+    qapp.processEvents()
+    assert fenster.export.farbe in ("gruen", "gelb")
     fenster.export.exportieren()
     qapp.processEvents()
     protokoll = fenster.export.ausgabe.toPlainText()
@@ -327,9 +370,50 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     assert any("aufbereitet" in w for w in d.vorbereitung.warnungen)
     assert len(d.vorbereitung.fundstellen) > 5
     fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.aktualisiere()
+    qapp.processEvents()
+    assert fenster.export.farbe == "gelb", fenster.export.ampel_text.text()  # OCR: warnings
     fenster.export.exportieren()
     qapp.processEvents()
     protokoll = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in protokoll, protokoll
     assert gefundene_klardaten(protokoll, patient) == []
+    fenster.close()
+
+
+def test_export_gesperrt_bei_roter_ampel(qapp: QApplication, tmp_path: Path, befund: Path,
+                                         patient: Patient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the re-check still finds identifiers, the light is red, the export button is
+    off and exporting raises (a dialog in the real app); nothing is written."""
+    from anonymed.gui import sitzung as sitzungsmodul
+    from anonymed.kern.modell import Gegenprobe
+    from anonymed.pruefung.bericht import erstelle_bericht
+
+    sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
+    fenster = Hauptfenster(sitzung)
+    fenster.dokumente.synchron = fenster.analysieren.synchron = fenster.export.synchron = True
+    fenster.patient.fuelle(patient)
+    fenster.patient.uebernehmen()
+    fenster.dokumente.hinzufuegen([befund])
+    fenster.analysieren.analysieren()
+    echtes = sitzungsmodul.abschliessen
+
+    def durchgefallen(v, endgueltig=True):
+        erg = echtes(v, endgueltig)
+        g = Gegenprobe(resttreffer=[{"seite": 1, "art": "name", "regel": "name.nachname",
+                                     "pseudonym": "x", "rects": [], "quelle": "test"}])
+        erg.ziel_pdf = erg.ziel_txt = erg.ziel_md = None
+        erg.bericht = erstelle_bericht(v.quelle, None, 2, True, erg.fundstellen, g, {}, [])
+        return erg
+
+    monkeypatch.setattr(sitzungsmodul, "abschliessen", durchgefallen)
+    fenster.export.ziel.setText(str(tmp_path / "aus"))
+    fenster.export.aktualisiere()
+    qapp.processEvents()
+    assert fenster.export.farbe == "rot" and not fenster.export.knopf.isEnabled()
+    assert "Abbruch" in fenster.export.status.text()
+    assert "nichts exportiert" in fenster.export.ausgabe.toPlainText()
+    with pytest.raises(RuntimeError):
+        fenster.export.exportieren()
+    assert not (tmp_path / "aus").exists() or not list((tmp_path / "aus").glob("*_anonym.pdf"))
     fenster.close()
