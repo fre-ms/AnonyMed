@@ -23,7 +23,12 @@ from anonymed.erkennung.deterministisch import (
 from anonymed.erkennung.unscharf import Ziel, finde_unscharf, ziele_fuer
 from anonymed.kern.modell import Fundstelle, Gegenprobe, Patient, Pruefbericht
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
-from anonymed.pruefung.gegenprobe import pruefe, toleranzschluessel
+from anonymed.pruefung.gegenprobe import (
+    in_pseudonym,
+    pruefe,
+    pseudonymspannen,
+    toleranzschluessel,
+)
 from anonymed.pruefung.vorschau import schreibe_vorschau
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
@@ -162,19 +167,22 @@ def _text(seiten: list[_Seite]) -> str:
 def _gegenprobe_bilder(
     doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel], ziele: list[Ziel],
     backend: ocrmodul.OCRBackend | None, opt: Ablaufoptionen, gegenprobe: Gegenprobe,
-    toleriert: set[tuple[str, str]] | None = None,
+    toleriert: set[tuple[str, str]] | None = None, pseudonyme: list[str] | None = None,
 ) -> None:
     """OCR the output pages that were read by OCR and look for leftovers (exact and
     fuzzy); re-scan codes."""
     toleriert = toleriert or set()
+    pseudonyme = pseudonyme or []
     for s in seiten:
         if s.nummer >= len(doc):
             continue
         if s.ocr is not None and backend is not None:
             nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, opt.ocr_dpi)
+            spannen = pseudonymspannen(nachher.text, pseudonyme)
             genau = finde(nachher, regeln)
             for f in genau + finde_unscharf(nachher, ziele, genau):
-                if toleranzschluessel(f.regel, f.text) in toleriert:
+                if toleranzschluessel(f.regel, f.text) in toleriert \
+                        or in_pseudonym(f.start, f.ende, spannen):
                     continue
                 eintrag = f.ohne_klartext()
                 eintrag["quelle"] = "ocr"
@@ -368,11 +376,12 @@ def abschliessen(v: Vorbereitung) -> Ergebnis:
         ocr_seiten = v.ocr_seiten
         vorschau: list[Path] = []
         with pymupdf.open(ziel) as kontrolle:
+            pseudonyme = list(v.vergabe.zuordnung) + [f.pseudonym for f in fundstellen]
             gegenprobe = pruefe(kontrolle, v.regeln,
                                 zusatztexte=[text] if opt.textdatei else [],
-                                toleriert=v.toleriert)
+                                toleriert=v.toleriert, pseudonyme=pseudonyme)
             _gegenprobe_bilder(kontrolle, seiten, v.regeln, v.ziele, v.backend, opt, gegenprobe,
-                               v.toleriert)
+                               v.toleriert, pseudonyme)
             seitenzahl = len(kontrolle)
             if opt.vorschau == "immer" or (opt.vorschau == "auto" and ocr_seiten):
                 vorschau = schreibe_vorschau(kontrolle, zielpfad(quelle, opt, "_vorschau"))

@@ -73,7 +73,7 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
                             str(speicher)], input=f"Patient {k} und Patient Q.")
     assert r.exit_code == 3
     assert patient.vollname in r.output and "Patient Q" in r.output
-    falsch = k[1] + k[0] + k[2:]
+    falsch = k[:-1] + ("A" if k[-1] != "A" else "B")  # always a different, invalid code
     r = runner.invoke(app, ["rueckersetzen", "--kennung", k, "--speicher", str(speicher)],
                       input=f"Patient {falsch} kam.")
     assert r.exit_code == 3 and "Prüfzeichen falsch" in r.output and k in r.output

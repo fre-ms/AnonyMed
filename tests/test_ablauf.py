@@ -203,3 +203,14 @@ def test_kasten_auf_bildseite(tmp_path: Path, befund: Path, patient: Patient,
     neue = v.kasten(0, (50, 60, 300, 120))
     assert len(neue) == 1 and neue[0].rects == [(50, 60, 300, 120)] and neue[0].text == ""
     v.schliessen()
+
+
+def test_gegenprobe_schuetzt_pseudonyme(befund: Path, patient: Patient,
+                                        speicher: Pseudonymspeicher) -> None:
+    """Even a street code that reads like a label ("AZ2Q4W") passes the re-check."""
+    from anonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen
+
+    text = "wohnt in [Straße AZ2Q4WX], Patient KAZ2Q4W"
+    spannen = pseudonymspannen(text, ["[Straße AZ2Q4WX]", "Patient KAZ2Q4W"])
+    assert spannen == [(9, 25), (27, 42)]
+    assert in_pseudonym(17, 24, spannen) and not in_pseudonym(0, 5, spannen)

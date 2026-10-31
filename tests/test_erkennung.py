@@ -81,3 +81,13 @@ def test_etikettregeln_treffen_nur_den_wert() -> None:
     assert treffer["2024/555"] == "muster.aktenzeichen.etikett"
     assert treffer["K-2024-0012"] == "muster.aktenzeichen.etikett"
     assert "120/80" not in treffer and "Versicherten-Nr." not in treffer
+
+
+def test_etikett_nicht_in_codes() -> None:
+    """A pseudonym code that happens to contain "AZ" is not a file number."""
+    p = _patient()
+    regeln = regeln_fuer(p, Pseudonymvergabe(p, "A"))
+    text = "Patient KAZ2Q4W und [Straße AZ2Q4WX] und AZ 2024/17 sowie Vorgangs-Nr. X-1."
+    treffer = {text[a:b]: r.id for a, b, r in finde_im_text(text, regeln)}
+    assert "2024/17" in treffer and "X-1" not in treffer  # the value needs 4 characters
+    assert not any("2Q4W" in t for t in treffer)

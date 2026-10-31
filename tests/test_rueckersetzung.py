@@ -26,7 +26,7 @@ def test_adresscodes(patient: Patient) -> None:
     assert r.text == f"wohnhaft {patient.strasse}, {patient.plz} {patient.ort}."
     assert r.verbleibend == []
     code = strasse.split()[-1].rstrip("]")
-    falsch = code[1] + code[0] + code[2:]
+    falsch = code[:-1] + ("A" if code[-1] != "A" else "B")
     r = rueckersetzen(f"wohnhaft [Straße {falsch}].", z, bekannte_kennungen=[])
     assert r.verbleibend == [f"[Straße {falsch}]"]
     assert "Prüfzeichen falsch" in r.hinweise[f"[Straße {falsch}]"]
@@ -79,8 +79,8 @@ def test_hashkennung_und_pruefzeichen(patient: Patient) -> None:
     text = f"Patient {k} kam mit Angehörige {k}-1. Später hieß es Patientin {k}."
     r = rueckersetzen(text, v.zuordnung)
     assert r.ersetzt == 3 and k not in r.text
-    # a mangled code (two neighbours swapped) is reported with a hint
-    falsch = k[1] + k[0] + k[2:]
+    # a mangled code (wrong last character) is reported with a hint
+    falsch = k[:-1] + ("A" if k[-1] != "A" else "B")
     r = rueckersetzen(f"Patient {falsch} kam.", v.zuordnung, bekannte_kennungen=[k])
     assert r.verbleibend == [f"Patient {falsch}"]
     assert "Prüfzeichen falsch" in r.hinweise[f"Patient {falsch}"]

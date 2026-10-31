@@ -19,16 +19,20 @@ EMAIL = re.compile(
 )
 
 _SEP = r"\s*[:.]?\s*"
+_ANFANG = r"(?<![A-Za-z0-9])"  # the label starts a word; "KAZ2Q4W" is not "AZ 2Q4W"
 VERSICHERTENNUMMER_MIT_ETIKETT = re.compile(
-    r"(?i)(?:Versicherten(?:-|\s)?(?:Nr|Nummer)\.?|Versichertennr\.?|KVNR|KV-?Nr\.?|Vers\.?-?Nr\.?)"
+    _ANFANG
+    + r"(?i)(?:Versicherten(?:-|\s)?(?:Nr|Nummer)\.?|Versichertennr\.?|KVNR|KV-?Nr\.?"
+    + r"|Vers\.?-?Nr\.?)"
     + _SEP + r"(?P<wert>[A-Z0-9]{8,12})(?![A-Z0-9])"
 )
 PATIENTEN_ID_MIT_ETIKETT = re.compile(
-    r"(?i)(?:Pat(?:\.|ienten)?\s?-?\s?(?:ID|Nr|Nummer)\.?|Patientennummer)"
+    _ANFANG + r"(?i)(?:Pat(?:\.|ienten)?\s?-?\s?(?:ID|Nr|Nummer)\.?|Patientennummer)"
     + _SEP + r"(?P<wert>\d[\d\s]{3,14}\d)(?!\d)"
 )
 AKTENZEICHEN_MIT_ETIKETT = re.compile(
-    r"(?:Aktenzeichen|Fall(?:-|\s)?(?:Nr|Nummer)\.?|Fallzahl|Az\.|AZ|Vorgangs(?:-|\s)?(?:Nr|Nummer)\.?)"
+    _ANFANG
+    + r"(?:Aktenzeichen|Fall(?:-|\s)?(?:Nr|Nummer)\.?|Fallzahl|Az\.|AZ|Vorgangs(?:-|\s)?(?:Nr|Nummer)\.?)"
     + _SEP + r"(?P<wert>[A-Z0-9][A-Z0-9/\-.]{3,24})(?![A-Z0-9/])"
 )
 
