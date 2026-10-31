@@ -127,6 +127,10 @@ class Seitenansicht(QGraphicsView):
                                     hinweis=f"{f.regel} → {f.pseudonym}")
                 self._items[id(item)] = f
 
+    def zeige_leer(self) -> None:
+        self._szene.clear()
+        self._items.clear()
+
     def wheelEvent(self, event) -> None:  # noqa: N802
         """Ctrl (Cmd) + wheel zooms, plain wheel scrolls."""
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:

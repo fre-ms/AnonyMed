@@ -97,6 +97,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
     fenster.dokumente.synchron = True
+    fenster.analysieren.synchron = True
     fenster.export.synchron = True
 
     # 1 patient
@@ -109,19 +110,26 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert sitzung.patient.zuweiser[0].nachname == patient.zuweiser[0].nachname
     assert fenster.tabs.currentWidget() is fenster.dokumente
 
-    # 2 documents
+    # 2 documents: opened at once; a text-layer PDF has nothing to clean up
     fenster.dokumente.hinzufuegen([befund])
     assert fenster.dokumente.liste.count() == 1
-    fenster.dokumente.analysieren()
-    qapp.processEvents()
     d = sitzung.dokumente[0]
+    assert d.vorlage is not None and d.vorlage.kandidaten == [] and not fenster.dokumente.laedt
+    assert "nichts aufzubereiten" in fenster.dokumente.aufbereiten.hinweis.text()
+    fenster.dokumente.weiter_knopf.click()
+    assert fenster.tabs.currentWidget() is fenster.analysieren
+
+    # 3 analyse with the settings of that step
+    fenster.analysieren.analysieren()
+    qapp.processEvents()
     assert d.vorbereitung is not None and d.vorbereitung.fundstellen
     assert fenster.tabs.currentWidget() is fenster.pruefen
+    assert "Fertig" in fenster.analysieren.status.text()
 
-    # 3 review: drop one hit, draw one box; medical terms are marked by default
+    # 4 review: drop one hit, draw one box; medical terms are marked by default
     pr = fenster.pruefen
     assert pr.baum.topLevelItemCount() == 1 and pr.dokument is d
-    assert fenster.dokumente.fachbegriffe.isChecked()
+    assert fenster.analysieren.fachbegriffe.isChecked()
     assert d.vorbereitung.fachbegriffe_anzahl >= 3  # Hypertonie, Ramipril, Atorvastatin ...
     assert d.vorbereitung.fachbegriffe_rects(0)
     assert pr.fach_anzeigen.isChecked() and "Fachbegriffe markiert" in pr.hinweis.text()
@@ -129,7 +137,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     pr.fach_anzeigen.setChecked(True)
     from anonymed.erkennung import ner as nermodul
 
-    assert fenster.dokumente.ner.isChecked() == nermodul.verfuegbar()
+    assert fenster.analysieren.ner.isChecked() == nermodul.verfuegbar()
     vorher = len(pr.fundstellen())
     assert pr.tabelle.rowCount() == vorher > 5
     ziel = next(f for f in pr.fundstellen() if f.regel == "zuweiser1.name")
@@ -189,14 +197,16 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient)
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
     fenster.dokumente.synchron = True
+    fenster.analysieren.synchron = True
     fenster.export.synchron = True
     fenster.pruefen.synchron = True
     fenster.patient.fuelle(patient)
     fenster.patient.uebernehmen()
     fenster.dokumente.hinzufuegen([quelle, tmp_path / "egal.xyz"])
     assert fenster.dokumente.liste.count() == 1
-    assert fenster.dokumente.unscharf.isChecked()
-    fenster.dokumente.analysieren()
+    assert sitzung.dokumente[0].vorlage is None  # text files are not opened as documents
+    assert fenster.analysieren.unscharf.isChecked()
+    fenster.analysieren.analysieren()
     qapp.processEvents()
     d = sitzung.dokumente[0]
     assert d.vorbereitung is not None and d.vorbereitung.ist_text
@@ -259,7 +269,7 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
     try:
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
-        assert tabs == ["1 Patient", "2 Documents", "3 Clean up", "4 Review", "5 Export",
+        assert tabs == ["1 Patient", "2 Documents", "3 Analyse", "4 Review", "5 Export",
                     "6 Re-identify"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
@@ -283,16 +293,16 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
     fenster.dokumente.synchron = True
+    fenster.analysieren.synchron = True
     fenster.export.synchron = True
     fenster.patient.fuelle(patient)
     fenster.patient.uebernehmen()
     fenster.dokumente.hinzufuegen([scan])
-    fenster.dokumente.analysieren()
     qapp.processEvents()
     d = sitzung.dokumente[0]
     assert d.vorlage is not None and d.vorlage.kandidaten == [0, 1]
-    assert fenster.tabs.currentWidget() is fenster.aufbereiten
-    au = fenster.aufbereiten
+    assert "aufbereiten" in fenster.dokumente.liste.item(0).text()
+    au = fenster.dokumente.aufbereiten
     assert au.baum.topLevelItemCount() == 1 and au.dokument is d and au.seite == 0
     a = au.einstellung()
     assert a is not None and a.begradigen and abs(abs(a.winkel) - 2.0) < 0.5, a
@@ -309,7 +319,7 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     assert not d.aufbereitung[0].aktiv
     au.vorschlag_wiederherstellen()
     assert d.aufbereitung[0].begradigen
-    au.weiter.click()
+    fenster.analysieren.analysieren()
     qapp.processEvents()
     assert d.vorbereitung is not None and d.vorlage is None
     assert fenster.tabs.currentWidget() is fenster.pruefen

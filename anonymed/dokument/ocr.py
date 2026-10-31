@@ -52,12 +52,13 @@ class OCRFehler(Exception):
     pass
 
 
-def _rendere(page: pymupdf.Page, dpi: int = OCR_DPI) -> tuple[pymupdf.Pixmap, float]:
+def _rendere(page: pymupdf.Page, dpi: int = OCR_DPI,
+             max_pixel: int = MAX_PIXEL) -> tuple[pymupdf.Pixmap, float]:
     """Render the page for OCR; returns the pixmap and the pixels-per-point scale."""
     skala = dpi / 72.0
     laengste = max(page.rect.width, page.rect.height) * skala
-    if laengste > MAX_PIXEL:
-        skala *= MAX_PIXEL / laengste
+    if laengste > max_pixel:
+        skala *= max_pixel / laengste
     pix = page.get_pixmap(matrix=pymupdf.Matrix(skala, skala), alpha=False,
                           colorspace=pymupdf.csRGB)
     return pix, skala
@@ -374,8 +375,9 @@ def unlesbare_regionen(seite: Seitentext, mindestanteil: float = 0.4) -> list[Fu
 
 
 def erkenne_seite(page: pymupdf.Page, backend_: OCRBackend, nummer: int | None = None,
-                  dpi: int = OCR_DPI, vorverarbeitung: bool = True) -> Seitentext:
-    pix, skala = _rendere(page, dpi)
+                  dpi: int = OCR_DPI, vorverarbeitung: bool = True,
+                  max_pixel: int = MAX_PIXEL) -> Seitentext:
+    pix, skala = _rendere(page, dpi, max_pixel)
     if vorverarbeitung:
         pix = vorverarbeite(pix)
     woerter = backend_.erkenne(pix, skala)

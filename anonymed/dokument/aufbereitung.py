@@ -41,7 +41,7 @@ class Aufbereitung:
     winkel: float = 0.0  # estimated tilt, positive = text runs downhill to the right
     entzerren: bool = False  # perspective correction with ``ecken``
     ecken: list[Ecke] | None = None  # four corners of the page in the (rotated) image
-    hochskalieren: int = 1  # 1 or 2
+    hochskalieren: int = 1  # 1 or 2: OCR reads the page at that multiple of the resolution
     hintergrund: bool = False  # even out illumination, white paper
     schwarzweiss: bool = False  # binarise after that
     masken: list[Rechteck] = field(default_factory=list)  # black regions, result page points
@@ -315,10 +315,12 @@ def als_png(bild: Any) -> bytes:
     return bytes(puffer)
 
 
-def _verarbeite(page: pymupdf.Page, a: Aufbereitung, dpi: int) -> tuple[Any, float, float]:
+def _verarbeite(page: pymupdf.Page, a: Aufbereitung, dpi: int,
+                mit_hochskalieren: bool = True) -> tuple[Any, float, float]:
     """Processed image of ``page``, its width in points and its pixels per point."""
     bild, skala = rendere(page, dpi)
-    schritte = Aufbereitung(**{**a.__dict__, "masken": []})
+    schritte = Aufbereitung(**{**a.__dict__, "masken": [],
+                               "hochskalieren": a.hochskalieren if mit_hochskalieren else 1})
     aus = wende_an(bild, schritte, skala)
     breite = page.rect.width if a.drehung in (0, 180) else page.rect.height
     neue_skala = aus.shape[1] / breite
@@ -333,7 +335,9 @@ def seiten_ersetzen(docs: list[pymupdf.Document], nummer: int, a: Aufbereitung,
     by its processed image, rendered once from the first.  The page keeps its width
     in points; the height follows the image.  Returns the pixels per point of the
     new page."""
-    aus, breite, neue_skala = _verarbeite(docs[0][nummer], a, dpi)
+    # upscaling is not baked into the page (no information gained, the file would bloat);
+    # the pipeline renders such pages for OCR at the higher resolution instead
+    aus, breite, neue_skala = _verarbeite(docs[0][nummer], a, dpi, mit_hochskalieren=False)
     png = als_png(aus)
     hoehe = aus.shape[0] / neue_skala
     for doc in docs:

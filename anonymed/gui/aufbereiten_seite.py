@@ -8,7 +8,7 @@ then starts the analysis.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -31,7 +31,7 @@ from anonymed.gui.sitzung import Dokument, Sitzung
 
 
 class AufbereitenSeite(QWidget):
-    analysieren_gewuenscht = Signal()
+    """The clean-up panel inside the documents step."""
 
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
@@ -126,10 +126,6 @@ class AufbereitenSeite(QWidget):
             k.clicked.connect(aktion)
             zoom.addWidget(k)
         zoom.addStretch(1)
-        self.weiter = QPushButton(self.tr("Analysieren"))
-        self.weiter.setDefault(True)
-        self.weiter.clicked.connect(self.analysieren_gewuenscht.emit)
-        zoom.addWidget(self.weiter)
         r.addLayout(zoom)
         teiler.addWidget(rechts)
         teiler.setSizes([180, 760, 300])
@@ -156,6 +152,13 @@ class AufbereitenSeite(QWidget):
         if self.baum.topLevelItemCount():
             erster = self.baum.topLevelItem(0)
             self.baum.setCurrentItem(erster.child(0) if erster.childCount() else erster)
+        else:
+            self.dokument = None
+            self.vorher.zeige_leer()
+            self.nachher.zeige_leer()
+            self.hinweis.setText(self.tr(
+                "Keine Seiten ohne Textebene: nichts aufzubereiten. Scans und Fotos erscheinen"
+                " hier mit einem Vorschlag."))
 
     def _seite_gewaehlt(self, aktuell: QTreeWidgetItem | None, _vorher=None) -> None:
         if aktuell is None:

@@ -198,21 +198,28 @@ class _Seite:
     fachanzahl: int = 0
     korrektur: str | None = None  # the OCR text as the user corrected it
     korrektur_treffer: list[Fundstelle] = field(default_factory=list)
+    ocr_dpi: int = ocrmodul.OCR_DPI  # resolution the page was (and is re-)read at
+    ocr_max_pixel: int = ocrmodul.MAX_PIXEL
 
 
 def _lese_seiten(
     doc: pymupdf.Document, regeln: list[Regel], ziele: list[Ziel], opt: Ablaufoptionen,
     backend: ocrmodul.OCRBackend | None, vergabe: Pseudonymvergabe | None = None,
     ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
-    verschont: list[str] | None = None,
+    verschont: list[str] | None = None, faktoren: dict[int, int] | None = None,
 ) -> tuple[list[_Seite], list[int]]:
     """Text layer and, where needed and possible, OCR per page; returns the pages and
-    the numbers (1-based) of pages that needed OCR but got none."""
+    the numbers (1-based) of pages that needed OCR but got none.  ``faktoren`` holds
+    the upscaling factor of cleaned-up pages: they are read at that multiple of the
+    OCR resolution."""
     seiten: list[_Seite] = []
     ohne_text: list[int] = []
     for i, page in enumerate(doc):
         textebene = lese_seite(page, i)
         eintrag = _Seite(i, textebene)
+        faktor = max(1, (faktoren or {}).get(i, 1))
+        eintrag.ocr_dpi = opt.ocr_dpi * faktor
+        eintrag.ocr_max_pixel = ocrmodul.MAX_PIXEL * faktor
         eintrag.fundstellen = finde(textebene, regeln)
         if fachbegriffe is not None and textebene.hat_textebene:
             _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
@@ -224,7 +231,8 @@ def _lese_seiten(
             if backend is None:
                 ohne_text.append(i + 1)
             else:
-                eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, opt.ocr_dpi)
+                eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, eintrag.ocr_dpi,
+                                                     max_pixel=eintrag.ocr_max_pixel)
                 if fachbegriffe is not None:
                     _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
                 genau = finde(eintrag.ocr, regeln)
@@ -318,7 +326,8 @@ def _gegenprobe_bilder(
         if s.nummer >= len(doc):
             continue
         if s.ocr is not None and backend is not None:
-            nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, opt.ocr_dpi)
+            nachher = ocrmodul.erkenne_seite(doc[s.nummer], backend, s.nummer, s.ocr_dpi,
+                                             max_pixel=s.ocr_max_pixel)
             spannen = pseudonymspannen(nachher.text, pseudonyme)
             genau = finde(nachher, regeln)
             fach = fachmodul.standard() if opt.fachbegriffe else None
@@ -573,8 +582,9 @@ def vorbereiten(
             plan = _aufbereitungsplan(doc, quelle, opt, aufbereitung)
             for nummer in sorted(plan):
                 aufmodul.seiten_ersetzen([doc, original], nummer, plan[nummer], opt.ocr_dpi)
+            faktoren = {n: a.hochskalieren for n, a in plan.items() if a.hochskalieren > 1}
             seiten, ohne_text = _lese_seiten(doc, r.regeln, r.ziele, opt, backend, r.vergabe,
-                                             r.ner, r.fachbegriffe, verschont)
+                                             r.ner, r.fachbegriffe, verschont, faktoren)
         except Exception:
             doc.close()
             original.close()

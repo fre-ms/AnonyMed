@@ -1,4 +1,5 @@
-"""Step 2: drop the documents, choose how they are read, analyse them."""
+"""Step 2: drop the documents.  They are opened at once; scans and photos appear
+below for the clean-up before OCR."""
 
 from __future__ import annotations
 
@@ -7,11 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
     QFileDialog,
-    QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -22,11 +19,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from anonymed.dokument.ocr import verfuegbare_backends
-from anonymed.erkennung import ner as nermodul
 from anonymed.gui.arbeiter import Arbeiter
+from anonymed.gui.aufbereiten_seite import AufbereitenSeite
 from anonymed.gui.sitzung import Dokument, Sitzung
-from anonymed.pseudonyme.speicher import UnsichererAbgleich
 
 
 class Ablage(QListWidget):
@@ -53,8 +48,8 @@ class Ablage(QListWidget):
 
 
 class DokumenteSeite(QWidget):
-    geladen = Signal()  # phase zero done: the main window decides whether to clean up first
-    analysiert = Signal()
+    geladen = Signal()  # every pending document is open and, where needed, has a suggestion
+    weiter = Signal()  # the user wants to go on to the analysis
 
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
@@ -62,15 +57,17 @@ class DokumenteSeite(QWidget):
         self.synchron = False  # tests run the work inline
         self._arbeiter: Arbeiter | None = None
         self._warteschlange: list[Dokument] = []
-        self._phase = "laden"
         aussen = QVBoxLayout(self)
 
+        aussen.addWidget(QLabel(self.tr(
+            "Dateien hierher ziehen oder hinzufügen (PDF, Fotos, Texte, Whisper-JSON, E-Mails)."
+            " Scans und Fotos erscheinen darunter zum Aufbereiten vor der Texterkennung.")))
+        oben = QHBoxLayout()
         self.liste = Ablage()
+        self.liste.setMaximumHeight(150)
         self.liste.abgelegt.connect(self.hinzufuegen)
-        aussen.addWidget(QLabel(self.tr("Dateien hierher ziehen oder hinzufügen:")))
-        aussen.addWidget(self.liste, 1)
-
-        knoepfe = QHBoxLayout()
+        oben.addWidget(self.liste, 1)
+        knoepfe = QVBoxLayout()
         hinzu = QPushButton(self.tr("Dateien hinzufügen …"))
         hinzu.clicked.connect(self.dateien_waehlen)
         entfernen = QPushButton(self.tr("Entfernen"))
@@ -78,52 +75,26 @@ class DokumenteSeite(QWidget):
         knoepfe.addWidget(hinzu)
         knoepfe.addWidget(entfernen)
         knoepfe.addStretch(1)
-        aussen.addLayout(knoepfe)
+        oben.addLayout(knoepfe)
+        aussen.addLayout(oben)
 
-        optionen = QGroupBox(self.tr("Lesen"))
-        form = QFormLayout(optionen)
-        self.ocr = QComboBox()
-        self.ocr.addItem(self.tr("automatisch"), "auto")
-        for b in verfuegbare_backends():
-            self.ocr.addItem(b, b)
-        self.ocr.addItem(self.tr("aus"), "aus")
-        form.addRow(self.tr("OCR für Scans und Fotos"), self.ocr)
-        self.datum = QComboBox()
-        self.datum.addItem(self.tr("Geburtsjahr [geb. 1990]"), "jahr")
-        self.datum.addItem(self.tr("Alter [Alter 36]"), "alter")
-        form.addRow(self.tr("Geburtsdatum als"), self.datum)
-        self.codes = QCheckBox(self.tr("Barcodes und QR-Codes schwärzen"))
-        self.codes.setChecked(True)
-        form.addRow(self.codes)
-        self.unlesbar = QCheckBox(self.tr("Unlesbare OCR-Zeilen schwärzen"))
-        self.unlesbar.setChecked(True)
-        form.addRow(self.unlesbar)
-        self.fachbegriffe = QCheckBox(
-            self.tr("Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen"))
-        self.fachbegriffe.setChecked(True)
-        form.addRow(self.fachbegriffe)
-        self.unscharf = QCheckBox(
-            self.tr("Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)"))
-        self.unscharf.setChecked(True)
-        form.addRow(self.unscharf)
-        self.ner = QCheckBox(self.tr("Unbekannte Personen und Orte per NER suchen (rät)"))
-        self.ner.setEnabled(nermodul.verfuegbar())
-        self.ner.setChecked(nermodul.verfuegbar())
-        if not nermodul.verfuegbar():
-            self.ner.setToolTip(
-                self.tr("Extra 'ner' und ein deutsches spaCy-Modell installieren."))
-        form.addRow(self.ner)
-        aussen.addWidget(optionen)
+        self.aufbereiten = AufbereitenSeite(sitzung)
+        aussen.addWidget(self.aufbereiten, 1)
 
         unten = QHBoxLayout()
         self.status = QLabel("")
-        self.knopf = QPushButton(self.tr("Analysieren"))
-        self.knopf.clicked.connect(self.analysieren)
+        self.weiter_knopf = QPushButton(self.tr("Weiter: Analysieren"))
+        self.weiter_knopf.setDefault(True)
+        self.weiter_knopf.clicked.connect(self.weiter.emit)
         unten.addWidget(self.status, 1)
-        unten.addWidget(self.knopf)
+        unten.addWidget(self.weiter_knopf)
         aussen.addLayout(unten)
 
     # -- files -------------------------------------------------------------------------------------
+    @property
+    def laedt(self) -> bool:
+        return bool(self._warteschlange)
+
     def dateien_waehlen(self) -> None:
         pfade, _ = QFileDialog.getOpenFileNames(self, self.tr("Dokumente"), "", self.tr(
             "Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp"
@@ -131,6 +102,8 @@ class DokumenteSeite(QWidget):
         self.hinzufuegen([Path(p) for p in pfade])
 
     def hinzufuegen(self, pfade: list[Path]) -> None:
+        """Add files and open them straight away (in the background)."""
+        neue: list[Dokument] = []
         for pfad in pfade:
             if pfad.is_dir():
                 self.hinzufuegen(sorted(p for p in pfad.iterdir() if p.is_file()))
@@ -139,15 +112,24 @@ class DokumenteSeite(QWidget):
             if d is not None:
                 eintrag = QListWidgetItem(self._text(d), self.liste)
                 eintrag.setData(Qt.ItemDataRole.UserRole, id(d))
+                neue.append(d)
         self.aktualisiere()
+        if neue:
+            laeuft = self.laedt
+            self._warteschlange += neue
+            if not laeuft:
+                self._naechstes()
 
     def entfernen(self) -> None:
         for eintrag in self.liste.selectedItems():
             d = self._dokument(eintrag)
             if d is not None:
+                if d in self._warteschlange:
+                    self._warteschlange.remove(d)
                 self.sitzung.entferne(d)
             self.liste.takeItem(self.liste.row(eintrag))
         self.aktualisiere()
+        self.aufbereiten.aktualisiere()
 
     def _dokument(self, eintrag: QListWidgetItem) -> Dokument | None:
         kennung = eintrag.data(Qt.ItemDataRole.UserRole)
@@ -163,23 +145,21 @@ class DokumenteSeite(QWidget):
             if d.ergebnis.freigegeben:
                 return self.tr("freigegeben")
             return self.tr("nicht freigegeben")
-        if d.vorbereitung is None and d.vorlage is not None:
+        if d.vorbereitung is not None:
+            if d.vorbereitung.ist_text:
+                return self.tr("Text, {treffer} Treffer").format(
+                    treffer=len(d.vorbereitung.fundstellen))
+            return self.tr("analysiert, {treffer} Treffer").format(
+                treffer=len(d.vorbereitung.fundstellen))
+        if d.vorlage is not None:
             n = len(d.vorlage.kandidaten)
             if n:
-                return self.tr("{seiten} Seite(n), {n} ohne Textebene: aufbereiten").format(
+                return self.tr("{seiten} Seite(n), {n} ohne Textebene: unten aufbereiten").format(
                     seiten=d.vorlage.seitenzahl, n=n)
-            return self.tr("{seiten} Seite(n), geladen").format(seiten=d.vorlage.seitenzahl)
-        if d.vorbereitung is not None:
-            v = d.vorbereitung
-            if v.ist_text:
-                return self.tr("Text, {treffer} Treffer").format(treffer=len(v.fundstellen))
-            text = self.tr("{seiten} Seite(n), {treffer} Treffer").format(
-                seiten=len(v.seiten), treffer=len(v.fundstellen))
-            if v.ocr_seiten:
-                text += self.tr(", OCR auf Seite(n) {seiten}").format(
-                    seiten=", ".join(map(str, v.ocr_seiten)))
-            return text
-        return self.tr("noch nicht analysiert")
+            return self.tr("{seiten} Seite(n) mit Textebene").format(seiten=d.vorlage.seitenzahl)
+        if d in self._warteschlange:
+            return self.tr("wird geladen …")
+        return self.tr("Textdatei")
 
     def aktualisiere(self) -> None:
         for i in range(self.liste.count()):
@@ -188,118 +168,51 @@ class DokumenteSeite(QWidget):
             if d is not None:
                 eintrag.setText(self._text(d))
         n = len(self.sitzung.dokumente)
-        fertig = sum(1 for d in self.sitzung.dokumente if d.vorbereitung is not None)
-        self.status.setText(
-            self.tr("{n} Dokument(e), {fertig} analysiert").format(n=n, fertig=fertig))
+        offen = sum(1 for d in self.sitzung.dokumente if d.aufzubereiten)
+        text = self.tr("{n} Dokument(e)").format(n=n)
+        if offen:
+            text += self.tr(", {offen} mit Seiten zum Aufbereiten").format(offen=offen)
+        if self.laedt:
+            text += self.tr(" – lade …")
+        self.status.setText(text)
 
-    # -- analysis ----------------------------------------------------------------------------------
-    def _optionen_uebernehmen(self) -> None:
-        o = self.sitzung.optionen
-        o.ocr = self.ocr.currentData()
-        o.datumsform = self.datum.currentData()
-        o.codes = self.codes.isChecked()
-        o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"
-        o.ner = self.ner.isChecked()
-        o.fachbegriffe = self.fachbegriffe.isChecked()
-        o.unscharf_text = self.unscharf.isChecked()
-
+    # -- loading -----------------------------------------------------------------------------------
     def _melde(self, titel: str, text: str) -> None:
         if self.synchron:
             raise RuntimeError(text)
-        QMessageBox.information(self, titel, text)
-
-    def analysieren(self) -> None:
-        """Phase zero for every pending document (open, suggest clean-up); the main
-        window then shows the clean-up step or goes straight to the analysis."""
-        if self.sitzung.patient is None:
-            self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst einen Patienten übernehmen."))
-            return
-        if not self.sitzung.dokumente:
-            self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst Dokumente hinzufügen."))
-            return
-        self._optionen_uebernehmen()
-        self._phase = "laden"
-        self._warteschlange = [d for d in self.sitzung.dokumente
-                               if d.vorbereitung is None or d.vorbereitung.abgeschlossen]
-        self._naechstes()
-
-    def analysiere_alle(self) -> None:
-        """Phase one for every loaded document, with the clean-up the user chose."""
-        self._phase = "analysieren"
-        self._warteschlange = [d for d in self.sitzung.dokumente
-                               if d.vorbereitung is None or d.vorbereitung.abgeschlossen]
-        self._naechstes()
+        QMessageBox.warning(self, titel, text)
 
     def _naechstes(self) -> None:
         if not self._warteschlange:
-            self.knopf.setEnabled(True)
             self.aktualisiere()
-            if self._phase == "laden":
-                self.geladen.emit()
-            else:
-                self.analysiert.emit()
+            self.aufbereiten.aktualisiere()
+            self.geladen.emit()
             return
         d = self._warteschlange[0]
-        self.knopf.setEnabled(False)
-        laden = self._phase == "laden"
-        self.status.setText((self.tr("Lade {name} …") if laden
-                             else self.tr("Analysiere {name} …")).format(name=d.pfad.name))
-        aufgabe = (lambda: self.sitzung.lade(d)) if laden else (lambda: self.sitzung.analysiere(d))
+        self.aktualisiere()
         if self.synchron:
             try:
-                aufgabe()
+                self.sitzung.lade(d)
             except Exception as e:  # noqa: BLE001 - shown to the user
                 self._fehler(e, d)
                 return
             self._fertig(d)
             return
-        self._arbeiter = Arbeiter(aufgabe, self)
+        self._arbeiter = Arbeiter(lambda: self.sitzung.lade(d), self)
         self._arbeiter.fertig.connect(lambda _r, d=d: self._fertig(d))
         self._arbeiter.fehler.connect(lambda e, d=d: self._fehler(e, d))
         self._arbeiter.start()
 
     def _fertig(self, d: Dokument) -> None:
-        if self._warteschlange and self._warteschlange[0] is d:
-            self._warteschlange.pop(0)
-        self.aktualisiere()
+        if d in self._warteschlange:
+            self._warteschlange.remove(d)
         self._naechstes()
 
     def _fehler(self, e: Exception, d: Dokument) -> None:
-        if self.synchron:  # tests: never block on a modal dialog
-            raise e
-        if isinstance(e, UnsichererAbgleich):
-            entscheidung = self.unsicher_dialog(e)
-            if entscheidung is None:
-                self._warteschlange.clear()
-                self.knopf.setEnabled(True)
-                self.status.setText(self.tr("Abgebrochen."))
-                return
-            self.sitzung.abgleich = entscheidung
-            self._naechstes()  # same document again
-            return
         d.fehler = str(e)
+        if d in self._warteschlange:
+            self._warteschlange.remove(d)
+        if self.synchron:
+            raise e
         QMessageBox.warning(self, d.pfad.name, str(e))
-        if self._warteschlange and self._warteschlange[0] is d:
-            self._warteschlange.pop(0)
-        self.aktualisiere()
         self._naechstes()
-
-    def unsicher_dialog(self, e: UnsichererAbgleich) -> str | None:
-        """Ask whether the patient is one of the similar stored people; None = cancel."""
-        zeilen = [self.tr("{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})")
-                  .format(kennung=k.kennung, nachname=k.nachname, vorname=k.vorname,
-                          geb=k.geburtsdatum or "–", score=f"{k.score:.2f}") for k in e.kandidaten]
-        box = QMessageBox(self)
-        box.setWindowTitle(self.tr("Ähnliche Person im Pseudonymspeicher"))
-        box.setText(self.tr("Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?"))
-        box.setInformativeText("\n".join(zeilen))
-        gleich = box.addButton(self.tr("Ja, {kennung}").format(kennung=e.kandidaten[0].kennung),
-                               QMessageBox.ButtonRole.YesRole)
-        neu = box.addButton(self.tr("Nein, neue Person"), QMessageBox.ButtonRole.NoRole)
-        box.addButton(QMessageBox.StandardButton.Cancel)
-        box.exec()
-        if box.clickedButton() is gleich:
-            return f"gleich:{e.kandidaten[0].kennung}"
-        if box.clickedButton() is neu:
-            return "neu"
-        return None
