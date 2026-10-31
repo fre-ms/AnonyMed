@@ -264,3 +264,24 @@ def test_unlesbare_zeile_wird_geschwaerzt() -> None:
     assert r.pseudonym == "[unlesbar]" and r.quelle == "ocr" and r.regel == "ocr.unlesbar"
     assert s.text[r.start:r.ende] == "G6ot n e n e i l e 5g"
     assert "Riesa" not in s.text[r.start:r.ende]
+
+
+@braucht_backend
+def test_scan_bekommt_textebene(tmp_path: Path, befund: Path, patient: Patient,
+                                speicher: Pseudonymspeicher) -> None:
+    """The anonymised scan carries an invisible text layer with the OCR words minus
+    the hits; without the option only the drawn pseudonyms are text."""
+    scan = _scan(befund, tmp_path / "scan.pdf")
+    erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    with pymupdf.open(erg.ziel_pdf) as d:
+        text = "\n".join(p.get_text("text") for p in d)
+    assert "Ramipril" in text and "Diagnosen" in text and "Atorvastatin" in text
+    assert f"Patient {erg.kennung}" in text  # the visible pseudonyms are text too
+    assert gefundene_klardaten(text, patient) == []
+    assert not any(k in text for k in (patient.nachname, patient.vorname))
+    ohne = anonymisiere(scan, patient, Ablaufoptionen(
+        suffix="_ohne", schwaerzen=Schwaerzoptionen(textebene=False)), speicher=speicher)
+    with pymupdf.open(ohne.ziel_pdf) as d:
+        text2 = "\n".join(p.get_text("text") for p in d)
+    assert "Ramipril" not in text2 and f"Patient {erg.kennung}" in text2

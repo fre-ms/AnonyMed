@@ -45,16 +45,22 @@ class ExportSeite(QWidget):
         zeile.addWidget(self.ziel, 1)
         zeile.addWidget(waehlen)
         form.addRow(self.tr("Zielordner"), zeile)
+        self.textebene = QCheckBox(self.tr(
+            "PDF mit Textebene: OCR-Text unsichtbar einbetten (Scans bleiben durchsuchbar)"))
+        self.textebene.setChecked(True)
         self.textdatei = QCheckBox(
-            self.tr("Textdatei in Lesereihenfolge (Eingabe für das Sprachmodell)"))
+            self.tr("Textdatei (.txt) in Lesereihenfolge (Eingabe für das Sprachmodell)"))
         self.textdatei.setChecked(True)
+        self.markdown = QCheckBox(self.tr("Markdown-Datei (.md) zusätzlich"))
         self.bericht = QCheckBox(self.tr("Prüfbericht (JSON)"))
         self.bericht.setChecked(True)
         self.vermerk = QCheckBox(self.tr("Vermerk in den PDF-Metadaten"))
         self.vermerk.setChecked(True)
-        self.rastern = QCheckBox(self.tr("PDF vollständig rastern (nur Bild, keine Textebene)"))
+        self.rastern = QCheckBox(self.tr(
+            "PDF vollständig rastern (nur Bild; die Textebene wird danach unsichtbar ergänzt)"))
         self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
-        for w in (self.textdatei, self.bericht, self.vermerk, self.rastern, self.vorschau):
+        for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vermerk,
+                  self.rastern, self.vorschau):
             form.addRow(w)
         aussen.addWidget(optionen)
 
@@ -83,6 +89,8 @@ class ExportSeite(QWidget):
         o = self.sitzung.optionen
         o.ziel_ordner = Path(self.ziel.text()) if self.ziel.text().strip() else None
         o.textdatei = self.textdatei.isChecked()
+        o.markdown = self.markdown.isChecked()
+        o.schwaerzen.textebene = self.textebene.isChecked()
         o.bericht = self.bericht.isChecked()
         o.schwaerzen.vermerk = self.vermerk.isChecked()
         o.schwaerzen.rastern = self.rastern.isChecked()
@@ -127,6 +135,8 @@ class ExportSeite(QWidget):
             text += self.tr("Freigegeben: {pfad}").format(pfad=ergebnis.ziel) + "\n"
             if ergebnis.ziel_txt and not ergebnis.ist_text:
                 text += self.tr("Text: {pfad}").format(pfad=ergebnis.ziel_txt) + "\n"
+            if ergebnis.ziel_md:
+                text += self.tr("Markdown: {pfad}").format(pfad=ergebnis.ziel_md) + "\n"
         else:
             text += self.tr("NICHT freigegeben.") + "\n"
         if ergebnis.vorschau:

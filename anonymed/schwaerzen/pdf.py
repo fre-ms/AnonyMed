@@ -34,6 +34,14 @@ class Seitenergebnis:
     lage_intakt: bool = True
 
 
+SCHWARZ = (0.0, 0.0, 0.0)
+
+
+def ist_maske(f: Fundstelle) -> bool:
+    """A region the user blacked out: no pseudonym is written into it."""
+    return f.regel == "maske"
+
+
 @dataclass
 class Schwaerzoptionen:
     fuellfarbe: tuple[float, float, float] = (0.88, 0.88, 0.88)
@@ -45,6 +53,7 @@ class Schwaerzoptionen:
     vermerk: bool = True
     rastern: bool = False
     dpi: int = 200
+    textebene: bool = True  # embed the OCR text invisibly so that scans stay searchable
 
 
 def _band(rect: pymupdf.Rect, zeile: int, seite: Seitentext) -> pymupdf.Rect:
@@ -153,8 +162,9 @@ def rastere_seite(
     for f in fundstellen:
         for k, roh in enumerate(f.rects):
             rect = pymupdf.Rect(roh)
-            tp.draw_rect(rect, color=None, fill=opt.fuellfarbe, overlay=True)
-            if k == 0:
+            tp.draw_rect(rect, color=None, fill=SCHWARZ if ist_maske(f) else opt.fuellfarbe,
+                         overlay=True)
+            if k == 0 and not ist_maske(f):
                 basis = seite.basislinie(f.start, f.ende) if f.quelle == "text" else None
                 if basis is None:
                     basis = rect.y1 - 0.22 * rect.height
@@ -256,16 +266,18 @@ def schwaerze_seite(
     texttreffer = [f for f in fundstellen if f.quelle == "text"]
     manuell = [f for f in fundstellen if f.quelle == "manuell"]
     baender_kaesten: list[pymupdf.Rect] = []
-    nur_pixel: list[pymupdf.Rect] = []
+    nur_pixel: list[tuple[pymupdf.Rect, tuple[float, float, float]]] = []
+    flaechen: list[tuple[pymupdf.Rect, tuple[float, float, float]]] = []
     tinte = _Tinte(page) if any(f.quelle == "ocr" for f in fundstellen) else None
     for f in fundstellen:
         if not f.rects:
             continue
         gezeichnet = f.quelle == "manuell" and f.ende > f.start and seite is not None
+        farbe = SCHWARZ if ist_maske(f) else opt.fuellfarbe
         for k, roh in enumerate(f.rects):
             rect = pymupdf.Rect(roh)
             if gezeichnet and k == len(f.rects) - 1 and len(f.rects) > 1:
-                nur_pixel.append(rect & page.rect)  # the drawn box: pixels only (pass two)
+                nur_pixel.append((rect & page.rect, farbe))  # the drawn box: pixels only
                 continue
             if (f.quelle == "text" or gezeichnet) and seite is not None:
                 zeile = _zeile_von_rect(seite, f, rect)
@@ -282,7 +294,9 @@ def schwaerze_seite(
                 band = pymupdf.Rect(rect)
                 baender_kaesten.append(pymupdf.Rect(band))
             fuell = pymupdf.Rect(rect)
-            if k == 0:
+            if ist_maske(f):
+                flaechen.append((fuell, SCHWARZ))
+            elif k == 0:
                 textquelle = (f.quelle == "text" or gezeichnet) and seite is not None
                 basis = seite.basislinie(f.start, f.ende) if textquelle else None
                 if basis is None:
@@ -295,7 +309,7 @@ def schwaerze_seite(
                 fuell.x1 = band.x1 = max(band.x1, x1 - 0.2)
                 groesse = _passende_groesse(f.pseudonym, fuell.width - 1.5, f.schriftgroesse, opt)
                 einblendungen.append((fuell, basis, groesse, f.pseudonym))
-            page.add_redact_annot(band, fill=opt.fuellfarbe, cross_out=False)
+            page.add_redact_annot(band, fill=farbe, cross_out=False)
             anzahl += 1
     if not anzahl and not nur_pixel:
         return Seitenergebnis(0, True)
@@ -304,8 +318,8 @@ def schwaerze_seite(
             images=opt.bilder, graphics=opt.grafik, text=pymupdf.PDF_REDACT_TEXT_REMOVE
         )
     if nur_pixel:
-        for rect in nur_pixel:
-            page.add_redact_annot(rect, fill=opt.fuellfarbe, cross_out=False)
+        for rect, farbe in nur_pixel:
+            page.add_redact_annot(rect, fill=farbe, cross_out=False)
         page.apply_redactions(images=opt.bilder, graphics=opt.grafik,
                               text=pymupdf.PDF_REDACT_TEXT_NONE)
         anzahl += len(nur_pixel)
@@ -314,8 +328,8 @@ def schwaerze_seite(
                            kaesten=baender_kaesten):
             return Seitenergebnis(anzahl, False)
     # all boxes first, then all pseudonyms, so that a neighbouring box never covers a text
-    for rect in nur_pixel:
-        page.draw_rect(rect, color=None, fill=opt.fuellfarbe, overlay=True)
+    for rect, farbe in nur_pixel + flaechen:
+        page.draw_rect(rect, color=None, fill=farbe, overlay=True)
     for fuell, _basis, _groesse, _pseudonym in einblendungen:
         page.draw_rect(fuell, color=None, fill=opt.fuellfarbe, overlay=True)
     for fuell, basis, groesse, pseudonym in _ohne_ueberlappung(einblendungen, opt):
@@ -342,13 +356,83 @@ def _ohne_ueberlappung(
     return ergebnis
 
 
+def _woerter(seite: Seitentext) -> list[tuple[int, int]]:
+    """Word spans of a page: the OCR words, or runs of printed characters of one line."""
+    if seite.wortspannen:
+        return list(seite.wortspannen)
+    spannen: list[tuple[int, int]] = []
+    start: int | None = None
+    for i, c in enumerate(seite.text + " "):
+        gedruckt = i < len(seite.text) and not c.isspace() and seite.boxen[i] is not None
+        if gedruckt and start is None:
+            start = i
+        elif not gedruckt and start is not None:
+            spannen.append((start, i))
+            start = None
+    return spannen
+
+
+def unsichtbare_textebene(
+    page: pymupdf.Page, seite: Seitentext, fundstellen: list[Fundstelle],
+    mit_pseudonymen: bool = False, opt: Schwaerzoptionen | None = None,
+) -> int:
+    """Write the words of ``seite`` invisibly (render mode 3) where they stand, except
+    words that a hit covers; with ``mit_pseudonymen`` the pseudonyms are written
+    invisibly too (for rasterised pages, whose visible pseudonyms are pixels).  The
+    result is a searchable text layer for scans and photos, which a language model
+    or a PDF reader can extract like the text of a born-digital document.
+    Returns the number of words written."""
+    opt = opt or Schwaerzoptionen()
+    treffer = [f for f in fundstellen if f.ende > f.start]
+    rects = [pymupdf.Rect(r) for f in fundstellen for r in f.rects]
+    anzahl = 0
+
+    def schreibe(text: str, rect: pymupdf.Rect) -> None:
+        nonlocal anzahl
+        if rect.is_empty or rect.height <= 0 or not text.strip():
+            return
+        groesse = max(2.0, rect.height * 0.8)
+        while groesse > 2.0 and pymupdf.get_text_length(text, fontname=opt.schrift,
+                                                         fontsize=groesse) > rect.width + 1:
+            groesse -= 0.5
+        try:
+            page.insert_text((rect.x0, rect.y1 - 0.22 * rect.height), text, fontsize=groesse,
+                             fontname=opt.schrift, render_mode=3, overlay=True)
+        except Exception:  # a glyph the base font lacks: write what it can encode
+            ersatz = text.encode("cp1252", "replace").decode("cp1252")
+            page.insert_text((rect.x0, rect.y1 - 0.22 * rect.height), ersatz, fontsize=groesse,
+                             fontname=opt.schrift, render_mode=3, overlay=True)
+        anzahl += 1
+
+    for a, b in _woerter(seite):
+        if any(a < f.ende and b > f.start for f in treffer):
+            continue
+        kasten = seite.rects(a, b)
+        if not kasten:
+            continue
+        wort = pymupdf.Rect(kasten[0])
+        for r in kasten[1:]:
+            wort |= r
+        if any(r.intersects(wort) for r in rects):
+            continue
+        schreibe(seite.text[a:b], wort)
+    if mit_pseudonymen:
+        for f in fundstellen:
+            if f.rects and f.pseudonym and not ist_maske(f):
+                schreibe(f.pseudonym, pymupdf.Rect(f.rects[0]))
+    return anzahl
+
+
 def bereinige(doc: pymupdf.Document, vermerk: bool = True, datum: dt.date | None = None) -> None:
-    """Remove metadata, XMP, attachments, bookmarks, annotations and form fields."""
+    """Remove metadata, XMP, attachments, bookmarks, annotations and form fields.
+
+    Hidden text stays: it was read and redacted like visible text, and it is the
+    text layer of scanned PDFs (theirs or ours)."""
     doc.scrub(
         attached_files=True,
         clean_pages=True,
         embedded_files=True,
-        hidden_text=True,
+        hidden_text=False,
         javascript=True,
         metadata=True,
         redactions=True,

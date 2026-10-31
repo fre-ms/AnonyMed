@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from anonymed.erkennung.varianten import strasse_und_nummer
 from anonymed.gui.sitzung import Sitzung
 from anonymed.kern.modell import Patient, Person, parse_datum
 from anonymed.konfig import lade_konfig, passwort_laden
@@ -84,23 +85,25 @@ class PatientSeite(QWidget):
 
         felder = QGroupBox(self.tr("Identifikatoren (werden geschwärzt)"))
         form = QFormLayout(felder)
+        self.geschlecht = QComboBox()
+        self.geschlecht.addItems([self.tr("unbekannt"), self.tr("Herr"),
+                                  self.tr("Frau")])
+        form.addRow(self.tr("Anrede"), self.geschlecht)
         self.f: dict[str, QLineEdit] = {}
-        for name, titel in (("nachname", self.tr("Nachname")), ("vorname", self.tr("Vorname(n)")),
-                            ("geburtsname", self.tr("Geburtsname")), ("titel", self.tr("Titel")),
+        for name, titel in (("titel", self.tr("Titel")), ("vorname", self.tr("Vorname(n)")),
+                            ("nachname", self.tr("Nachname")),
+                            ("geburtsname", self.tr("Geburtsname")),
                             ("geburtsdatum", self.tr("Geburtsdatum (TT.MM.JJJJ)")),
-                            ("strasse", self.tr("Straße und Hausnummer")), ("plz", self.tr("PLZ")),
-                            ("ort", self.tr("Ort")),
+                            ("strasse", self.tr("Straße")), ("hausnummer", self.tr("Hausnummer")),
+                            ("plz", self.tr("PLZ")), ("ort", self.tr("Ort")),
+                            ("emails", self.tr("E-Mail (mehrere mit ;)")),
                             ("telefone", self.tr("Telefon (mehrere mit ;)")),
-                            ("emails", self.tr("E-Mail")),
                             ("versichertennummer", self.tr("Versichertennummer")),
                             ("patienten_id", self.tr("Patienten-ID")),
                             ("aktenzeichen", self.tr("Aktenzeichen (mehrere mit ;)"))):
             self.f[name] = QLineEdit()
             form.addRow(titel, self.f[name])
-        self.geschlecht = QComboBox()
-        self.geschlecht.addItems([self.tr("unbekannt"), self.tr("Herr"),
-                                  self.tr("Frau")])
-        form.addRow(self.tr("Anrede"), self.geschlecht)
+        self.f["hausnummer"].setMaximumWidth(120)
         aussen.addWidget(felder)
 
         zusatz = QGroupBox(self.tr("Weitere Personen und Begriffe (eine je Zeile)"))
@@ -180,11 +183,13 @@ class PatientSeite(QWidget):
 
     # -- form ------------------------------------------------------------------------------------
     def fuelle(self, p: Patient) -> None:
+        strasse, hausnummer = strasse_und_nummer(p.strasse)
         werte = {
             "nachname": p.nachname, "vorname": p.vorname, "geburtsname": p.geburtsname,
             "titel": p.titel,
             "geburtsdatum": p.geburtsdatum.strftime("%d.%m.%Y") if p.geburtsdatum else "",
-            "strasse": p.strasse, "plz": p.plz, "ort": p.ort, "telefone": "; ".join(p.telefone),
+            "strasse": strasse, "hausnummer": hausnummer, "plz": p.plz, "ort": p.ort,
+            "telefone": "; ".join(p.telefone),
             "emails": "; ".join(p.emails), "versichertennummer": p.versichertennummer,
             "patienten_id": p.patienten_id, "aktenzeichen": "; ".join(p.aktenzeichen),
         }
@@ -213,7 +218,8 @@ class PatientSeite(QWidget):
             titel=self.f["titel"].text().strip(),
             geburtsname=self.f["geburtsname"].text().strip(),
             geburtsdatum=geburtsdatum,
-            strasse=self.f["strasse"].text().strip(),
+            strasse=" ".join(t for t in (self.f["strasse"].text().strip(),
+                                         self.f["hausnummer"].text().strip()) if t),
             plz=self.f["plz"].text().strip(),
             ort=self.f["ort"].text().strip(),
             telefone=liste("telefone"),

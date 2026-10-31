@@ -37,25 +37,29 @@ from PySide6.QtWidgets import (
 from anonymed.gui.sitzung import Dokument, Sitzung
 from anonymed.kern.modell import Fundstelle
 
-FARBEN = {
-    "text": QColor(30, 100, 200),
-    "ocr": QColor(230, 120, 20),
-    "code": QColor(140, 40, 160),
-    "manuell": QColor(200, 30, 30),
-    "unlesbar": QColor(110, 110, 110),
-    "ner": QColor(0, 140, 130),
-    "fachbegriff": QColor(40, 160, 60),
-}
-FARBEN["unscharf"] = FARBEN["ocr"]  # a guess by tolerance, like OCR hits
+# Traffic light: red = will be redacted, yellow = uncertain (read badly, blanked as a
+# precaution), green = stays (medical term, discarded hit).  The source of a hit is in
+# the table; guesses (NER, fuzzy search) get a dashed outline.
+ROT = QColor(200, 30, 30)
+GELB = QColor(230, 165, 0)
+GRUEN = QColor(40, 160, 60)
+SCHWARZ = QColor(0, 0, 0)
+FARBEN = {"rot": ROT, "gelb": GELB, "gruen": GRUEN, "fachbegriff": GRUEN}
 VORSCHAU_DPI = 100
 
 
 def farbe(f: Fundstelle) -> QColor:
-    if f.regel == "ocr.unlesbar":
-        return FARBEN["unlesbar"]
-    if f.regel.startswith("ner."):
-        return FARBEN["ner"]
-    return FARBEN.get(f.quelle, FARBEN["text"])
+    return GELB if f.regel == "ocr.unlesbar" else ROT
+
+
+def geraten(f: Fundstelle) -> bool:
+    """A hit from a heuristic rather than a rule or the user."""
+    return f.regel.startswith(("ner.", "unscharf."))
+
+
+def _rect(rect: tuple[float, float, float, float], skala: float) -> QRectF:
+    return QRectF(rect[0] * skala, rect[1] * skala, (rect[2] - rect[0]) * skala,
+                  (rect[3] - rect[1]) * skala)
 
 
 class Seitenansicht(QGraphicsView):
@@ -73,38 +77,53 @@ class Seitenansicht(QGraphicsView):
         self._items: dict[int, Fundstelle] = {}
         self._start: QPointF | None = None
         self._gummi: QGraphicsRectItem | None = None
+        self.masken_modus = False  # drag draws a black mask instead of a labelled box
+
+    def _kasten(self, rect: tuple[float, float, float, float], farbe_: QColor, breite: float,
+                alpha: int, gestrichelt: bool = False, hinweis: str = "") -> QGraphicsRectItem:
+        item = QGraphicsRectItem(_rect(rect, self.skala))
+        stift = QPen(farbe_, breite)
+        if gestrichelt:
+            stift.setStyle(Qt.PenStyle.DashLine)
+        item.setPen(stift)
+        fuell = QColor(farbe_)
+        fuell.setAlpha(alpha)
+        item.setBrush(QBrush(fuell))
+        if hinweis:
+            item.setToolTip(hinweis)
+        self._szene.addItem(item)
+        return item
 
     def zeige(self, png: bytes, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None,
-              fachrects: list[tuple[float, float, float, float]] = ()) -> None:
+              fachrects: list[tuple[float, float, float, float]] = (),
+              verworfen: list[Fundstelle] = (),
+              unsicher: list[tuple[float, float, float, float]] = ()) -> None:
         self._szene.clear()
         self._items.clear()
         bild = QImage.fromData(png)
         self._szene.addItem(QGraphicsPixmapItem(QPixmap.fromImage(bild)))
         self._szene.setSceneRect(0, 0, bild.width(), bild.height())
-        gruen = FARBEN["fachbegriff"]
-        hell = QColor(gruen)
-        hell.setAlpha(28)
-        for rect in fachrects:  # protected medical terms: outline only, not clickable
-            r = QRectF(rect[0] * self.skala, rect[1] * self.skala,
-                       (rect[2] - rect[0]) * self.skala, (rect[3] - rect[1]) * self.skala)
-            item = QGraphicsRectItem(r)
-            item.setPen(QPen(gruen, 1))
-            item.setBrush(QBrush(hell))
-            item.setToolTip(self.tr("Fachbegriff (geschützt)"))
-            self._szene.addItem(item)
-        for f in fundstellen:
+        for rect in fachrects:  # protected medical terms: stay, not clickable
+            self._kasten(rect, GRUEN, 1, 28, hinweis=self.tr("Fachbegriff (bleibt)"))
+        for rect in unsicher:  # badly read words: look, not hits
+            self._kasten(rect, GELB, 1, 0, hinweis=self.tr("unsicher gelesen"))
+        for f in verworfen:  # discarded hits: stay, click to take back
             for rect in f.rects:
-                r = QRectF(rect[0] * self.skala, rect[1] * self.skala,
-                           (rect[2] - rect[0]) * self.skala, (rect[3] - rect[1]) * self.skala)
-                item = QGraphicsRectItem(r)
-                c = farbe(f)
-                breite = 3 if f is gewaehlt else 1.5
-                item.setPen(QPen(c, breite))
-                fuell = QColor(c)
-                fuell.setAlpha(90 if f is gewaehlt else 45)
-                item.setBrush(QBrush(fuell))
-                item.setToolTip(f"{f.regel} → {f.pseudonym}")
-                self._szene.addItem(item)
+                item = self._kasten(rect, GRUEN, 3 if f is gewaehlt else 1.5,
+                                    60 if f is gewaehlt else 30, gestrichelt=True,
+                                    hinweis=self.tr("verworfen, bleibt: {regel}").format(
+                                        regel=f.regel))
+                self._items[id(item)] = f
+        for f in fundstellen:
+            c = farbe(f)
+            if f.regel == "maske":
+                c, alpha = SCHWARZ, 160
+            else:
+                alpha = 90 if f is gewaehlt else 45
+            for rect in f.rects:
+                item = self._kasten(rect, c, 3 if f is gewaehlt else 1.5, alpha,
+                                    gestrichelt=geraten(f),
+                                    hinweis=f"{f.regel} → {f.pseudonym}")
                 self._items[id(item)] = f
 
     def wheelEvent(self, event) -> None:  # noqa: N802
@@ -130,7 +149,9 @@ class Seitenansicht(QGraphicsView):
                 return
         self._start = pos
         self._gummi = QGraphicsRectItem(QRectF(pos, pos))
-        self._gummi.setPen(QPen(FARBEN["manuell"], 1.5, Qt.PenStyle.DashLine))
+        self._gummi.setPen(QPen(SCHWARZ if self.masken_modus else ROT, 1.5,
+                                Qt.PenStyle.SolidLine if self.masken_modus
+                                else Qt.PenStyle.DashLine))
         self._szene.addItem(self._gummi)
 
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
@@ -163,13 +184,17 @@ class Textansicht(QTextEdit):
         self._schrift = self.font()
 
     def zeige(self, text: str, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None,
-              fachspannen: list[tuple[int, int]] = ()) -> None:
+              fachspannen: list[tuple[int, int]] = (), verworfen: list[Fundstelle] = ()) -> None:
         if text != self._text:
             self._text = text
             self.setPlainText(text)
-        self._treffer = [f for f in fundstellen if f.ende > f.start]
-        auswahlen = [self._auswahl(a, b, FARBEN["fachbegriff"], 45) for a, b in fachspannen]
-        for f in self._treffer:
+        aktiv = [f for f in fundstellen if f.ende > f.start]
+        bleibt = [f for f in verworfen if f.ende > f.start]
+        self._treffer = aktiv + bleibt
+        auswahlen = [self._auswahl(a, b, GRUEN, 45) for a, b in fachspannen]
+        for f in bleibt:
+            auswahlen.append(self._auswahl(f.start, f.ende, GRUEN, 150 if f is gewaehlt else 70))
+        for f in aktiv:
             auswahlen.append(self._auswahl(f.start, f.ende, farbe(f),
                                            170 if f is gewaehlt else 80))
         self.setExtraSelections(auswahlen)
@@ -246,10 +271,12 @@ class PruefenSeite(QWidget):
         rechts = QWidget()
         r = QVBoxLayout(rechts)
         legende = QLabel(self.tr(
-            "Blau: Textebene · Orange: OCR oder unscharfe Suche · Lila: Code · Rot: manuell ·"
-            " Grau: unlesbar · Türkis: NER · Grün: geschützter Fachbegriff. Ziehen mit der Maus"
-            " zeichnet einen Kasten; in Textdateien markiert „Auswahl schwärzen“ den"
-            " ausgewählten Text."))
+            "Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) ·"
+            " Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) ·"
+            " Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder"
+            " her). Ziehen zeichnet einen Kasten mit Ersatztext, mit „Maske zeichnen“ eine"
+            " schwarze Maske; in Textdateien markiert „Auswahl schwärzen“ den ausgewählten"
+            " Text. Die Quelle jedes Treffers steht in der Tabelle."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
@@ -272,6 +299,13 @@ class PruefenSeite(QWidget):
         self.markieren.clicked.connect(lambda: self.markiere_auswahl())
         self.markieren.setVisible(False)
         knoepfe.addWidget(self.markieren)
+        self.maske_modus = QPushButton(self.tr("Maske zeichnen"))
+        self.maske_modus.setCheckable(True)
+        self.maske_modus.setToolTip(self.tr(
+            "Eingeschaltet: Ziehen schwärzt den Bereich schwarz, ohne Ersatztext;"
+            " Text und Bild darunter verschwinden."))
+        self.maske_modus.toggled.connect(self._maske_umschalten)
+        knoepfe.addWidget(self.maske_modus)
         for text, aktion in (("+", lambda: self._aktive_ansicht().zoom(1.25)),
                              ("−", lambda: self._aktive_ansicht().zoom(0.8)),
                              ("1:1", lambda: self._aktive_ansicht().zoom_zuruecksetzen())):
@@ -332,16 +366,21 @@ class PruefenSeite(QWidget):
     def _zeige_ansicht(self, treffer: list[Fundstelle]) -> None:
         v = self.dokument.vorbereitung
         zeigen = self.fach_anzeigen.isChecked()
+        verworfen = [f for f in v.verworfen if f.seite == self.seite]
         if v.ist_text:
             fach = v.fachbegriffe_spannen(self.seite) if zeigen else []
-            self.textansicht.zeige(v.text, treffer, self.gewaehlt, fach)
+            self.textansicht.zeige(v.text, treffer, self.gewaehlt, fach, verworfen)
             self.stapel.setCurrentWidget(self.textansicht)
         else:
             fach = v.fachbegriffe_rects(self.seite) if zeigen else []
             self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), treffer, self.gewaehlt,
-                               fach)
+                               fach, verworfen, v.unsichere_rects(self.seite))
             self.stapel.setCurrentWidget(self.ansicht)
         self.markieren.setVisible(v.ist_text)
+        self.maske_modus.setVisible(not v.ist_text)
+        verworfen_gewaehlt = self.gewaehlt is not None and self.gewaehlt in v.verworfen
+        self.verwerfen.setText(self.tr("Treffer wiederherstellen") if verworfen_gewaehlt
+                               else self.tr("Treffer verwerfen"))
 
     def zeichne(self) -> None:
         if self.dokument is None or self.dokument.vorbereitung is None:
@@ -378,14 +417,28 @@ class PruefenSeite(QWidget):
                 self._zeige_ansicht(treffer)
 
     def verwerfe(self) -> None:
+        """Discard the selected hit, or take a discarded one back."""
         if self.gewaehlt is None or self.dokument is None or self.dokument.vorbereitung is None:
             return
-        self.dokument.vorbereitung.verwerfe(self.gewaehlt)
+        v = self.dokument.vorbereitung
+        if self.gewaehlt in v.verworfen:
+            v.wiederherstelle(self.gewaehlt)
+        else:
+            v.verwerfe(self.gewaehlt)
         self.gewaehlt = None
         self.zeichne()
 
+    def _maske_umschalten(self, an: bool) -> None:
+        self.ansicht.masken_modus = an
+
     def kasten(self, rect: tuple[float, float, float, float], pseudonym: str | None = None) -> None:
+        """A drawn rectangle: a black mask in mask mode, otherwise a box with a label."""
         if self.dokument is None or self.dokument.vorbereitung is None:
+            return
+        if pseudonym is None and self.maske_modus.isChecked():
+            self.dokument.vorbereitung.maske(self.seite, rect)
+            self.gewaehlt = None
+            self.zeichne()
             return
         if pseudonym is None:
             pseudonym, ok = QInputDialog.getText(self, self.tr("Kasten"),

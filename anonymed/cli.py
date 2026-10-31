@@ -215,6 +215,12 @@ def anonymisieren(
     dpi: Annotated[int, typer.Option("--dpi", help="Auflösung beim Rastern.")] = 200,
     textdatei: Annotated[bool, typer.Option("--text/--kein-text",
                                             help="Textdatei in Lesereihenfolge schreiben.")] = True,
+    markdown: Annotated[bool, typer.Option("--markdown/--kein-markdown",
+                                           help="Zusätzlich eine Markdown-Datei schreiben.")]
+    = False,
+    textebene: Annotated[bool, typer.Option(
+        "--textebene/--keine-textebene",
+        help="OCR-Text unsichtbar in Scans einbetten (durchsuchbares PDF).")] = True,
     bericht: Annotated[bool, typer.Option("--bericht/--kein-bericht",
                                           help="Prüfbericht als JSON schreiben.")] = True,
     vermerk: Annotated[bool, typer.Option("--vermerk/--ohne-vermerk",
@@ -260,10 +266,12 @@ def anonymisieren(
             " Patientendatei ergänzen.", err=True,
         )
     opt = Ablaufoptionen(
-        datumsform=datum, textdatei=textdatei, bericht=bericht, ziel_ordner=ziel,
+        datumsform=datum, textdatei=textdatei, markdown=markdown, bericht=bericht,
+        ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
-        schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk),
+        schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,
+                                    textebene=textebene),
     )
     alles_frei = True
     with _speicher(speicher, schema) as sp:
@@ -284,6 +292,8 @@ def anonymisieren(
                 typer.echo(f"Freigegeben: {erg.ziel}")
                 if erg.ziel_txt and not erg.ist_text:
                     typer.echo(f"Text:        {erg.ziel_txt}")
+                if erg.ziel_md:
+                    typer.echo(f"Markdown:    {erg.ziel_md}")
             else:
                 alles_frei = False
                 typer.echo(f"NICHT freigegeben: {datei.name}", err=True)

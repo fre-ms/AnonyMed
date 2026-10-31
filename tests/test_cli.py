@@ -41,11 +41,12 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
     pdatei = _patientendatei(tmp_path, patient)
     speicher = tmp_path / "store.sqlite"
     r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei),
-                            "--speicher", str(speicher)])
+                            "--speicher", str(speicher), "--markdown"])
     assert r.exit_code == 0, r.output
-    assert "Gegenprobe: bestanden" in r.output
+    assert "Gegenprobe: bestanden" in r.output and "Markdown:" in r.output
     k = _kennung(r.output)
     assert (tmp_path / "befund_anonym.pdf").exists()
+    assert "## Seite 1" in (tmp_path / "befund_anonym.md").read_text(encoding="utf-8")
     txt = (tmp_path / "befund_anonym.txt").read_text(encoding="utf-8")
     assert patient.nachname not in txt and f"Patient {k}" in txt
 

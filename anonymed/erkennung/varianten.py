@@ -173,14 +173,24 @@ def email_muster(email: str) -> str | None:
     return rf"(?<![\w.+-])(?i:{re.escape(email)})(?![\w-])(?!\.[\w-])"
 
 
+_HAUSNUMMER = re.compile(r"^(.*?)[\s,]*(\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+\s?[a-zA-Z]?)?)?\s*$")
+
+
+def strasse_und_nummer(strasse: str) -> tuple[str, str]:
+    """Split "Sieringgasse 42 a" into ("Sieringgasse", "42 a"); no number -> ("…", "")."""
+    strasse = strasse.strip()
+    m = _HAUSNUMMER.match(strasse)
+    if not m:
+        return strasse, ""
+    return m.group(1).strip(" ,"), (m.group(2) or "").strip()
+
+
 def adresse_muster(strasse: str) -> str | None:
     """Street with optional house number; "straße", "strasse" and "str." are interchangeable."""
     strasse = strasse.strip()
     if len(strasse) < 3:
         return None
-    m = re.match(r"^(.*?)[\s,]*(\d+\s?[a-zA-Z]?(?:\s?[-/]\s?\d+\s?[a-zA-Z]?)?)?\s*$", strasse)
-    name = (m.group(1) if m else strasse).strip(" ,")
-    nummer = (m.group(2) or "").strip() if m else ""
+    name, nummer = strasse_und_nummer(strasse)
     sm = _STRASSEN_SUFFIX.search(name)
     if sm:
         basis = name[: sm.start()].rstrip(" -")

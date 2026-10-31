@@ -43,6 +43,7 @@ from anonymed.schwaerzen.pdf import (
     rastere_seite,
     schwaerze_seite,
     speichere,
+    unsichtbare_textebene,
 )
 
 
@@ -50,6 +51,7 @@ from anonymed.schwaerzen.pdf import (
 class Ablaufoptionen:
     datumsform: str = "jahr"  # "jahr" -> [geb. 1990], "alter" -> [Alter 36]
     textdatei: bool = True  # write <name>_anonym.txt in reading order
+    markdown: bool = False  # write <name>_anonym.md as well
     bericht: bool = True  # write <name>_anonym.bericht.json
     suffix: str = "_anonym"
     ziel_ordner: Path | None = None
@@ -68,6 +70,8 @@ class Ablaufoptionen:
         return {
             "datumsform": self.datumsform,
             "textdatei": self.textdatei,
+            "markdown": self.markdown,
+            "textebene": self.schwaerzen.textebene,
             "rastern": self.schwaerzen.rastern,
             "dpi": self.schwaerzen.dpi if self.schwaerzen.rastern else None,
             "vermerk": self.schwaerzen.vermerk,
@@ -87,6 +91,7 @@ class Ergebnis:
     kennung: str
     ziel_pdf: Path | None = None
     ziel_txt: Path | None = None
+    ziel_md: Path | None = None
     ziel_bericht: Path | None = None
     vorschau: list[Path] = field(default_factory=list)
     text: str = ""
@@ -175,6 +180,19 @@ def _merke_fachbegriffe(eintrag: _Seite, seite: Seitentext,
     eintrag.fachspannen += spannen
     for a, b in spannen:
         eintrag.fachrects += [tuple(r) for r in seite.rects(a, b)]
+
+
+def markdown_aus_text(text: str) -> str:
+    """The reading-order text as Markdown: page markers become headings."""
+    zeilen = ["# Anonymisierter Text", ""]
+    for zeile in text.splitlines():
+        if zeile.startswith("=== Seite ") and zeile.endswith(" ==="):
+            zeilen.append("## " + zeile.strip("= ").strip())
+        elif zeile.strip() == "--- Bildtext (OCR, ungeprüft) ---":
+            zeilen.append("## Bildtext (OCR, ungeprüft)")
+        else:
+            zeilen.append(zeile)
+    return "\n".join(zeilen).rstrip() + "\n"
 
 
 def _text(seiten: list[_Seite]) -> str:
@@ -283,16 +301,34 @@ class Vorbereitung:
 
     def verwerfe(self, fundstelle: Fundstelle) -> None:
         """Drop a hit the user judged a false positive; the re-check will tolerate
-        this rule/text pair."""
+        this rule/text pair.  The hit stays known (``verworfen``) and can be restored."""
         for s in self.seiten:
             if fundstelle in s.fundstellen:
                 s.fundstellen.remove(fundstelle)
                 self.verworfen.append(fundstelle)
                 return
 
+    def wiederherstelle(self, fundstelle: Fundstelle) -> None:
+        """Take a discarded hit back."""
+        if fundstelle in self.verworfen:
+            self.verworfen.remove(fundstelle)
+            self.seiten[fundstelle.seite].fundstellen.append(fundstelle)
+
     @property
     def toleriert(self) -> set[tuple[str, str]]:
         return {toleranzschluessel(f.regel, f.text) for f in self.verworfen if f.text}
+
+    def unsichere_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
+        """Boxes of OCR words read with low confidence on page ``nummer``: uncertain,
+        worth a look, not hits."""
+        seite = self.seiten[nummer]
+        if seite.ocr is None:
+            return []
+        rects: list[tuple[float, float, float, float]] = []
+        for (a, b), konf in zip(seite.ocr.wortspannen, seite.ocr.konfidenzen, strict=True):
+            if konf < ocrmodul.UNSICHER_KONFIDENZ:
+                rects += [tuple(r) for r in seite.ocr.rects(a, b)]
+        return rects
 
     def kasten(self, nummer: int, rect: tuple[float, float, float, float],
                pseudonym: str = "[geschwärzt]") -> list[Fundstelle]:
@@ -304,6 +340,22 @@ class Vorbereitung:
         for f in neue:
             f.quelle = "manuell"
         seite.fundstellen += neue
+        return neue
+
+    def maske(self, nummer: int, rect: tuple[float, float, float, float]) -> list[Fundstelle]:
+        """Black out a region of page ``nummer``: text and pixels under it vanish, nothing
+        is written into it, and hits lying wholly inside it are dropped as redundant.
+        The text output shows ``[geschwärzt]`` in its place."""
+        seite = self.seiten[nummer]
+        innen = pymupdf.Rect(rect)
+        seite.fundstellen = [
+            f for f in seite.fundstellen
+            if f.regel == "maske" or not f.rects
+            or not all(innen.contains(pymupdf.Rect(r)) for r in f.rects)
+        ]
+        neue = self.kasten(nummer, rect, "[geschwärzt]")
+        for f in neue:
+            f.regel = "maske"
         return neue
 
     def schliessen(self) -> None:
@@ -481,9 +533,17 @@ class Textvorbereitung:
                 self.verworfen.append(fundstelle)
                 return
 
+    def wiederherstelle(self, fundstelle: Fundstelle) -> None:
+        if fundstelle in self.verworfen:
+            self.verworfen.remove(fundstelle)
+            self.seiten[fundstelle.seite].fundstellen.append(fundstelle)
+
     @property
     def toleriert(self) -> set[tuple[str, str]]:
         return {toleranzschluessel(f.regel, f.text) for f in self.verworfen if f.text}
+
+    def unsichere_rects(self, nummer: int) -> list[tuple[float, float, float, float]]:
+        return []
 
     def markiere(self, nummer: int, start: int, ende: int,
                  pseudonym: str = "[geschwärzt]") -> Fundstelle:
@@ -620,6 +680,9 @@ def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
             ziel.parent.mkdir(parents=True, exist_ok=True)
             ziel.write_text(ausgabe, encoding="utf-8")
             ergebnis.ziel_txt = ziel
+            if opt.markdown and ziel.suffix.lower() != ".md":
+                ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
+                ergebnis.ziel_md.write_text(ausgabe, encoding="utf-8")
         else:
             warnungen.append("Nicht freigegeben: keine Ausgabe geschrieben.")
         ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
@@ -631,6 +694,20 @@ def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
     finally:
         if v.eigener_speicher:
             v.speicher.close()
+
+
+def _textebene_einbetten(doc: pymupdf.Document, seiten: list[_Seite], gerastert: set[int],
+                         opt: Schwaerzoptionen) -> None:
+    """Invisible text for pages that have none of their own: OCR pages get their OCR
+    words; rasterised pages get their text-layer words and their pseudonyms as well."""
+    for s in seiten:
+        page = doc[s.nummer]
+        if s.nummer in gerastert:
+            unsichtbare_textebene(page, s.text, s.fundstellen, mit_pseudonymen=True, opt=opt)
+        if s.ocr is not None:
+            ocr_treffer = [f for f in s.fundstellen if f.quelle in ("ocr", "manuell")]
+            unsichtbare_textebene(page, s.ocr, ocr_treffer,
+                                  mit_pseudonymen=s.nummer in gerastert, opt=opt)
 
 
 def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
@@ -646,19 +723,26 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
         v.vergabe.registriere_treffer(fundstellen)
         text = _text(seiten)
         try:
+            gerastert: set[int] = set()
             for s in seiten:
                 lage = schwaerze_seite(v.doc[s.nummer], s.text, s.fundstellen, opt.schwaerzen)
                 if not lage.lage_intakt:
                     rastere_seite(v.doc, s.nummer, v.original, s.text, s.fundstellen,
                                   opt.schwaerzen)
+                    gerastert.add(s.nummer)
                     warnungen.append(
                         f"Seite {s.nummer + 1}: Textlayout nach der Redaktion verschoben,"
-                        " Seite deshalb gerastert (ohne Textebene)."
+                        " Seite deshalb gerastert."
                     )
+            if opt.schwaerzen.textebene and not opt.schwaerzen.rastern:
+                _textebene_einbetten(v.doc, seiten, gerastert, opt.schwaerzen)
             bereinige(v.doc, vermerk=opt.schwaerzen.vermerk)
             ausgabe = v.doc
             if opt.schwaerzen.rastern:
                 ausgabe = rastere(v.doc, opt.schwaerzen.dpi)
+                if opt.schwaerzen.textebene:
+                    _textebene_einbetten(ausgabe, seiten, {s.nummer for s in seiten},
+                                         opt.schwaerzen)
                 bereinige(ausgabe, vermerk=opt.schwaerzen.vermerk)
                 warnungen.append("Ausgabe gerastert.")
             ziel = zielpfad(quelle, opt)
@@ -694,6 +778,9 @@ def abschliessen(v: Vorbereitung | Textvorbereitung) -> Ergebnis:
             if opt.textdatei:
                 ergebnis.ziel_txt = zielpfad(quelle, opt, ".txt")
                 ergebnis.ziel_txt.write_text(text, encoding="utf-8")
+            if opt.markdown:
+                ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
+                ergebnis.ziel_md.write_text(markdown_aus_text(text), encoding="utf-8")
         else:
             ziel.unlink(missing_ok=True)
             warnungen.append("Nicht freigegeben: Ausgabe verworfen.")

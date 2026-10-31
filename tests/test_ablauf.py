@@ -123,8 +123,10 @@ def test_rastern(befund: Path, patient: Patient, speicher: Pseudonymspeicher) ->
     erg = anonymisiere(befund, patient, opt, speicher=speicher)
     assert erg.freigegeben
     with pymupdf.open(erg.ziel_pdf) as d:
-        assert all(p.get_text("text").strip() == "" for p in d)
-        assert len(d) == 2
+        # rasterised, but with an invisible text layer: words and pseudonyms, no clear data
+        texte = [p.get_text("text") for p in d]
+        assert all(t.strip() for t in texte) and len(d) == 2
+        assert gefundene_klardaten("\n".join(texte), patient) == []
     assert any("gerastert" in w for w in erg.bericht.warnungen)
 
 
@@ -224,3 +226,83 @@ def test_fachbegriffe_werden_gemerkt(befund: Path, patient: Patient,
     ohne = vorbereiten(befund, patient, Ablaufoptionen(fachbegriffe=False), speicher=speicher)
     assert ohne.fachbegriffe_anzahl == 0 and ohne.fachbegriffe_rects(0) == []
     ohne.schliessen()
+
+
+def test_maske_schwaerzt_schwarz_und_still(befund: Path, patient: Patient,
+                                           speicher: Pseudonymspeicher) -> None:
+    """A mask blackens the region, removes the text under it, writes no pseudonym and
+    drops hits that lie inside it; the text file shows [geschwärzt]."""
+    v = vorbereiten(befund, patient, Ablaufoptionen(), speicher=speicher)
+    vorher = len(v.fundstellen)
+    # the line "Betr.: Herrn <name>, geb. <date>" on page one: both hits lie inside the box
+    betr = next(f for f in v.seiten[0].fundstellen if f.regel == "datum.geburtsdatum")
+    y0 = min(r[1] for r in betr.rects) - 2
+    y1 = max(r[3] for r in betr.rects) + 2
+    neue = v.maske(0, (50, y0, 560, y1))
+    assert neue and all(f.regel == "maske" for f in neue)
+    assert betr not in v.fundstellen and len(v.fundstellen) < vorher
+    erg = abschliessen(v)
+    assert erg.freigegeben, als_text(erg.bericht)
+    with pymupdf.open(erg.ziel_pdf) as d:
+        seite = d[0]
+        clip = pymupdf.Rect(60, y0 + 1, 550, y1 - 1)
+        assert "Betr" not in seite.get_text("text", clip=clip)
+        pix = seite.get_pixmap(clip=clip, dpi=72, colorspace=pymupdf.csGRAY)
+        mittel = sum(pix.samples) / len(pix.samples)
+        assert mittel < 20, mittel  # solid black, no grey box and no text drawn into it
+        assert "Betr" not in seite.get_text("text")
+    txt = erg.ziel_txt.read_text(encoding="utf-8")
+    assert "[geschwärzt]" in txt and "Betr.:" not in txt
+    assert patient.nachname not in txt
+
+
+def test_verwerfen_und_wiederherstellen(befund: Path, patient: Patient,
+                                        speicher: Pseudonymspeicher) -> None:
+    v = vorbereiten(befund, patient, Ablaufoptionen(), speicher=speicher)
+    f = next(x for x in v.fundstellen if x.regel == "zuweiser1.name")
+    v.verwerfe(f)
+    assert f in v.verworfen and f not in v.fundstellen and v.toleriert
+    v.wiederherstelle(f)
+    assert f not in v.verworfen and f in v.fundstellen and not v.toleriert
+    assert v.unsichere_rects(0) == []  # a clean text layer has no uncertain OCR words
+    v.schliessen()
+
+
+def test_rastern_mit_textebene_und_markdown(befund: Path, patient: Patient,
+                                            speicher: Pseudonymspeicher) -> None:
+    opt = Ablaufoptionen(markdown=True, schwaerzen=Schwaerzoptionen(rastern=True, dpi=100))
+    erg = anonymisiere(befund, patient, opt, speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    with pymupdf.open(erg.ziel_pdf) as d:
+        assert all(p.get_images() for p in d)  # rasterised: an image per page
+        text = "\n".join(p.get_text("text") for p in d)
+    assert "Ramipril" in text and f"Patient {erg.kennung}" in text  # invisible layer
+    assert gefundene_klardaten(text, patient) == []
+    assert erg.ziel_md and erg.ziel_md.exists()
+    md = erg.ziel_md.read_text(encoding="utf-8")
+    assert md.startswith("# Anonymisierter Text") and "## Seite 1" in md and "## Seite 2" in md
+    assert gefundene_klardaten(md, patient) == [] and "Ramipril" in md
+    assert erg.bericht.optionen["textebene"] is True and erg.bericht.optionen["markdown"]
+
+
+def test_versteckter_text_bleibt_textebene(tmp_path: Path, patient: Patient,
+                                           speicher: Pseudonymspeicher) -> None:
+    """A scanned PDF with its own invisible OCR layer keeps a text layer: the hits in
+    the hidden text are redacted, the rest stays searchable."""
+    quelle = tmp_path / "ocr_pdf.pdf"
+    with pymupdf.open() as d:
+        page = d.new_page()
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 50, 50), False)
+        pix.clear_with(255)
+        page.insert_image(pymupdf.Rect(400, 700, 500, 800), pixmap=pix)  # small: no OCR needed
+        page.insert_text((60, 100), f"Befund für {patient.vollname} vom 12.03.2026",
+                         fontsize=11, render_mode=3)
+        page.insert_text((60, 130), "Diagnose: arterielle Hypertonie, Ramipril 5 mg",
+                         fontsize=11, render_mode=3)
+        d.save(quelle)
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    with pymupdf.open(erg.ziel_pdf) as d:
+        text = d[0].get_text("text")
+    assert "Ramipril" in text and "Hypertonie" in text
+    assert patient.nachname not in text and f"Patient {erg.kennung}" in text

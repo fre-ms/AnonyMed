@@ -100,8 +100,10 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     # 1 patient
     fenster.patient.fuelle(patient)
     assert fenster.patient.f["nachname"].text() == patient.nachname
+    assert fenster.patient.f["hausnummer"].text() and fenster.patient.f["strasse"].text()
     fenster.patient.uebernehmen()
     assert sitzung.patient is not None and sitzung.patient.vollname == patient.vollname
+    assert sitzung.patient.strasse == patient.strasse  # street and number joined again
     assert sitzung.patient.zuweiser[0].nachname == patient.zuweiser[0].nachname
     assert fenster.tabs.currentWidget() is fenster.dokumente
 
@@ -130,10 +132,22 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert pr.tabelle.rowCount() == vorher > 5
     ziel = next(f for f in pr.fundstellen() if f.regel == "zuweiser1.name")
     pr.waehle(ziel)
+    assert "verwerfen" in pr.verwerfen.text()
     pr.verwerfe()
-    assert len(pr.fundstellen()) == vorher - 1
+    assert len(pr.fundstellen()) == vorher - 1 and ziel in d.vorbereitung.verworfen
+    pr.waehle(ziel)  # a discarded hit stays visible (green) and can be taken back
+    assert "wiederherstellen" in pr.verwerfen.text()
+    pr.verwerfe()
+    assert len(pr.fundstellen()) == vorher and ziel not in d.vorbereitung.verworfen
+    pr.waehle(ziel)
+    pr.verwerfe()
     pr.kasten((56, 300, 400, 320), "[Kasten]")
     assert any(f.quelle == "manuell" for f in pr.fundstellen())
+    pr.maske_modus.setChecked(True)
+    assert pr.ansicht.masken_modus
+    pr.kasten((56, 330, 400, 345))  # mask mode: no dialog, no label
+    assert any(f.regel == "maske" for f in pr.fundstellen())
+    pr.maske_modus.setChecked(False)
     assert pr.tabelle.rowCount() == len(pr.fundstellen())
 
     # 4 export
