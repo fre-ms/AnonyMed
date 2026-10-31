@@ -92,6 +92,8 @@ OCR misreads are met in three ways: codes such as insurance numbers are matched 
 
 Plain text goes through the same pipeline: `.txt`, `.md`, `.srt` and `.vtt` files, for instance the transcript a local speech recogniser wrote from a recorded consultation. The output is a text file again, `name_anonym.txt` (same extension as the input), with every identifier replaced by its pseudonym and nothing else touched: line structure, SRT and WebVTT timestamps, cue numbers and Whisper-style `[00:00.000 --> 00:04.000]` stamps stay as they are. The report is written as for a PDF, and the re-check runs over the output before it is released.
 
+Two more text-like inputs are rendered first and come out as `.txt`: **Whisper JSON** (openai-whisper, whisper.cpp, WhisperX and plain segment lists) becomes one line per segment, `[00:00:01.000 --> 00:00:03.500] SPEAKER_00: text`; word-level entries and token ids are not carried over, because the token ids encode the clear text and the word copies could not be checked consistently. **E-mails** (`.eml`, as mail programs export them) become From, To, Cc, Date and Subject, the plain-text body (or the HTML body as text) and a list of attachment names; routing headers such as Message-ID and Received are dropped, and attachments are not included: anonymise a PDF or photo a patient sent as a file of its own.
+
 Speech recognisers misspell names the way OCR does, so for text files the fuzzy search of the OCR path is on by default (`--genau` switches it off): the patient's identifiers are also searched with a small edit distance, names and places only when capitalised, so that *lang* stays safe for a patient called Lang while *Lanq* is caught. Fuzzy hits are guesses and are shown in orange in the review tab. The review shows the text with coloured spans instead of a page image; click a span to select the hit, select any text and press *Redact selection* to mark what was missed. NER and the medical vocabulary work as for PDFs. Numbers written as words ("einundzwanzigster Juli") are not recognised; Whisper's JSON output is not read.
 
 ### Unknown names (NER, optional)
@@ -112,7 +114,7 @@ The interface is German with an en-GB translation (`anonymed gui --language en`,
 
 * Without NER, unknown names (a relative not listed in the patient file) are not found; add them to the patient file (`angehoerige`, `zuweiser`, `begriffe`) or switch NER on and review its hits.
 * Handwriting and text inside photos of screens or odd angles are beyond OCR; the review tab shows every page so that you can draw a box over what was missed.
-* Office documents (DOCX, ODT) and Whisper's JSON are not read; convert them to PDF or plain text first.
+* Office documents (DOCX, ODT) are not read; convert them to PDF or plain text first. Numbers spoken as words in a transcript ("einundzwanzigster Juli") are not recognised as dates.
 
 ## Safety notes
 

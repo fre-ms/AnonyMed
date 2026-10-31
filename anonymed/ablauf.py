@@ -449,6 +449,7 @@ class Textvorbereitung:
     ziele: list[Ziel]
     text: str
     seiten: list[_Seite]
+    ausgabe_endung: str = ".txt"  # the input's own for text and subtitles, .txt for JSON/e-mail
     ohne_text: list[int] = field(default_factory=list)
     warnungen: list[str] = field(default_factory=list)
     verworfen: list[Fundstelle] = field(default_factory=list)
@@ -513,8 +514,8 @@ def _vorbereiten_text(
 ) -> Textvorbereitung:
     """Rules, vocabulary, fuzzy search and NER over one text file, in that order: a
     misspelt known name must get the patient's pseudonym, not a NER code."""
-    text = textmodul.lese_textdatei(quelle)
-    seite = textmodul.textseite(textmodul.analysetext(text, quelle.suffix))
+    text, endung = textmodul.lese_quelle(quelle)
+    seite = textmodul.textseite(textmodul.analysetext(text, endung))
     eintrag = _Seite(0, seite)
     eintrag.fundstellen = finde(seite, r.regeln)
     if r.fachbegriffe is not None:
@@ -537,7 +538,8 @@ def _vorbereiten_text(
     return Textvorbereitung(
         quelle=quelle, patient=patient, opt=opt, speicher=speicher,
         eigener_speicher=eigener_speicher, kennung=r.kennung, vergabe=r.vergabe,
-        regeln=r.regeln, ziele=r.ziele, text=text, seiten=[eintrag], warnungen=warnungen,
+        regeln=r.regeln, ziele=r.ziele, text=text, seiten=[eintrag], ausgabe_endung=endung,
+        warnungen=warnungen,
     )
 
 
@@ -569,9 +571,8 @@ def gegenprobe_textdatei(pfad: str | Path, regeln: list[Regel],
                          pseudonyme: list[str] | None = None) -> Gegenprobe:
     """``anonymed pruefen`` for a text file: the rules alone, nothing tolerated; inside
     ``pseudonyme`` (at least the patient's code) no rule counts."""
-    pfad = Path(pfad)
-    return gegenprobe_text(textmodul.lese_textdatei(pfad), pfad.suffix, regeln,
-                           pseudonyme=pseudonyme)
+    text, endung = textmodul.lese_quelle(pfad)
+    return gegenprobe_text(text, endung, regeln, pseudonyme=pseudonyme)
 
 
 def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
@@ -584,11 +585,11 @@ def _abschliessen_text(v: Textvorbereitung) -> Ergebnis:
         ausgabe = textmodul.ersetze(v.text, fundstellen)
         pseudonyme = list(v.vergabe.zuordnung) + [f.pseudonym for f in fundstellen]
         fach = fachmodul.standard() if opt.fachbegriffe else None
-        gegenprobe = gegenprobe_text(ausgabe, quelle.suffix, v.regeln,
+        gegenprobe = gegenprobe_text(ausgabe, v.ausgabe_endung, v.regeln,
                                      v.ziele if opt.unscharf_text else None, fach,
                                      v.toleriert, pseudonyme)
         v.speicher.merke(v.patient, v.vergabe)
-        ziel = zielpfad(quelle, opt, quelle.suffix)
+        ziel = zielpfad(quelle, opt, v.ausgabe_endung)
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
                             kennung=v.kennung, text=ausgabe, ist_text=True)
         if gegenprobe.bestanden:

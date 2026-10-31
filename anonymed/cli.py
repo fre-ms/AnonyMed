@@ -200,7 +200,8 @@ def _hauptbefehl() -> None:
 @app.command()
 def anonymisieren(
     dateien: Annotated[list[Path], typer.Argument(
-        help="PDF-, Bild- oder Textdateien (.txt, .md, .srt, .vtt).", exists=True)],
+        help="PDF-, Bild- oder Textdateien (.txt, .md, .srt, .vtt, Whisper-.json, .eml).",
+        exists=True)],
     patient: PatientOption = None,
     vcf: VcfOption = None,
     kontakt: KontaktOption = None,

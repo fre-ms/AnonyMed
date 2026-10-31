@@ -125,7 +125,7 @@ class DokumenteSeite(QWidget):
     def dateien_waehlen(self) -> None:
         pfade, _ = QFileDialog.getOpenFileNames(self, self.tr("Dokumente"), "", self.tr(
             "Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp"
-            " *.txt *.md *.srt *.vtt)"))
+            " *.txt *.md *.srt *.vtt *.json *.eml)"))
         self.hinzufuegen([Path(p) for p in pfade])
 
     def hinzufuegen(self, pfade: list[Path]) -> None:

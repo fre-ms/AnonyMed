@@ -96,8 +96,8 @@
     </message>
     <message>
         <location filename="../dokumente_seite.py" line="127" />
-        <source>Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt)</source>
-        <translation>Documents (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt)</translation>
+        <source>Dokumente (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt *.json *.eml)</source>
+        <translation>Documents (*.pdf *.jpg *.jpeg *.png *.tif *.tiff *.heic *.heif *.bmp *.webp *.txt *.md *.srt *.vtt *.json *.eml)</translation>
     </message>
     <message>
         <location filename="../dokumente_seite.py" line="159" />

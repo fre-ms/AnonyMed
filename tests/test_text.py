@@ -183,3 +183,136 @@ def test_cli_textdatei(tmp_path: Path, patient: Patient) -> None:
     r = runner.invoke(app, ["anonymisieren", str(quelle), "--patient", str(pdatei),
                             "--speicher", sp, "--genau"])
     assert r.exit_code == 0 and verschrieben(patient.nachname) in ziel.read_text(encoding="utf-8")
+
+
+# -- Whisper JSON and e-mail ------------------------------------------------------------------
+
+
+def _whisper_json(zeilen: list[str], dialekt: str) -> dict | list:
+    """The same transcript as openai-whisper, whisper.cpp or WhisperX would write it."""
+    if dialekt == "openai":
+        segmente = [{"id": i, "seek": 0, "start": 4.0 * i, "end": 4.0 * i + 3.5, "text": " " + z,
+                     "tokens": [50364, 1000 + i, 50540], "temperature": 0.0,
+                     "avg_logprob": -0.2, "compression_ratio": 1.3, "no_speech_prob": 0.01,
+                     "words": [{"word": " " + w, "start": 4.0 * i, "end": 4.0 * i + 0.3,
+                                "probability": 0.9} for w in z.split()]}
+                    for i, z in enumerate(zeilen)]
+        return {"text": " ".join(zeilen), "segments": segmente, "language": "de"}
+    if dialekt == "cpp":
+        return {"systeminfo": "AVX = 1", "model": {"type": "large"}, "params": {"language": "de"},
+                "result": {"language": "de"},
+                "transcription": [{"timestamps": {"from": f"00:00:{4 * i:02d},000",
+                                                  "to": f"00:00:{4 * i + 3:02d},500"},
+                                   "offsets": {"from": 4000 * i, "to": 4000 * i + 3500},
+                                   "text": " " + z} for i, z in enumerate(zeilen)]}
+    if dialekt == "whisperx":
+        return {"segments": [{"start": 4.0 * i, "end": 4.0 * i + 3.5, "text": z,
+                              "speaker": f"SPEAKER_0{i % 2}",
+                              "words": [{"word": w, "score": 0.9} for w in z.split()]}
+                             for i, z in enumerate(zeilen)],
+                "word_segments": []}
+    raise ValueError(dialekt)
+
+
+@pytest.mark.parametrize("dialekt", ["openai", "cpp", "whisperx"])
+def test_whisper_json(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher,
+                      dialekt: str) -> None:
+    from tests.synthetisch import transkript_text
+
+    zeilen = transkript_text(patient)
+    quelle = tmp_path / "gespraech.json"
+    quelle.write_text(json.dumps(_whisper_json(zeilen, dialekt), ensure_ascii=False),
+                      encoding="utf-8")
+    assert ist_textdatei(quelle)
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    assert erg.ziel == tmp_path / "gespraech_anonym.txt"
+    aus = erg.ziel.read_text(encoding="utf-8")
+    assert gefundene_klardaten(aus, patient) == []
+    assert verschrieben(patient.nachname) not in aus
+    assert aus.count("\n") == len(zeilen)
+    assert "[00:00:00.000 --> 00:00:03.500] " in aus
+    assert "[00:00:04.000 --> 00:00:07.500] " in aus
+    assert "Ramipril und Atorvastatin" in aus and "50364" not in aus
+    if dialekt == "whisperx":
+        assert "SPEAKER_00: " in aus and "SPEAKER_01: " in aus
+    assert f"Patient {erg.kennung}" in aus
+
+
+def test_json_ohne_transkript(tmp_path: Path, patient: Patient,
+                              speicher: Pseudonymspeicher) -> None:
+    from anonymed.dokument.textdatei import rendere_whisper
+
+    assert rendere_whisper({"text": " Nur Text. "}) == "Nur Text.\n"
+    assert rendere_whisper([{"text": "a"}, {"text": "b"}]) == "a\nb\n"
+    with pytest.raises(ValueError):
+        rendere_whisper({"foo": 1})
+    quelle = tmp_path / "x.json"
+    quelle.write_text('{"foo": 1}', encoding="utf-8")
+    with pytest.raises(ValueError):
+        vorbereiten(quelle, patient, Ablaufoptionen(), speicher=speicher)
+
+
+def _mail(patient: Patient, html_nur: bool = False) -> bytes:
+    from email.message import EmailMessage
+
+    m = EmailMessage()
+    m["From"] = f"{patient.vollname} <{patient.emails[0]}>"
+    m["To"] = "Sprechstunde Kognitive Neurologie <sprechstunde@example.org>"
+    m["Cc"] = f"{patient.angehoerige[0].vollname} <partner@example.net>"
+    m["Subject"] = f"Rückfrage zu meinem Termin – {patient.nachname}"
+    m["Date"] = "Tue, 21 Jul 2026 10:00:00 +0200"
+    m["Message-ID"] = "<geheim-123@mail.example.org>"
+    m["Received"] = "from mx.example.org by mail.example.org"
+    text = (f"Sehr geehrte Frau Doktor,\n\nmein Name ist {patient.vollname}, geboren am "
+            f"{patient.geburtsdatum.strftime('%d.%m.%Y')}, wohnhaft {patient.strasse}, "
+            f"{patient.plz} {patient.ort}. Meine Versichertennummer lautet "
+            f"{patient.versichertennummer}.\nIch nehme Ramipril 5 mg und habe Schwäche im "
+            f"linken Arm.\n\nViele Grüße\n{patient.vorname} {patient.nachname}\n"
+            f"Tel. {patient.telefone[0]}\n")
+    html = "<html><head><style>p{color:red}</style></head><body>" + "".join(
+        f"<p>{z}</p>" for z in text.split("\n\n")) + "<br>&Uuml;bermittelt per Portal</body></html>"
+    if html_nur:
+        m.set_content(html, subtype="html", charset="utf-8")
+    else:
+        m.set_content(text, charset="utf-8", cte="quoted-printable")
+        m.add_alternative(html, subtype="html", charset="utf-8")
+    m.add_attachment(b"%PDF-1.4 synthetisch", maintype="application", subtype="pdf",
+                     filename=f"Befund_{patient.nachname}_2026.pdf")
+    return bytes(m)
+
+
+def test_eml(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
+    from anonymed.dokument.textdatei import rendere_mail
+
+    roh = _mail(patient)
+    assert "quoted-printable" in roh.decode("ascii", "replace")
+    text = rendere_mail(roh)
+    assert text.startswith("Von: ") and "\nBetreff: Rückfrage zu meinem Termin" in text
+    assert "Message-ID" not in text and "geheim-123" not in text and "Received" not in text
+    assert "Sehr geehrte Frau Doktor," in text and "<p>" not in text and "color:red" not in text
+    assert f"[Anhänge, nicht enthalten: Befund {patient.nachname} 2026 (pdf)]" in text
+    quelle = tmp_path / "anfrage.eml"
+    quelle.write_bytes(roh)
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben, als_text(erg.bericht)
+    assert erg.ziel == tmp_path / "anfrage_anonym.txt"
+    aus = erg.ziel.read_text(encoding="utf-8")
+    assert gefundene_klardaten(aus, patient) == []
+    assert "partner@example.net" not in aus and "sprechstunde@example.org" not in aus
+    assert "Ramipril 5 mg" in aus and "Schwäche im linken Arm" in aus and "Viele Grüße" in aus
+    assert f"Patient {erg.kennung}" in aus and "[E-Mail]" in aus
+    assert "[Anhänge, nicht enthalten: Befund Patient" in aus
+
+
+def test_eml_nur_html(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
+    from anonymed.dokument.textdatei import html_zu_text, rendere_mail
+
+    text = rendere_mail(_mail(patient, html_nur=True))
+    assert "Sehr geehrte Frau Doktor,\n" in text and "Übermittelt per Portal" in text
+    assert "<" not in text.split("\n\n", 1)[1] and "color:red" not in text
+    assert html_zu_text("<ul><li>a</li><li>b &amp; c</li></ul><script>x()</script>") == "a\nb & c"
+    quelle = tmp_path / "html.eml"
+    quelle.write_bytes(_mail(patient, html_nur=True))
+    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    assert erg.freigegeben and gefundene_klardaten(erg.text, patient) == []
