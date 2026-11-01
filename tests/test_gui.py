@@ -456,7 +456,9 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     fenster.export.ziel.setText(str(tmp_path / "aus"))
     fenster.export.aktualisiere()
     qapp.processEvents()
-    assert fenster.export.farbe == "gelb", fenster.export.ampel_text.text()  # OCR: warnings
+    assert fenster.export.farbe == "gruen", fenster.export.ampel_text.text()  # OCR: only notes
+    assert any("Handschrift" in h for h in d.vorpruefung.bericht.hinweise)
+    assert not d.vorpruefung.bericht.warnungen
     fenster.export.exportieren()
     qapp.processEvents()
     protokoll = fenster.export.ausgabe.toPlainText()

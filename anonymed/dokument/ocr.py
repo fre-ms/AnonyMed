@@ -369,7 +369,10 @@ def verfuegbare_backends() -> list[str]:
 def seitentext_aus_woerter(
     woerter: Iterable[OCRWort], nummer: int, breite: float, hoehe: float
 ) -> Seitentext:
-    """Group words into lines by vertical overlap, order them, and build the character map."""
+    """Group words into lines by vertical overlap, order them, and build the character map.
+    A gap between neighbouring words far wider than usual (table cells, columns) becomes
+    a tab in the page text: the rules treat it like a space, the Markdown structuring
+    reads it as a cell boundary."""
     seite = Seitentext(nummer=nummer, breite=breite, hoehe=hoehe, quelle="ocr")
     rest = sorted((w for w in woerter if w.text), key=lambda w: (w.y0, w.x0))
     zeilen: list[list[OCRWort]] = []
@@ -384,11 +387,18 @@ def seitentext_aus_woerter(
         else:
             zeilen.append([w])
     zeilen.sort(key=lambda z: min(w.y0 for w in z))
-    for nr, zeile in enumerate(zeilen, 1):
+    for zeile in zeilen:
         zeile.sort(key=lambda w: w.x0)
+    luecken = sorted(b.x0 - a.x1 for z in zeilen for a, b in zip(z, z[1:], strict=False)
+                     if b.x0 > a.x1)
+    uebliche_luecke = luecken[len(luecken) // 2] if luecken else 0.0
+    for nr, zeile in enumerate(zeilen, 1):
         for i, w in enumerate(zeile):
             if i > 0:
-                seite._fuege_an(" ", None, nr, w.y1 - w.y0, w.y1)
+                luecke = w.x0 - zeile[i - 1].x1
+                zellgrenze = len(luecken) >= 4 and \
+                    luecke > max(1.5 * (w.y1 - w.y0), 3.0 * uebliche_luecke)
+                seite._fuege_an("\t" if zellgrenze else " ", None, nr, w.y1 - w.y0, w.y1)
             n = max(len(w.text), 1)
             schritt = (w.x1 - w.x0) / n
             groesse = max(w.y1 - w.y0, 1.0) * 0.8

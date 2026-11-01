@@ -261,6 +261,10 @@ def anonymisieren(
     vokabular: Annotated[bool, typer.Option(
         "--vokabular/--kein-vokabular",
         help="Verworfene Rate-Treffer als <name>_anonym.vokabular.txt schreiben.")] = True,
+    gliedern: Annotated[bool, typer.Option(
+        "--gliedern/--roh",
+        help="OCR-Text als Markdown gliedern: Absätze zusammenfügen, Überschriften, Listen,"
+             " Tabellen.")] = True,
 ) -> None:
     """Dokumente und Texte schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
     try:
@@ -293,7 +297,7 @@ def anonymisieren(
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
-        vokabular=vokabular,
+        vokabular=vokabular, gliedern=gliedern,
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,
                                     textebene=textebene),
     )

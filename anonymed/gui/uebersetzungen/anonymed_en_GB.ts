@@ -1185,113 +1185,123 @@
         <translation>Tables: detect grids and read the cells without their rules in a second pass (Tesseract)</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="76" />
+        <location filename="../texterkennung_seite.py" line="71" />
+        <source>Erkannten Text gliedern: Absätze zusammenfügen, Überschriften, Listen und Tabellen als Markdown (für das Sprachmodell)</source>
+        <translation>Structure the recognised text: join paragraphs, mark headings, lists and tables as Markdown (for the language model)</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="82" />
         <source>Texterkennung starten</source>
         <translation>Start text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="88" />
+        <location filename="../texterkennung_seite.py" line="94" />
         <source>Dokument / Seite</source>
         <translation>Document / page</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="98" />
+        <location filename="../texterkennung_seite.py" line="104" />
         <source>Erkannter Text</source>
         <translation>Recognised text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="104" />
+        <location filename="../texterkennung_seite.py" line="110" />
         <source>Text übernehmen</source>
         <translation>Apply text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="106" />
+        <location filename="../texterkennung_seite.py" line="112" />
         <source>Auf OCR-Text zurücksetzen</source>
         <translation>Reset to OCR text</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="121" />
+        <location filename="../texterkennung_seite.py" line="127" />
         <source>Weiter: Analysieren</source>
         <translation>Next: analyse</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="141" />
+        <location filename="../texterkennung_seite.py" line="147" />
         <source>Installierte Tesseract-Sprachen: {liste}</source>
         <translation>Installed Tesseract languages: {liste}</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="145" />
+        <location filename="../texterkennung_seite.py" line="151" />
         <source>Es wird nur die Textebene der PDFs gelesen.</source>
         <translation>Only the text layer of PDFs is read.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="149" />
+        <location filename="../texterkennung_seite.py" line="155" />
         <source>RapidOCR: Sprachtyp de (Standard), en, latin, ch …; Modelle sind im Paket.</source>
         <translation>RapidOCR: language type de (default), en, latin, ch …; the models are in the package.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="166" />
-        <location filename="../texterkennung_seite.py" line="169" />
+        <location filename="../texterkennung_seite.py" line="183" />
+        <location filename="../texterkennung_seite.py" line="186" />
         <source>Texterkennung</source>
         <translation>Text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="166" />
+        <location filename="../texterkennung_seite.py" line="183" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="170" />
+        <location filename="../texterkennung_seite.py" line="187" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="183" />
+        <location filename="../texterkennung_seite.py" line="200" />
         <source>Gelesen: {n} Dokument(e).</source>
         <translation>Read: {n} document(s).</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="191" />
+        <location filename="../texterkennung_seite.py" line="208" />
         <source>Lese {nummer} von {gesamt}: {name} …</source>
         <translation>Reading {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="229" />
+        <location filename="../texterkennung_seite.py" line="246" />
         <source>Seite {nummer}</source>
         <translation>Page {nummer}</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="230" />
+        <location filename="../texterkennung_seite.py" line="247" />
         <source> (OCR)</source>
         <translation> (OCR)</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="239" />
+        <location filename="../texterkennung_seite.py" line="256" />
         <source>{n} Dokument(e) noch nicht gelesen</source>
         <translation>{n} document(s) not read yet</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="241" />
+        <location filename="../texterkennung_seite.py" line="258" />
         <source>{n} Textdatei(en) brauchen keine Texterkennung</source>
         <translation>{n} text file(s) need no text recognition</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="280" />
+        <location filename="../texterkennung_seite.py" line="297" />
+        <source>Erkannter Text (OCR, als Markdown gegliedert), von Hand korrigierbar. Die Korrektur gilt für Textdatei, Markdown und die Textebene; die Schwärzung im Bild folgt den OCR-Kästen.</source>
+        <translation>Recognised text (OCR, structured as Markdown), correctable by hand. The correction feeds the text file, the Markdown and the text layer; the redaction in the image follows the OCR boxes.</translation>
+    </message>
+    <message>
+        <location filename="../texterkennung_seite.py" line="300" />
         <source>Erkannter Text (OCR), von Hand korrigierbar. Die Korrektur gilt für Textdatei, Markdown und die Textebene; die Schwärzung im Bild folgt den OCR-Kästen.</source>
         <translation>Recognised text (OCR), editable by hand. The correction applies to the text file, the Markdown and the text layer; the redaction in the image follows the OCR boxes.</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="283" />
+        <location filename="../texterkennung_seite.py" line="303" />
         <source>korrigiert</source>
         <translation>corrected</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="284" />
+        <location filename="../texterkennung_seite.py" line="304" />
         <source>OCR-Text unverändert</source>
         <translation>OCR text unchanged</translation>
     </message>
     <message>
-        <location filename="../texterkennung_seite.py" line="286" />
+        <location filename="../texterkennung_seite.py" line="306" />
         <source>Text der Textebene (nicht veränderbar)</source>
         <translation>Text of the text layer (not editable)</translation>
     </message>

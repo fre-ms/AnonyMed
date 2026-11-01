@@ -67,6 +67,12 @@ class TexterkennungSeite(QWidget):
             " lesen (Tesseract)"))
         self.tabellen.setChecked(True)
         form.addRow(self.tabellen)
+        self.gliedern = QCheckBox(self.tr(
+            "Erkannten Text gliedern: Absätze zusammenfügen, Überschriften, Listen und"
+            " Tabellen als Markdown (für das Sprachmodell)"))
+        self.gliedern.setChecked(self.sitzung.optionen.gliedern)
+        self.gliedern.toggled.connect(self._gliedern_gewechselt)
+        form.addRow(self.gliedern)
         zeile = QHBoxLayout()
         self.fortschritt = QProgressBar()
         self.fortschritt.setRange(0, 1)
@@ -148,11 +154,22 @@ class TexterkennungSeite(QWidget):
             self.sprachen_hinweis.setText(self.tr(
                 "RapidOCR: Sprachtyp de (Standard), en, latin, ch …; Modelle sind im Paket."))
 
+    def _gliedern_gewechselt(self, an: bool) -> None:
+        """Takes effect at once: the structure was computed when the page was read."""
+        self.sitzung.optionen.gliedern = an
+        for d in self.sitzung.dokumente:
+            for traeger in (d.lesung, d.vorbereitung):
+                if traeger is not None and hasattr(traeger, "opt"):
+                    traeger.opt.gliedern = an
+        self._geladen = None
+        self.zeichne()
+
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen
         o.ocr = self.engine.currentData()
         o.ocr_sprachen = self.sprachen.text().strip()
         o.ocr_tabellen = self.tabellen.isChecked()
+        o.gliedern = self.gliedern.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:
         if self.synchron:
@@ -277,6 +294,9 @@ class TexterkennungSeite(QWidget):
         self.zuruecksetzen.setEnabled(ocr)
         if ocr:
             self.text_titel.setText(self.tr(
+                "Erkannter Text (OCR, als Markdown gegliedert), von Hand korrigierbar. Die"
+                " Korrektur gilt für Textdatei, Markdown und die Textebene; die Schwärzung im"
+                " Bild folgt den OCR-Kästen.") if self.gliedern.isChecked() else self.tr(
                 "Erkannter Text (OCR), von Hand korrigierbar. Die Korrektur gilt für Textdatei,"
                 " Markdown und die Textebene; die Schwärzung im Bild folgt den OCR-Kästen."))
             s = lesung.seiten[self.seite]

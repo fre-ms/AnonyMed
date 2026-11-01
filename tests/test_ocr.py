@@ -307,6 +307,9 @@ def test_ocr_text_korrigieren(tmp_path: Path, befund: Path, patient: Patient,
     assert v.ocr_text(0) == neu and v.korrektur_treffer
     assert v.setze_ocr_text(0, ocr) == [] and v.seiten[0].korrektur is None  # back to OCR
     v.setze_ocr_text(0, neu)
+    ocr_seite = v.seiten[0].ocr
+    a = ocr_seite.text.index("Diagnosen")
+    ocr_box = ocr_seite.rects(a, a + len("Diagnosen"))[0]
     erg = abschliessen(v)
     assert erg.freigegeben, als_text(erg.bericht)
     txt = erg.ziel_txt.read_text(encoding="utf-8")
@@ -314,7 +317,11 @@ def test_ocr_text_korrigieren(tmp_path: Path, befund: Path, patient: Patient,
     assert gefundene_klardaten(txt, patient) == []
     with pymupdf.open(erg.ziel_pdf) as d:
         text = d[0].get_text("text")
+        gefunden = d[0].search_for("Diagnosen")
     assert "Zusatz:" in text and patient.ort not in text  # the invisible layer is the correction
+    # the corrected text sits on the image words: selecting "Diagnosen" covers the printed word
+    assert any(abs(r.x0 - ocr_box.x0) < 3 and r.y0 < ocr_box.y1 and r.y1 > ocr_box.y0
+               for r in gefunden), (gefunden, ocr_box)
     assert any(f["quelle"] == "korrektur" for f in erg.bericht.fundstellen)
 
 
@@ -482,3 +489,35 @@ def test_tesseract_liest_tabellen(tmp_path: Path, befund: Path) -> None:
     with pymupdf.open(befund) as d:
         bild, _skala = aufmodul.rendere(d[0], 150)
         assert aufmodul.gitterbereiche(bild) == []
+
+
+@braucht_backend
+def test_gegliederter_ocr_text(tmp_path: Path, befund: Path, patient: Patient,
+                               speicher: Pseudonymspeicher) -> None:
+    """The OCR text goes out as Markdown with paragraphs joined; ``gliedern=False`` keeps
+    the raw lines; the structured text is what the text-recognition step shows."""
+    from anonymed.ablauf import abschliessen, vorbereiten
+
+    scan = _scan(befund, tmp_path / "scan.pdf")
+    v = vorbereiten(scan, patient, Ablaufoptionen(), speicher=speicher)
+    roh = v.seiten[0].ocr.text
+    gegliedert = v.ocr_text(0)
+    assert v.seiten[0].gliederung is not None and gegliedert != roh
+    # a line that ran to the margin continues in the next one: joined with a space
+    rollen, zeilen = v.seiten[0].gliederung.rollen, roh.split("\n")
+    k = next(i for i, r in enumerate(rollen) if r.trenner == "wort")
+    assert zeilen[k - 1].strip() + " " + zeilen[k].strip() in gegliedert
+    assert "\n\n" in gegliedert  # and the blocks are kept apart
+    assert v.setze_ocr_text(0, gegliedert) == [] and v.seiten[0].korrektur is None
+    erg = abschliessen(v)
+    assert erg.freigegeben, als_text(erg.bericht)
+    assert "Diagnosen" in erg.text and gefundene_klardaten(erg.text, patient) == []
+    assert erg.bericht.optionen["gliedern"] is True
+    roh_erg = anonymisiere(scan, patient, Ablaufoptionen(gliedern=False, suffix="_roh"),
+                           speicher=speicher)
+    assert roh_erg.freigegeben and roh_erg.bericht.optionen["gliedern"] is False
+    # without structuring the continuation line still starts a line of its own
+    anfaenge = [" ".join(zeilen[i].split()[:2]) for i, r in enumerate(rollen)
+                if r.trenner == "wort" and len(zeilen[i].split()) >= 2]
+    anfang = next(a for a in anfaenge if "\n" + a in roh_erg.text)
+    assert "\n" + anfang not in erg.text and " " + anfang in erg.text

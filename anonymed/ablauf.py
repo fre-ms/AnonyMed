@@ -3,6 +3,7 @@ redact, clean, check, report."""
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import re
 from collections.abc import Iterable
@@ -13,9 +14,11 @@ from typing import ClassVar
 import pymupdf
 
 from anonymed.dokument import aufbereitung as aufmodul
+from anonymed.dokument import gliederung as gliedmodul
 from anonymed.dokument import ocr as ocrmodul
 from anonymed.dokument import textdatei as textmodul
 from anonymed.dokument.laden import BILDENDUNGEN, HEIC_ENDUNGEN, oeffne
+from anonymed.dokument.textabgleich import textebene_aus_korrektur
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
 from anonymed.erkennung import fachbegriffe as fachmodul
@@ -49,7 +52,6 @@ from anonymed.schwaerzen.pdf import (
     schwaerze_seite,
     speichere,
     unsichtbare_textebene,
-    unsichtbarer_textblock,
 )
 
 
@@ -77,6 +79,7 @@ class Ablaufoptionen:
     papierformat: str = "a4"  # page size for photos and images: a4, a5, a3, letter, legal, bild
     ocr_tabellen: bool = True  # Tesseract: second pass for sparse text (tables), merged in
     vokabular: bool = True  # write <name>_anonym.vokabular.txt with the discarded guesses
+    gliedern: bool = True  # OCR text as Markdown: paragraphs joined, headings, lists, tables
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -97,6 +100,7 @@ class Ablaufoptionen:
             "aufbereiten": self.aufbereiten,
             "papierformat": self.papierformat,
             "ocr_tabellen": self.ocr_tabellen,
+            "gliedern": self.gliedern,
         }
 
 
@@ -251,6 +255,7 @@ class _Seite:
     ocr_dpi: int = ocrmodul.OCR_DPI  # resolution the page was (and is re-)read at
     ocr_max_pixel: int = ocrmodul.MAX_PIXEL
     ocr_filter: object = None  # letter-aware finish applied before the engine
+    gliederung: gliedmodul.Gliederung | None = None  # layout roles of the OCR lines
 
 
 def _lese_roh(
@@ -280,6 +285,7 @@ def _lese_roh(
                 eintrag.ocr = ocrmodul.erkenne_seite(page, backend, i, eintrag.ocr_dpi,
                                                      max_pixel=eintrag.ocr_max_pixel,
                                                      filter_=eintrag.ocr_filter)
+                eintrag.gliederung = gliedmodul.gliedere_seite(page, eintrag.ocr)
         seiten.append(eintrag)
     return seiten, ohne_text
 
@@ -386,17 +392,34 @@ def _anonym(text: str, fundstellen: list[Fundstelle]) -> str:
     return re.sub(r"\n{3,}", "\n\n", textmodul.ersetze(text, fundstellen)).strip()
 
 
-def _ocr_text_anonym(s: _Seite) -> str:
-    """The OCR text of a page with pseudonyms: the user's correction when there is one."""
+def _lesetext(s: _Seite, opt: Ablaufoptionen) -> str:
+    """The OCR text as it is shown and corrected: the user's correction, else the raw
+    reading, structured as Markdown when asked for."""
+    if s.korrektur is not None:
+        return s.korrektur
+    if s.ocr is None:
+        return ""
+    if opt.gliedern and s.gliederung is not None:
+        return s.gliederung.rendere(s.ocr.text)
+    return s.ocr.text
+
+
+def _ocr_text_anonym(s: _Seite, gliedern: bool = True) -> str:
+    """The OCR text of a page with pseudonyms: the user's correction when there is one,
+    else the reading with the hits replaced, structured as Markdown when asked for
+    (the structure is applied after the replacement: both texts share their lines)."""
     if s.korrektur is not None:
         return _anonym(s.korrektur, s.korrektur_treffer)
     assert s.ocr is not None
     quellen = ("ocr",) + (("manuell",) if not s.text.hat_textebene else ())
     treffer = [f for f in s.fundstellen if f.quelle in quellen and f.ende > f.start]
-    return _anonym(s.ocr.text, treffer)
+    roh = textmodul.ersetze(s.ocr.text, treffer)
+    if gliedern and s.gliederung is not None:
+        roh = s.gliederung.rendere(roh)
+    return re.sub(r"\n{3,}", "\n\n", roh).strip()
 
 
-def _text(seiten: list[_Seite]) -> str:
+def _text(seiten: list[_Seite], gliedern: bool = True) -> str:
     """Reading-order text with pseudonyms: text layer first, OCR text as its own block."""
     def block(s: _Seite, text: str) -> str:
         return f"=== Seite {s.nummer + 1} ===\n\n{text}"
@@ -409,7 +432,8 @@ def _text(seiten: list[_Seite]) -> str:
     teile = "\n\n".join(bloecke) + "\n"
     ocr_seiten = [s for s in seiten if s.ocr is not None]
     if ocr_seiten:
-        ocr_text = "\n\n".join(block(s, _ocr_text_anonym(s)) for s in ocr_seiten) + "\n"
+        ocr_text = "\n\n".join(block(s, _ocr_text_anonym(s, gliedern))
+                                for s in ocr_seiten) + "\n"
         teile = teile.rstrip("\n") + "\n\n--- Bildtext (OCR, ungeprüft) ---\n\n" + ocr_text
     return teile
 
@@ -530,11 +554,9 @@ class Vorbereitung:
 
     def ocr_text(self, nummer: int) -> str:
         """The recognised text of page ``nummer`` as it will be written out: the user's
-        correction when there is one, else the OCR reading; "" without OCR."""
-        s = self.seiten[nummer]
-        if s.korrektur is not None:
-            return s.korrektur
-        return s.ocr.text if s.ocr is not None else ""
+        correction when there is one, else the OCR reading (structured as Markdown when
+        asked for); "" without OCR."""
+        return _lesetext(self.seiten[nummer], self.opt)
 
     def setze_ocr_text(self, nummer: int, text: str) -> list[Fundstelle]:
         """Replace the OCR text of page ``nummer`` by the user's correction.
@@ -547,7 +569,7 @@ class Vorbereitung:
         s = self.seiten[nummer]
         if s.ocr is None:
             raise ValueError("Diese Seite hat keinen OCR-Text.")
-        if text.strip() == s.ocr.text.strip():
+        if _unveraendert(s, text):
             s.korrektur, s.korrektur_treffer = None, []
             return []
         s.korrektur = text
@@ -694,24 +716,21 @@ class Lesung:
         return self.doc[nummer].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
 
     def text(self, nummer: int) -> str:
-        """Text of the page: the (corrected) OCR text for OCR pages, else the text layer."""
+        """Text of the page: the (corrected, structured) OCR text for OCR pages, else
+        the text layer."""
         s = self.seiten[nummer]
-        if s.ocr is not None:
-            return s.korrektur if s.korrektur is not None else s.ocr.text
-        return s.text.text
+        return _lesetext(s, self.opt) if s.ocr is not None else s.text.text
 
     def ocr_text(self, nummer: int) -> str:
-        s = self.seiten[nummer]
-        if s.korrektur is not None:
-            return s.korrektur
-        return s.ocr.text if s.ocr is not None else ""
+        return _lesetext(self.seiten[nummer], self.opt)
 
     def setze_ocr_text(self, nummer: int, text: str) -> None:
-        """Keep the user's correction of the OCR text; the same text as read resets it."""
+        """Keep the user's correction of the OCR text; the text as read (raw or
+        structured) resets it."""
         s = self.seiten[nummer]
         if s.ocr is None:
             raise ValueError("Diese Seite hat keinen OCR-Text.")
-        s.korrektur = None if text.strip() == s.ocr.text.strip() else text
+        s.korrektur = None if _unveraendert(s, text) else text
 
     def schliessen(self) -> None:
         for d in (self.doc, self.original):
@@ -719,6 +738,15 @@ class Lesung:
                 d.close()
             except Exception:  # already closed
                 pass
+
+
+def _unveraendert(s: _Seite, text: str) -> bool:
+    """True when ``text`` is the OCR reading itself, raw or structured."""
+    assert s.ocr is not None
+    kandidaten = [s.ocr.text.strip()]
+    if s.gliederung is not None:
+        kandidaten.append(s.gliederung.rendere(s.ocr.text).strip())
+    return text.strip() in kandidaten
 
 
 def lese(
@@ -758,8 +786,8 @@ def lese(
             f"Scan/Foto: Seite(n) {', '.join(map(str, ocr_seiten))} per OCR gelesen"
             f" ({backend.name if backend else '?'}, {unsicher} unsichere Wörter)."
         )
-        warnungen.append("OCR-Seiten: Handschrift wird nicht erkannt; erkannten Text und"
-                         " Vorschaubilder vor der Weitergabe prüfen.")
+        hinweise.append("OCR-Seiten: Handschrift wird nicht erkannt; erkannten Text und"
+                        " Vorschaubilder vor der Weitergabe prüfen.")
     return Lesung(quelle=quelle, opt=opt, doc=doc, original=original, backend=backend,
                   seiten=seiten, ohne_text=ohne_text, plan=plan, warnungen=warnungen,
                   hinweise=hinweise)
@@ -797,7 +825,7 @@ def analysiere(
         hinweise.append(hinweis)
     unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
     if unlesbar:
-        warnungen.append(f"{unlesbar} unlesbare OCR-Zeile(n) vorsorglich geschwärzt.")
+        hinweise.append(f"{unlesbar} unlesbare OCR-Zeile(n) vorsorglich geschwärzt.")
     verworfen = _gemerkte_verwerfen(seiten, speicher.verworfene(patient))
     if verworfen:
         hinweise.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
@@ -979,8 +1007,8 @@ def _vorbereiten_text(
         hinweise.append(hinweis)
     unscharfe = sum(1 for f in eintrag.fundstellen if f.quelle == "unscharf")
     if unscharfe:
-        warnungen.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"
-                         " (Transkript, Tippfehler); im Prüfschritt ansehen.")
+        hinweise.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"
+                        " (Transkript, Tippfehler); im Prüfschritt ansehen.")
     verworfen = _gemerkte_verwerfen([eintrag], speicher.verworfene(patient))
     if verworfen:
         hinweise.append(f"{len(verworfen)} Treffer nach gespeicherter Entscheidung verworfen"
@@ -1107,7 +1135,16 @@ def _textebene_einbetten(doc: pymupdf.Document, seiten: list[_Seite], gerastert:
         if s.nummer in gerastert:
             unsichtbare_textebene(page, s.text, s.fundstellen, mit_pseudonymen=True, opt=opt)
         if s.ocr is not None and s.korrektur is not None:
-            unsichtbarer_textblock(page, _ocr_text_anonym(s), s.ocr, opt=opt)
+            # the corrected (or restructured) text, every word on the box of the OCR
+            # word it came from, so that selecting it in a reader covers the image word
+            ebene = textebene_aus_korrektur(s.korrektur, s.ocr)
+            treffer = s.korrektur_treffer
+            if s.nummer in gerastert:
+                treffer = [dataclasses.replace(f, rects=[tuple(r) for r in
+                                                         ebene.rects(f.start, f.ende)])
+                           for f in treffer]
+            unsichtbare_textebene(page, ebene, treffer, mit_pseudonymen=s.nummer in gerastert,
+                                  opt=opt)
         elif s.ocr is not None:
             ocr_treffer = [f for f in s.fundstellen if f.quelle in ("ocr", "manuell")]
             unsichtbare_textebene(page, s.ocr, ocr_treffer,
@@ -1131,7 +1168,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
     try:
         fundstellen = v.fundstellen + v.korrektur_treffer
         v.vergabe.registriere_treffer(fundstellen)
-        text = _text(seiten)
+        text = _text(seiten, opt.gliedern)
         doc = pymupdf.open("pdf", v.doc.tobytes())
         original = pymupdf.open("pdf", v.original.tobytes())
         try:
