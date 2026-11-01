@@ -51,6 +51,9 @@ class Einstellungen:
     tesseract_pfad: str = ""  # explicit path to the tesseract program
     tesseract_sprachen: str = ""  # e.g. "deu+eng"; empty = whatever of deu/eng is installed
     gui_sprache: str = ""  # "de", "en" or empty = system locale
+    empfaenger_schluessel: str = ""  # public key of the recipient: file or https address
+    empfaenger_fingerabdruck: str = ""  # pinned once the user confirmed it
+    pgp_privater_schluessel: str = ""  # private-key file for capsules; empty = GnuPG keyring
 
 
 def _lese_toml(pfad: Path) -> dict:
@@ -65,11 +68,16 @@ def lade_einstellungen(pfad: str | Path | None = None) -> Einstellungen:
     daten = _lese_toml(Path(pfad) if pfad else konfigpfad())
     ocr = daten.get("ocr", {})
     gui = daten.get("gui", {})
+    empfaenger = daten.get("empfaenger", {})
+    pgp = daten.get("pgp", {})
     e = Einstellungen(
         ocr_backend=str(ocr.get("backend", "auto")),
         tesseract_pfad=str(ocr.get("tesseract", "")),
         tesseract_sprachen=str(ocr.get("sprachen", "")),
         gui_sprache=str(gui.get("sprache", "")),
+        empfaenger_schluessel=str(empfaenger.get("schluessel", "")),
+        empfaenger_fingerabdruck=str(empfaenger.get("fingerabdruck", "")),
+        pgp_privater_schluessel=str(pgp.get("privater_schluessel", "")),
     )
     e.ocr_backend = os.environ.get("ANONYMED_OCR", e.ocr_backend).strip() or "auto"
     e.tesseract_pfad = os.environ.get("ANONYMED_TESSERACT", e.tesseract_pfad).strip()
@@ -77,10 +85,7 @@ def lade_einstellungen(pfad: str | Path | None = None) -> Einstellungen:
     return e
 
 
-def speichere_einstellungen(e: Einstellungen, pfad: str | Path | None = None) -> Path:
-    """Write [ocr] and [gui], keeping the [carddav] section as it is."""
-    pfad = Path(pfad) if pfad else konfigpfad()
-    carddav = _lese_toml(pfad).get("carddav", {})
+def _schreibe(pfad: Path, carddav: dict, e: Einstellungen) -> Path:
     pfad.parent.mkdir(parents=True, exist_ok=True)
     zeilen = ["[carddav]"]
     for k in ("url", "benutzer", "adressbuch"):
@@ -88,13 +93,22 @@ def speichere_einstellungen(e: Einstellungen, pfad: str | Path | None = None) ->
     zeilen += ["", "[ocr]", f"backend = {_toml_wert(e.ocr_backend)}",
                f"tesseract = {_toml_wert(e.tesseract_pfad)}",
                f"sprachen = {_toml_wert(e.tesseract_sprachen)}",
-               "", "[gui]", f"sprache = {_toml_wert(e.gui_sprache)}"]
+               "", "[gui]", f"sprache = {_toml_wert(e.gui_sprache)}",
+               "", "[empfaenger]", f"schluessel = {_toml_wert(e.empfaenger_schluessel)}",
+               f"fingerabdruck = {_toml_wert(e.empfaenger_fingerabdruck)}",
+               "", "[pgp]", f"privater_schluessel = {_toml_wert(e.pgp_privater_schluessel)}"]
     pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
     try:
         os.chmod(pfad, 0o600)
     except OSError:
         pass
     return pfad
+
+
+def speichere_einstellungen(e: Einstellungen, pfad: str | Path | None = None) -> Path:
+    """Write [ocr], [gui], [empfaenger] and [pgp], keeping [carddav] as it is."""
+    pfad = Path(pfad) if pfad else konfigpfad()
+    return _schreibe(pfad, _lese_toml(pfad).get("carddav", {}), e)
 
 
 def lade_konfig(pfad: str | Path | None = None) -> CardDAVKonfig:
@@ -120,22 +134,10 @@ def _toml_wert(text: str) -> str:
 
 
 def speichere_konfig(k: CardDAVKonfig, pfad: str | Path | None = None) -> Path:
-    """Write the [carddav] section, keeping [ocr] and [gui] as they are."""
+    """Write the [carddav] section, keeping the other sections as they are."""
     pfad = Path(pfad) if pfad else konfigpfad()
     e = lade_einstellungen(pfad) if pfad.exists() else Einstellungen()
-    pfad.parent.mkdir(parents=True, exist_ok=True)
-    zeilen = ["[carddav]", f"url = {_toml_wert(k.url)}", f"benutzer = {_toml_wert(k.benutzer)}",
-              f"adressbuch = {_toml_wert(k.adressbuch)}", "", "[ocr]",
-              f"backend = {_toml_wert(e.ocr_backend)}",
-              f"tesseract = {_toml_wert(e.tesseract_pfad)}",
-              f"sprachen = {_toml_wert(e.tesseract_sprachen)}", "", "[gui]",
-              f"sprache = {_toml_wert(e.gui_sprache)}"]
-    pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
-    try:
-        os.chmod(pfad, 0o600)
-    except OSError:
-        pass
-    return pfad
+    return _schreibe(pfad, {"url": k.url, "benutzer": k.benutzer, "adressbuch": k.adressbuch}, e)
 
 
 def passwort_laden(k: CardDAVKonfig) -> str | None:

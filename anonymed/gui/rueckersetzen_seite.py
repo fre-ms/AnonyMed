@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
+    QGroupBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -15,6 +20,11 @@ from PySide6.QtWidgets import (
 )
 
 from anonymed.gui.sitzung import Sitzung
+from anonymed.konfig import lade_einstellungen, speichere_einstellungen
+from anonymed.pseudonyme import kapsel as kapselmodul
+from anonymed.pseudonyme import pgp as pgpmodul
+from anonymed.pseudonyme.abgleich import abgleichen
+from anonymed.pseudonyme.kapsel import Kapsel
 from anonymed.pseudonyme.rueckersetzung import rueckersetzen
 
 
@@ -22,7 +32,38 @@ class RueckersetzenSeite(QWidget):
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
         self.sitzung = sitzung
+        self.synchron = False
+        self.kapsel: Kapsel | None = None
+        self.passphrase: str | None = None  # tests set it; the app asks
         aussen = QVBoxLayout(self)
+
+        kapselgruppe = QGroupBox(self.tr("Schlüsselkapsel eines Absenders"))
+        kz = QVBoxLayout(kapselgruppe)
+        zeile = QHBoxLayout()
+        self.kapsel_knopf = QPushButton(self.tr("Kapsel öffnen …"))
+        self.kapsel_knopf.clicked.connect(self.kapsel_waehlen)
+        self.kapsel_schliessen_knopf = QPushButton(self.tr("Kapsel schließen"))
+        self.kapsel_schliessen_knopf.clicked.connect(self.kapsel_schliessen)
+        self.kapsel_schliessen_knopf.setEnabled(False)
+        zeile.addWidget(self.kapsel_knopf)
+        zeile.addWidget(self.kapsel_schliessen_knopf)
+        zeile.addWidget(QLabel(self.tr("Privater Schlüssel (Datei; leer = GnuPG-Schlüsselbund)")))
+        self.privater_schluessel = QLineEdit(lade_einstellungen().pgp_privater_schluessel)
+        self.privater_schluessel.editingFinished.connect(self._schluessel_merken)
+        zeile.addWidget(self.privater_schluessel, 1)
+        schluessel_waehlen = QPushButton("…")
+        schluessel_waehlen.clicked.connect(self.schluessel_waehlen)
+        zeile.addWidget(schluessel_waehlen)
+        kz.addLayout(zeile)
+        self.kapsel_info = QLabel(self.tr(
+            "Eine Kapsel (<name>_anonym.kapsel.asc) kommt vom Absender eines pseudonymisierten"
+            " Dokuments und enthält die Zuordnung, verschlüsselt für Ihren Schlüssel."))
+        self.kapsel_info.setWordWrap(True)
+        kz.addWidget(self.kapsel_info)
+        if not pgpmodul.verfuegbar():
+            kapselgruppe.setEnabled(False)
+            kapselgruppe.setToolTip(self.tr("Extra 'pgp' (pysequoia) oder GnuPG installieren."))
+        aussen.addWidget(kapselgruppe)
 
         oben = QHBoxLayout()
         oben.addWidget(QLabel(self.tr("Person:")))
@@ -87,15 +128,90 @@ class RueckersetzenSeite(QWidget):
             with open(pfad, encoding="utf-8", errors="replace") as f:
                 self.eingabe.setPlainText(f.read())
 
+    # -- capsules ----------------------------------------------------------------------------------
+    def schluessel_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Privater Schlüssel"), "",
+            self.tr("OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)"))
+        if pfad:
+            self.privater_schluessel.setText(pfad)
+            self._schluessel_merken()
+
+    def _schluessel_merken(self) -> None:
+        e = lade_einstellungen()
+        if e.pgp_privater_schluessel != self.privater_schluessel.text().strip():
+            e.pgp_privater_schluessel = self.privater_schluessel.text().strip()
+            try:
+                speichere_einstellungen(e)
+            except OSError:
+                pass
+
+    def kapsel_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Schlüsselkapsel"), "",
+            self.tr("Kapseln (*.kapsel.asc *.asc);;Alle Dateien (*)"))
+        if pfad:
+            self.kapsel_oeffnen(Path(pfad))
+
+    def kapsel_oeffnen(self, pfad: Path, passphrase: str | None = None) -> Kapsel | None:
+        """Decrypt a capsule (asking for the passphrase when a key file needs one) and
+        switch the re-identification to its mapping."""
+        schluessel = self.privater_schluessel.text().strip() or None
+        passphrase = passphrase if passphrase is not None else self.passphrase
+        try:
+            try:
+                k = kapselmodul.oeffne(pfad, schluessel, passphrase)
+            except pgpmodul.PGPFehler as e:
+                if "Passphrase" not in str(e) or self.synchron:
+                    raise
+                eingabe, ok = QInputDialog.getText(
+                    self, self.tr("Passphrase"),
+                    self.tr("Passphrase des privaten Schlüssels:"), QLineEdit.EchoMode.Password)
+                if not ok:
+                    return None
+                k = kapselmodul.oeffne(pfad, schluessel, eingabe)
+        except (pgpmodul.PGPFehler, kapselmodul.KapselFehler, OSError) as e:
+            self.kapsel_info.setText(self.tr("Kapsel nicht lesbar: {fehler}").format(fehler=e))
+            if self.synchron:
+                raise RuntimeError(str(e)) from e
+            return None
+        self.kapsel = k
+        lokal = ""
+        try:
+            with self.sitzung.speicher() as sp:
+                gleiche = [v for v in abgleichen(k.als_patient(), sp.kandidaten()) if v.gleich]
+            if gleiche:
+                lokal = self.tr(" Entspricht dem lokalen Eintrag {kennung}.").format(
+                    kennung=gleiche[0].kennung)
+            else:
+                lokal = self.tr(" Kein passender Eintrag in der lokalen Datenbank.")
+        except OSError:
+            pass
+        self.kapsel_info.setText(self.tr("Kapsel geöffnet: {beschreibung}.").format(
+            beschreibung=k.beschreibung()) + lokal)
+        self.person.setEnabled(False)
+        self.kapsel_schliessen_knopf.setEnabled(True)
+        return k
+
+    def kapsel_schliessen(self) -> None:
+        self.kapsel = None
+        self.person.setEnabled(True)
+        self.kapsel_schliessen_knopf.setEnabled(False)
+        self.kapsel_info.setText(self.tr("Kapsel geschlossen; wieder lokale Datenbank."))
+
     def rueckersetzen(self) -> None:
-        schluessel = self.person.currentData()
-        if not schluessel:
-            self.hinweis.setText(self.tr("Keine Person gewählt."))
-            return
-        with self.sitzung.speicher() as sp:
-            zuordnung = sp.zuordnung(schluessel)
-            info = sp.patient_info(schluessel)
-            bekannte = sp.kennungen()
+        if self.kapsel is not None:
+            zuordnung, info, bekannte = self.kapsel.zuordnungen, self.kapsel.info(), \
+                [self.kapsel.kennung]
+        else:
+            schluessel = self.person.currentData()
+            if not schluessel:
+                self.hinweis.setText(self.tr("Keine Person gewählt."))
+                return
+            with self.sitzung.speicher() as sp:
+                zuordnung = sp.zuordnung(schluessel)
+                info = sp.patient_info(schluessel)
+                bekannte = sp.kennungen()
         r = rueckersetzen(self.eingabe.toPlainText(), zuordnung, info,
                           form=self.form.currentData(), bekannte_kennungen=bekannte)
         self.ausgabe.setPlainText(r.text)

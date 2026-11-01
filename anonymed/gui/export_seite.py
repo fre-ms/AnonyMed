@@ -249,6 +249,9 @@ class ExportSeite(QWidget):
                 text += self.tr("Markdown: {pfad}").format(pfad=ergebnis.ziel_md) + "\n"
             if ergebnis.ziel_vokabular:
                 text += self.tr("Vokabular: {pfad}").format(pfad=ergebnis.ziel_vokabular) + "\n"
+            if ergebnis.ziel_kapsel:
+                text += self.tr("Schlüsselkapsel (nur an den Empfänger geben): {pfad}").format(
+                    pfad=ergebnis.ziel_kapsel) + "\n"
             if ergebnis.vorschau:
                 text += self.tr("Vorschau: {pfad}").format(pfad=ergebnis.vorschau[0].parent) + "\n"
         else:

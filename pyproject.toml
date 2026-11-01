@@ -29,6 +29,7 @@ ocr = ["rapidocr>=3", "onnxruntime>=1.18", "pillow>=10", "pillow-heif>=0.18"]
 codes = ["zxing-cpp>=2.2", "pillow>=10"]
 carddav = ["keyring>=25"]
 gui = ["PySide6>=6.7"]
+pgp = ["pysequoia>=0.1.30"]  # key capsules for recipients (OpenPGP)
 ner = [
   "spacy>=3.8",
   "de-core-news-md @ https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.8.0/de_core_news_md-3.8.0-py3-none-any.whl",

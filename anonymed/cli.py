@@ -31,6 +31,7 @@ from anonymed.pseudonyme.speicher import (
     SCHEMATA,
     Pseudonymspeicher,
     UnsichererAbgleich,
+    einmalspeicher,
     schluesselpfad_zu,
     standardpfad,
 )
@@ -265,8 +266,24 @@ def anonymisieren(
         "--gliedern/--roh",
         help="OCR-Text als Markdown gliedern: Absätze zusammenfügen, Überschriften, Listen,"
              " Tabellen.")] = True,
+    empfaenger: Annotated[str | None, typer.Option(
+        "--empfaenger",
+        help="Öffentlicher OpenPGP-Schlüssel des Empfängers (Datei oder https-Adresse):"
+             " Pseudonyme mit Einmalschlüssel, Zuordnung als verschlüsselte Kapsel"
+             " <name>_anonym.kapsel.asc für den Empfänger; lokal wird nichts gespeichert.")]
+    = None,
 ) -> None:
     """Dokumente und Texte schwärzen, Pseudonyme einsetzen, Gegenprobe, Bericht."""
+    zertifikat = None
+    if empfaenger:
+        from anonymed.pseudonyme import pgp as pgpmodul
+
+        try:
+            zertifikat = pgpmodul.lade_zertifikat(empfaenger)
+        except pgpmodul.PGPFehler as e:
+            typer.echo(f"Empfänger-Schlüssel: {e}", err=True)
+            raise typer.Exit(code=1) from e
+        typer.echo(f"Empfänger: {zertifikat.beschreibung()}", err=True)
     try:
         papierformat(papier)
     except ValueError as e:
@@ -298,11 +315,13 @@ def anonymisieren(
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
         vokabular=vokabular, gliedern=gliedern,
+        empfaenger=zertifikat.armor if zertifikat else "",
+        empfaenger_fingerabdruck=zertifikat.fingerabdruck if zertifikat else "",
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,
                                     textebene=textebene),
     )
     alles_frei = True
-    with _speicher(speicher, schema) as sp:
+    with (einmalspeicher(schema) if zertifikat else _speicher(speicher, schema)) as sp:
         for datei in dateien:
             try:
                 erg = anonymisiere(datei, p, opt, speicher=sp)
@@ -318,6 +337,8 @@ def anonymisieren(
                 typer.echo(f"Vorschau:    {erg.vorschau[0].parent} ({len(erg.vorschau)} Seiten)")
             if erg.freigegeben:
                 typer.echo(f"Freigegeben: {erg.ziel}")
+                if erg.ziel_kapsel:
+                    typer.echo(f"Kapsel:      {erg.ziel_kapsel}  (nur an den Empfänger geben)")
                 if erg.ziel_txt and not erg.ist_text:
                     typer.echo(f"Text:        {erg.ziel_txt}")
                 if erg.ziel_md:
@@ -393,6 +414,17 @@ def rueckersetzen(
     form: Annotated[str, typer.Option("--form", help="'vollname' oder 'anrede'.")] = "vollname",
     ausgabe: Annotated[Path | None, typer.Option("--ausgabe", "-o", help="Zieldatei.")] = None,
     speicher: SpeicherOption = None,
+    kapsel: Annotated[Path | None, typer.Option(
+        "--kapsel", exists=True,
+        help="Schlüsselkapsel eines Absenders (<name>_anonym.kapsel.asc) statt der lokalen"
+             " Datenbank.")] = None,
+    privater_schluessel: Annotated[Path | None, typer.Option(
+        "--privater-schluessel", exists=True,
+        help="Privater OpenPGP-Schlüssel als Datei; ohne Angabe entschlüsselt GnuPG aus dem"
+             " Schlüsselbund.")] = None,
+    passphrase: Annotated[str | None, typer.Option(
+        "--passphrase", envvar="ANONYMED_PGP_PASSPHRASE",
+        help="Passphrase des privaten Schlüssels (sonst fragt der GnuPG-Agent).")] = None,
 ) -> None:
     """Pseudonyme im Text des Sprachmodells durch die Klardaten ersetzen (lokal)."""
     from anonymed.pseudonyme.rueckersetzung import rueckersetzen as _rueck
@@ -400,20 +432,42 @@ def rueckersetzen(
     if form not in ("vollname", "anrede"):
         typer.echo("--form muss 'vollname' oder 'anrede' sein.", err=True)
         raise typer.Exit(code=1)
-    if not kennung and not suche:
-        typer.echo("Bitte --kennung oder --suche angeben.", err=True)
-        raise typer.Exit(code=1)
-    with _speicher(speicher) as sp:
-        treffer = sp.finde(kennung_=kennung, suche=suche)
-        if len(treffer) != 1:
-            typer.echo(
-                f"{len(treffer)} Einträge gefunden; bitte eindeutig wählen (siehe 'pseudonyme').",
-                err=True,
-            )
+    if kapsel is not None:
+        from anonymed.pseudonyme import kapsel as kapselmodul
+        from anonymed.pseudonyme.abgleich import abgleichen
+        from anonymed.pseudonyme.pgp import PGPFehler
+
+        try:
+            k = kapselmodul.oeffne(kapsel, privater_schluessel, passphrase)
+        except (PGPFehler, kapselmodul.KapselFehler, OSError) as e:
+            typer.echo(f"Kapsel: {e}", err=True)
+            raise typer.Exit(code=1) from e
+        typer.echo(f"Kapsel: {k.beschreibung()}", err=True)
+        info, zuordnung, bekannte = k.info(), k.zuordnungen, [k.kennung]
+        try:
+            with _speicher(speicher) as sp:
+                gleiche = [v for v in abgleichen(k.als_patient(), sp.kandidaten()) if v.gleich]
+        except OSError:
+            gleiche = []
+        if gleiche:
+            typer.echo(f"Entspricht dem lokalen Eintrag {gleiche[0].kennung}"
+                       f" ({gleiche[0].nachname}, {gleiche[0].vorname}).", err=True)
+    else:
+        if not kennung and not suche:
+            typer.echo("Bitte --kennung, --suche oder --kapsel angeben.", err=True)
             raise typer.Exit(code=1)
-        info = treffer[0]
-        zuordnung = sp.zuordnung(info["schluessel"])
-        bekannte = sp.kennungen()
+        with _speicher(speicher) as sp:
+            treffer = sp.finde(kennung_=kennung, suche=suche)
+            if len(treffer) != 1:
+                typer.echo(
+                    f"{len(treffer)} Einträge gefunden; bitte eindeutig wählen"
+                    " (siehe 'pseudonyme').",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+            info = treffer[0]
+            zuordnung = sp.zuordnung(info["schluessel"])
+            bekannte = sp.kennungen()
     text = textdatei.read_text(encoding="utf-8") if textdatei else sys.stdin.read()
     r = _rueck(text, zuordnung, info, form=form, bekannte_kennungen=bekannte)
     if ausgabe:
@@ -500,6 +554,13 @@ def konfig(speicher: SpeicherOption = None) -> None:
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
     typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
                "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")
+    from anonymed.pseudonyme import pgp as pgpmodul
+
+    typer.echo("OpenPGP:             " + (", ".join(pgpmodul.engines()) or
+                                         "nicht verfügbar (Extra 'pgp' oder GnuPG)"))
+    if einstellungen.empfaenger_schluessel:
+        typer.echo(f"Empfänger-Schlüssel: {einstellungen.empfaenger_schluessel}"
+                   f" (Fingerabdruck {einstellungen.empfaenger_fingerabdruck or 'ungeprüft'})")
     k = lade_konfig()
     typer.echo(f"Konfiguration:       {konfigpfad()}")
     if k.vollstaendig:
@@ -507,6 +568,65 @@ def konfig(speicher: SpeicherOption = None) -> None:
         typer.echo(f"CardDAV:             {k.benutzer} @ {k.url} ({buch})")
     else:
         typer.echo("CardDAV:             nicht eingerichtet")
+
+
+schluessel_app = typer.Typer(
+    help="OpenPGP-Schlüssel für Schlüsselkapseln: Pseudonyme, die ein Empfänger auflöst.",
+    no_args_is_help=True,
+)
+app.add_typer(schluessel_app, name="schluessel")
+
+
+@schluessel_app.command("zeigen")
+def schluessel_zeigen(
+    quelle: Annotated[str, typer.Argument(help="Schlüsseldatei (.asc) oder https-Adresse.")],
+) -> None:
+    """Fingerabdruck und Namen eines öffentlichen Schlüssels anzeigen (zum Abgleich)."""
+    from anonymed.pseudonyme import pgp as pgpmodul
+
+    try:
+        z = pgpmodul.lade_zertifikat(quelle)
+    except pgpmodul.PGPFehler as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(f"Fingerabdruck: {z.gruppen}")
+    for n in z.nutzer:
+        typer.echo(f"Name:          {n}")
+    if z.ablauf:
+        typer.echo(f"Gültig bis:    {z.ablauf}")
+
+
+@schluessel_app.command("erzeugen")
+def schluessel_erzeugen(
+    name: Annotated[str, typer.Option("--name", prompt="Name", help="Ihr Name.")],
+    email: Annotated[str, typer.Option("--email", prompt="E-Mail", help="Ihre E-Mail-Adresse.")],
+    ziel: Annotated[Path, typer.Option("--ziel", help="Ordner für die beiden Dateien.")]
+    = Path("."),
+) -> None:
+    """Ein Schlüsselpaar für Empfänger ohne GnuPG erzeugen: öffentlichen Schlüssel
+    veröffentlichen, den privaten sicher verwahren (er hat keine Passphrase)."""
+    from anonymed.pseudonyme import pgp as pgpmodul
+
+    try:
+        oeffentlich, geheim = pgpmodul.erzeuge_schluesselpaar(name, email)
+    except pgpmodul.PGPFehler as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    ziel.mkdir(parents=True, exist_ok=True)
+    pub, sec = ziel / "anonymed_oeffentlich.asc", ziel / "anonymed_privat.asc"
+    if sec.exists():
+        typer.echo(f"{sec} existiert schon; nicht überschrieben.", err=True)
+        raise typer.Exit(code=1)
+    pub.write_text(oeffentlich, encoding="utf-8")
+    sec.write_text(geheim, encoding="utf-8")
+    try:
+        os.chmod(sec, 0o600)
+    except OSError:
+        pass
+    z = pgpmodul.lade_zertifikat(oeffentlich)
+    typer.echo(f"Öffentlicher Schlüssel: {pub}  (veröffentlichen, z. B. auf der Webseite)")
+    typer.echo(f"Privater Schlüssel:     {sec}  (geheim halten, sichern; ohne Passphrase)")
+    typer.echo(f"Fingerabdruck:          {z.gruppen}")
 
 
 fachbegriffe_app = typer.Typer(

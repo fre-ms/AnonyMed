@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QMessageBox,
     QProgressBar,
@@ -25,6 +26,8 @@ from anonymed.erkennung import fachbegriffe as fachmodul
 from anonymed.erkennung import ner as nermodul
 from anonymed.gui.arbeiter import Arbeiter
 from anonymed.gui.sitzung import Dokument, Sitzung
+from anonymed.konfig import lade_einstellungen, speichere_einstellungen
+from anonymed.pseudonyme import pgp as pgpmodul
 from anonymed.pseudonyme.speicher import UnsichererAbgleich
 
 
@@ -82,6 +85,36 @@ class AnalysierenSeite(QWidget):
         self.vokabular_knopf.clicked.connect(self.vokabular_waehlen)
         vz.addWidget(self.vokabular_knopf)
         aussen.addWidget(vokabular)
+
+        weitergabe = QGroupBox(self.tr("Empfänger (Pseudonyme zum Weitergeben)"))
+        wf = QFormLayout(weitergabe)
+        self.weitergabe = QCheckBox(self.tr(
+            "Für einen Empfänger pseudonymisieren: Einmalschlüssel, die Zuordnung steht nur in"
+            " einer verschlüsselten Kapsel für den Empfänger; lokal wird nichts gespeichert"))
+        wf.addRow(self.weitergabe)
+        zeile = QHBoxLayout()
+        self.empfaenger_quelle = QLineEdit()
+        self.empfaenger_quelle.setPlaceholderText(self.tr(
+            "Öffentlicher Schlüssel: Datei (.asc) oder https-Adresse"))
+        waehlen = QPushButton("…")
+        waehlen.clicked.connect(self.empfaenger_waehlen)
+        self.empfaenger_knopf = QPushButton(self.tr("Schlüssel prüfen"))
+        self.empfaenger_knopf.clicked.connect(self.empfaenger_pruefen)
+        zeile.addWidget(self.empfaenger_quelle, 1)
+        zeile.addWidget(waehlen)
+        zeile.addWidget(self.empfaenger_knopf)
+        wf.addRow(zeile)
+        self.empfaenger_info = QLabel("")
+        self.empfaenger_info.setWordWrap(True)
+        self.empfaenger_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        wf.addRow(self.empfaenger_info)
+        self.zertifikat: pgpmodul.Zertifikat | None = None
+        einstellungen = lade_einstellungen()
+        self.empfaenger_quelle.setText(einstellungen.empfaenger_schluessel)
+        if not pgpmodul.verfuegbar():
+            weitergabe.setEnabled(False)
+            weitergabe.setToolTip(self.tr("Extra 'pgp' (pysequoia) oder GnuPG installieren."))
+        aussen.addWidget(weitergabe)
 
         aussen.addWidget(QLabel(self.tr("Dokumente dieser Sitzung:")))
         self.liste = QListWidget()
@@ -150,8 +183,61 @@ class AnalysierenSeite(QWidget):
             raise RuntimeError(text)
         QMessageBox.information(self, titel, text)
 
+    # -- recipient ---------------------------------------------------------------------------------
+    def empfaenger_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Öffentlicher Schlüssel des Empfängers"), "",
+            self.tr("OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)"))
+        if pfad:
+            self.empfaenger_quelle.setText(pfad)
+            self.empfaenger_pruefen()
+
+    def empfaenger_pruefen(self) -> pgpmodul.Zertifikat | None:
+        """Load the key, show fingerprint and names, pin the fingerprint in the settings
+        and warn when a key at the same address changed."""
+        quelle = self.empfaenger_quelle.text().strip()
+        if not quelle:
+            self.empfaenger_info.setText(self.tr("Bitte Schlüsseldatei oder Adresse angeben."))
+            self.zertifikat = None
+            return None
+        try:
+            z = pgpmodul.lade_zertifikat(quelle)
+        except pgpmodul.PGPFehler as e:
+            self.zertifikat = None
+            self.empfaenger_info.setText(self.tr("Schlüssel nicht brauchbar: {fehler}").format(
+                fehler=e))
+            return None
+        e = lade_einstellungen()
+        warnung = ""
+        if e.empfaenger_schluessel == quelle and e.empfaenger_fingerabdruck \
+                and e.empfaenger_fingerabdruck != z.fingerabdruck:
+            warnung = self.tr(" ACHTUNG: Der Fingerabdruck weicht vom früher geprüften ab"
+                              " ({alt}). Nur weiterverwenden, wenn der Empfänger den neuen"
+                              " Schlüssel bestätigt hat.").format(alt=e.empfaenger_fingerabdruck)
+        e.empfaenger_schluessel, e.empfaenger_fingerabdruck = quelle, z.fingerabdruck
+        try:
+            speichere_einstellungen(e)
+        except OSError:
+            pass
+        self.zertifikat = z
+        self.empfaenger_info.setText(self.tr(
+            "Empfänger: {beschreibung}. Fingerabdruck mit dem Empfänger auf einem zweiten Weg"
+            " abgleichen (Webseite, Briefkopf, Telefon).").format(beschreibung=z.beschreibung())
+            + warnung)
+        return z
+
     # -- analysis ----------------------------------------------------------------------------------
     def analysieren(self) -> None:
+        if self.weitergabe.isChecked():
+            if self.zertifikat is None and self.empfaenger_pruefen() is None:
+                self._melde(self.tr("Empfänger"), self.tr(
+                    "Für einen Empfänger braucht es dessen öffentlichen Schlüssel."))
+                return
+            if self.sitzung.empfaenger is None or \
+                    self.sitzung.empfaenger.fingerabdruck != self.zertifikat.fingerabdruck:
+                self.sitzung.setze_empfaenger(self.zertifikat)
+        elif self.sitzung.empfaenger is not None:
+            self.sitzung.setze_empfaenger(None)
         if self.sitzung.patient is None:
             self._melde(self.tr("Analysieren"), self.tr("Bitte zuerst einen Patienten übernehmen."))
             return

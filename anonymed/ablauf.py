@@ -42,6 +42,8 @@ from anonymed.pruefung.gegenprobe import (
     toleranzschluessel,
 )
 from anonymed.pruefung.vorschau import schreibe_vorschau
+from anonymed.pseudonyme import kapsel as kapselmodul
+from anonymed.pseudonyme import pgp as pgpmodul
 from anonymed.pseudonyme.speicher import Pseudonymspeicher
 from anonymed.pseudonyme.vergabe import Pseudonymvergabe
 from anonymed.schwaerzen.pdf import (
@@ -80,6 +82,8 @@ class Ablaufoptionen:
     ocr_tabellen: bool = True  # Tesseract: second pass for sparse text (tables), merged in
     vokabular: bool = True  # write <name>_anonym.vokabular.txt with the discarded guesses
     gliedern: bool = True  # OCR text as Markdown: paragraphs joined, headings, lists, tables
+    empfaenger: str = ""  # armoured public key of a recipient: one-time pseudonyms + capsule
+    empfaenger_fingerabdruck: str = ""
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -101,6 +105,7 @@ class Ablaufoptionen:
             "papierformat": self.papierformat,
             "ocr_tabellen": self.ocr_tabellen,
             "gliedern": self.gliedern,
+            "empfaenger": self.empfaenger_fingerabdruck or None,
         }
 
 
@@ -115,6 +120,7 @@ class Ergebnis:
     ziel_md: Path | None = None
     ziel_bericht: Path | None = None
     ziel_vokabular: Path | None = None  # discarded guesses, one term per line
+    ziel_kapsel: Path | None = None  # the mapping, encrypted to the recipient
     vorschau: list[Path] = field(default_factory=list)
     text: str = ""
     ist_text: bool = False  # the source was a text file; ``ziel_txt`` is the output itself
@@ -152,6 +158,22 @@ def vokabular_aus(verworfen: Iterable[Fundstelle]) -> list[str]:
 VOKABULAR_KOPF = ("# AnonyMed: im Prüfschritt verworfene Rate-Treffer (NER, unscharfe Suche),"
                   " ein Begriff je Zeile.\n# In „4 Analysieren“ als Nutzervokabular importierbar;"
                   " Zeilen mit # werden überlesen.\n")
+
+
+def _kapsel_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
+                      hinweise: list[str]) -> None:
+    """For a recipient: the mapping of this document, encrypted to their key."""
+    if not v.opt.empfaenger:
+        return
+    zertifikat = pgpmodul.lade_zertifikat(v.opt.empfaenger)
+    kapsel = kapselmodul.erstelle(v.patient, v.kennung, v.vergabe, v.quelle.name,
+                                  zertifikat.fingerabdruck, v.speicher.geheimnis)
+    ziel = kapselmodul.schreibe(kapsel, zertifikat, zielpfad(v.quelle, v.opt, kapselmodul.ENDUNG))
+    ergebnis.ziel_kapsel = ziel
+    hinweise.append(f"Schlüsselkapsel für den Empfänger (Fingerabdruck … {zertifikat.kurz})"
+                    f" geschrieben: {ziel.name}. Die Zuordnung der Pseudonyme steht nur dort,"
+                    " verschlüsselt; die lokale Datenbank bleibt unberührt. Die Kapsel geht an"
+                    " den Empfänger, nie an das Sprachmodell.")
 
 
 def _vokabular_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
@@ -647,6 +669,10 @@ class _Ruestzeug:
 
 
 def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher) -> _Ruestzeug:
+    if opt.empfaenger and not speicher.ist_einmal:
+        raise ValueError("Pseudonyme für einen Empfänger brauchen den Einmalspeicher"
+                         " (einmalspeicher()): die lokale Datenbank darf die Zuordnung nicht"
+                         " erhalten, und die Codes dürfen nicht die eigenen sein.")
     kennung = speicher.kennung_fuer(patient, opt.abgleich)
     vergabe = Pseudonymvergabe(patient, kennung.kennung, opt.datumsform,
                                geheimnis=speicher.geheimnis)
@@ -1101,6 +1127,7 @@ def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis
                 ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
                 ergebnis.ziel_md.write_text(ausgabe, encoding="utf-8")
             _vokabular_schreiben(v, ergebnis, hinweise)
+            _kapsel_schreiben(v, ergebnis, hinweise)
         else:
             warnungen.append("Nicht freigegeben: keine Ausgabe geschrieben.")
         ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
@@ -1232,6 +1259,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
                 ergebnis.ziel_md = zielpfad(quelle, opt, ".md")
                 ergebnis.ziel_md.write_text(markdown_aus_text(text), encoding="utf-8")
             _vokabular_schreiben(v, ergebnis, hinweise)
+            _kapsel_schreiben(v, ergebnis, hinweise)
         else:
             ziel.unlink(missing_ok=True)
             warnungen.append("Nicht freigegeben: Ausgabe verworfen.")

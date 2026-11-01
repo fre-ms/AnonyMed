@@ -24,7 +24,8 @@ for paket in ("rapidocr", "onnxruntime", "pymupdf"):
 datas += [(str(wurzel / "anonymed" / "gui" / "uebersetzungen"), "anonymed/gui/uebersetzungen")]
 datas += [(str(wurzel / "anonymed" / "daten"), "anonymed/daten")]  # medical vocabulary
 # NER travels only when the build environment has spaCy and a German model (extra "ner").
-for paket in ("spacy", "thinc", "de_core_news_lg", "de_core_news_md", "de_core_news_sm"):
+for paket in ("spacy", "thinc", "de_core_news_lg", "de_core_news_md", "de_core_news_sm",
+              "pysequoia"):
     if importlib.util.find_spec(paket) is not None:
         d, b, h = collect_all(paket)
         datas += d

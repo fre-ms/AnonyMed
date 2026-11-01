@@ -4,160 +4,225 @@
 <context>
     <name>AnalysierenSeite</name>
     <message>
-        <location filename="../analysieren_seite.py" line="44" />
+        <location filename="../analysieren_seite.py" line="47" />
         <source>Erkennung der Identifikatoren</source>
         <translation>Detection of identifiers</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="47" />
+        <location filename="../analysieren_seite.py" line="50" />
         <source>Geburtsjahr [geb. 1990]</source>
         <translation>Year of birth [geb. 1990]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="48" />
+        <location filename="../analysieren_seite.py" line="51" />
         <source>Alter [Alter 36]</source>
         <translation>Age [Alter 36]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="49" />
+        <location filename="../analysieren_seite.py" line="52" />
         <source>Geburtsdatum als</source>
         <translation>Date of birth as</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="50" />
+        <location filename="../analysieren_seite.py" line="53" />
         <source>Barcodes und QR-Codes schwärzen</source>
         <translation>Redact barcodes and QR codes</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="53" />
+        <location filename="../analysieren_seite.py" line="56" />
         <source>Unlesbare OCR-Zeilen schwärzen</source>
         <translation>Redact unreadable OCR lines</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="57" />
+        <location filename="../analysieren_seite.py" line="60" />
         <source>Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen</source>
         <translation>Mark medical terms and protect them from NER and the fuzzy OCR search</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="61" />
+        <location filename="../analysieren_seite.py" line="64" />
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="64" />
+        <location filename="../analysieren_seite.py" line="67" />
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="69" />
+        <location filename="../analysieren_seite.py" line="72" />
         <source>Extra 'ner' und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra 'ner' and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="73" />
+        <location filename="../analysieren_seite.py" line="76" />
         <source>Fachvokabular (geschützt vor NER und unscharfer Suche)</source>
         <translation>Medical vocabulary (shielded from NER and fuzzy search)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="78" />
+        <location filename="../analysieren_seite.py" line="81" />
         <source>Vokabular importieren …</source>
         <translation>Import vocabulary …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="80" />
+        <location filename="../analysieren_seite.py" line="83" />
         <source>Textdatei mit einem Begriff je Zeile, z. B. die beim Export geschriebene .vokabular.txt; die Begriffe kommen ins Nutzervokabular.</source>
         <translation>Text file with one term per line, e.g. the .vokabular.txt written on export; the terms go into your own vocabulary.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="86" />
+        <location filename="../analysieren_seite.py" line="89" />
+        <source>Empfänger (Pseudonyme zum Weitergeben)</source>
+        <translation>Recipient (pseudonyms to pass on)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="92" />
+        <source>Für einen Empfänger pseudonymisieren: Einmalschlüssel, die Zuordnung steht nur in einer verschlüsselten Kapsel für den Empfänger; lokal wird nichts gespeichert</source>
+        <translation>Pseudonymise for a recipient: one-time key, the mapping lives only in an encrypted capsule for the recipient; nothing is stored locally</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="98" />
+        <source>Öffentlicher Schlüssel: Datei (.asc) oder https-Adresse</source>
+        <translation>Public key: file (.asc) or https address</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="101" />
+        <source>Schlüssel prüfen</source>
+        <translation>Check key</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="116" />
+        <source>Extra 'pgp' (pysequoia) oder GnuPG installieren.</source>
+        <translation>Install the extra 'pgp' (pysequoia) or GnuPG.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="119" />
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="97" />
-        <location filename="../analysieren_seite.py" line="156" />
-        <location filename="../analysieren_seite.py" line="159" />
-        <location filename="../analysieren_seite.py" line="162" />
+        <location filename="../analysieren_seite.py" line="130" />
+        <location filename="../analysieren_seite.py" line="242" />
+        <location filename="../analysieren_seite.py" line="245" />
+        <location filename="../analysieren_seite.py" line="248" />
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="116" />
+        <location filename="../analysieren_seite.py" line="149" />
         <source>{gesamt} geschützte Begriffe ({quellen}). Eigene Listen: {ordner}</source>
         <translation>{gesamt} protected terms ({quellen}). Your own lists: {ordner}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="121" />
+        <location filename="../analysieren_seite.py" line="154" />
         <source>Vokabular importieren</source>
         <translation>Import vocabulary</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="122" />
+        <location filename="../analysieren_seite.py" line="155" />
         <source>Textdateien (*.txt);;Alle Dateien (*)</source>
         <translation>Text files (*.txt);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="131" />
+        <location filename="../analysieren_seite.py" line="164" />
         <source>Vokabular</source>
         <translation>Vocabulary</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="135" />
+        <location filename="../analysieren_seite.py" line="168" />
         <source>{n} neue Begriffe aus {name} ins Nutzervokabular übernommen ({ziel}).</source>
         <translation>{n} new terms from {name} added to your vocabulary ({ziel}).</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="156" />
+        <location filename="../analysieren_seite.py" line="189" />
+        <source>Öffentlicher Schlüssel des Empfängers</source>
+        <translation>Recipient's public key</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="190" />
+        <source>OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)</source>
+        <translation>OpenPGP keys (*.asc *.gpg *.pgp);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="200" />
+        <source>Bitte Schlüsseldatei oder Adresse angeben.</source>
+        <translation>Please give a key file or an address.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="207" />
+        <source>Schlüssel nicht brauchbar: {fehler}</source>
+        <translation>Key not usable: {fehler}</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="214" />
+        <source> ACHTUNG: Der Fingerabdruck weicht vom früher geprüften ab ({alt}). Nur weiterverwenden, wenn der Empfänger den neuen Schlüssel bestätigt hat.</source>
+        <translation> WARNING: the fingerprint differs from the one checked before ({alt}). Go on only if the recipient has confirmed the new key.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="224" />
+        <source>Empfänger: {beschreibung}. Fingerabdruck mit dem Empfänger auf einem zweiten Weg abgleichen (Webseite, Briefkopf, Telefon).</source>
+        <translation>Recipient: {beschreibung}. Compare the fingerprint with the recipient by a second channel (website, letterhead, telephone).</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="233" />
+        <source>Empfänger</source>
+        <translation>Recipient</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="234" />
+        <source>Für einen Empfänger braucht es dessen öffentlichen Schlüssel.</source>
+        <translation>A recipient needs their public key.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="242" />
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="159" />
+        <location filename="../analysieren_seite.py" line="245" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="163" />
+        <location filename="../analysieren_seite.py" line="249" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="178" />
+        <location filename="../analysieren_seite.py" line="264" />
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="186" />
+        <location filename="../analysieren_seite.py" line="272" />
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="214" />
+        <location filename="../analysieren_seite.py" line="300" />
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="227" />
+        <location filename="../analysieren_seite.py" line="313" />
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="231" />
+        <location filename="../analysieren_seite.py" line="317" />
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="232" />
+        <location filename="../analysieren_seite.py" line="318" />
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="234" />
+        <location filename="../analysieren_seite.py" line="320" />
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="236" />
+        <location filename="../analysieren_seite.py" line="322" />
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -653,17 +718,22 @@
         <translation>Vocabulary: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="255" />
+        <location filename="../export_seite.py" line="253" />
+        <source>Schlüsselkapsel (nur an den Empfänger geben): {pfad}</source>
+        <translation>Key capsule (give it to the recipient only): {pfad}</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="258" />
         <source>NICHT freigegeben.</source>
         <translation>NOT released.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="253" />
+        <location filename="../export_seite.py" line="256" />
         <source>Vorschau: {pfad}</source>
         <translation>Preview: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="262" />
+        <location filename="../export_seite.py" line="265" />
         <source>{name}: Fehler: {fehler}</source>
         <translation>{name}: error: {fehler}</translation>
     </message>
@@ -1054,82 +1124,167 @@
 <context>
     <name>RueckersetzenSeite</name>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="28" />
+        <location filename="../rueckersetzen_seite.py" line="40" />
+        <source>Schlüsselkapsel eines Absenders</source>
+        <translation>A sender's key capsule</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="43" />
+        <source>Kapsel öffnen …</source>
+        <translation>Open capsule …</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="45" />
+        <source>Kapsel schließen</source>
+        <translation>Close capsule</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="50" />
+        <source>Privater Schlüssel (Datei; leer = GnuPG-Schlüsselbund)</source>
+        <translation>Private key (file; empty = GnuPG keyring)</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="59" />
+        <source>Eine Kapsel (&lt;name&gt;_anonym.kapsel.asc) kommt vom Absender eines pseudonymisierten Dokuments und enthält die Zuordnung, verschlüsselt für Ihren Schlüssel.</source>
+        <translation>A capsule (&lt;name&gt;_anonym.kapsel.asc) comes from the sender of a pseudonymised document and holds the mapping, encrypted to your key.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="65" />
+        <source>Extra 'pgp' (pysequoia) oder GnuPG installieren.</source>
+        <translation>Install the extra 'pgp' (pysequoia) or GnuPG.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="69" />
         <source>Person:</source>
         <translation>Person:</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="32" />
+        <location filename="../rueckersetzen_seite.py" line="73" />
         <source>voller Name</source>
         <translation>full name</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="33" />
+        <location filename="../rueckersetzen_seite.py" line="74" />
         <source>Herr/Frau Nachname</source>
         <translation>Mr/Ms surname</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="35" />
+        <location filename="../rueckersetzen_seite.py" line="76" />
         <source>Liste aktualisieren</source>
         <translation>Refresh list</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="41" />
+        <location filename="../rueckersetzen_seite.py" line="82" />
         <source>Text des Sprachmodells hier einfügen …</source>
         <translation>Paste the language model's text here …</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="44" />
+        <location filename="../rueckersetzen_seite.py" line="85" />
         <source>Datei laden …</source>
         <translation>Load file …</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="46" />
+        <location filename="../rueckersetzen_seite.py" line="87" />
         <source>Rückersetzen</source>
         <translation>Re-identify</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="59" />
+        <location filename="../rueckersetzen_seite.py" line="100" />
         <source>Kopieren</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="61" />
+        <location filename="../rueckersetzen_seite.py" line="102" />
         <source>Speichern …</source>
         <translation>Save …</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="84" />
+        <location filename="../rueckersetzen_seite.py" line="125" />
         <source>Text</source>
         <translation>Text</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="85" />
+        <location filename="../rueckersetzen_seite.py" line="126" />
         <source>Text (*.txt *.md);;Alle (*)</source>
         <translation>Text (*.txt *.md);;All (*)</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="93" />
+        <location filename="../rueckersetzen_seite.py" line="134" />
+        <source>Privater Schlüssel</source>
+        <translation>Private key</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="135" />
+        <source>OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)</source>
+        <translation>OpenPGP keys (*.asc *.gpg *.pgp);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="151" />
+        <source>Schlüsselkapsel</source>
+        <translation>Key capsule</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="152" />
+        <source>Kapseln (*.kapsel.asc *.asc);;Alle Dateien (*)</source>
+        <translation>Capsules (*.kapsel.asc *.asc);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="168" />
+        <source>Passphrase</source>
+        <translation>Passphrase</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="169" />
+        <source>Passphrase des privaten Schlüssels:</source>
+        <translation>Passphrase of the private key:</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="174" />
+        <source>Kapsel nicht lesbar: {fehler}</source>
+        <translation>Capsule not readable: {fehler}</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="184" />
+        <source> Entspricht dem lokalen Eintrag {kennung}.</source>
+        <translation> Matches the local entry {kennung}.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="187" />
+        <source> Kein passender Eintrag in der lokalen Datenbank.</source>
+        <translation> No matching entry in the local database.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="190" />
+        <source>Kapsel geöffnet: {beschreibung}.</source>
+        <translation>Capsule opened: {beschreibung}.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="200" />
+        <source>Kapsel geschlossen; wieder lokale Datenbank.</source>
+        <translation>Capsule closed; back to the local database.</translation>
+    </message>
+    <message>
+        <location filename="../rueckersetzen_seite.py" line="209" />
         <source>Keine Person gewählt.</source>
         <translation>No person chosen.</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="105" />
+        <location filename="../rueckersetzen_seite.py" line="221" />
         <source>{n} Ersetzungen; nicht aufgelöst: </source>
         <translation>{n} replacements; unresolved: </translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="108" />
+        <location filename="../rueckersetzen_seite.py" line="224" />
         <source>{n} Ersetzungen, nichts offen.</source>
         <translation>{n} replacements, nothing left.</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="114" />
+        <location filename="../rueckersetzen_seite.py" line="230" />
         <source>Speichern</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="../rueckersetzen_seite.py" line="115" />
+        <location filename="../rueckersetzen_seite.py" line="231" />
         <source>Text (*.txt)</source>
         <translation>Text (*.txt)</translation>
     </message>

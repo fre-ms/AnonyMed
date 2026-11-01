@@ -112,6 +112,12 @@ def _jetzt() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+def einmalspeicher(schema: str = "hash") -> Pseudonymspeicher:
+    """An in-memory store with a fresh random key: pseudonyms for a recipient's capsule.
+    Nothing is written locally and the codes bear no relation to the local ones."""
+    return Pseudonymspeicher(":memory:", schema=schema, geheimnis=secrets.token_bytes(32))
+
+
 class Pseudonymspeicher:
     """Identifier per patient and pseudonym -> clear text per patient."""
 
@@ -171,6 +177,15 @@ class Pseudonymspeicher:
             "SELECT schluessel FROM aliasse WHERE alias_schluessel = ?", (schluessel,)
         ).fetchone()
         return zeile["schluessel"] if zeile else schluessel
+
+    @property
+    def ist_einmal(self) -> bool:
+        """True for an in-memory store: nothing of this run is kept."""
+        return self.pfad is None
+
+    def kandidaten(self) -> list[dict[str, Any]]:
+        """Every stored identity (patients and aliases) for matching against a person."""
+        return self._kandidaten()
 
     def _kandidaten(self) -> list[dict[str, Any]]:
         zeilen = self.verbindung.execute(

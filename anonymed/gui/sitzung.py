@@ -23,7 +23,8 @@ from anonymed.ablauf import (
 from anonymed.dokument import aufbereitung as aufmodul
 from anonymed.dokument.textdatei import TEXTENDUNGEN, ist_textdatei
 from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
+from anonymed.pseudonyme.pgp import Zertifikat
+from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich, einmalspeicher
 
 
 @dataclass
@@ -87,10 +88,25 @@ class Sitzung:
     optionen: Ablaufoptionen = field(default_factory=Ablaufoptionen)
     dokumente: list[Dokument] = field(default_factory=list)
     abgleich: str | None = None  # decision for an uncertain match, set by the dialog
+    empfaenger: Zertifikat | None = None  # pseudonyms for someone else: one-time key, capsule
     _scratch: Path | None = None
+    _einmal: Pseudonymspeicher | None = None
 
     def speicher(self) -> Pseudonymspeicher:
+        """The local store, or in recipient mode one in-memory store for the whole session
+        (the same one-time key for every document, nothing written locally)."""
+        if self.empfaenger is not None:
+            if self._einmal is None:
+                self._einmal = einmalspeicher(self.schema)
+            return _Ungeschlossen(self._einmal)
         return Pseudonymspeicher(self.speicherpfad, schema=self.schema)
+
+    def setze_empfaenger(self, zertifikat: Zertifikat | None) -> None:
+        """Switch recipient mode on (a fresh one-time key) or off."""
+        self.empfaenger = zertifikat
+        self._einmal = None
+        self.optionen.empfaenger = zertifikat.armor if zertifikat else ""
+        self.optionen.empfaenger_fingerabdruck = zertifikat.fingerabdruck if zertifikat else ""
 
     def scratch(self) -> Path:
         """Folder for the pre-check output, removed when the session closes."""
@@ -214,7 +230,8 @@ class Sitzung:
             kopie = Ergebnis(quelle=quelle.quelle, bericht=quelle.bericht,
                              fundstellen=quelle.fundstellen, kennung=quelle.kennung,
                              text=quelle.text, ist_text=quelle.ist_text)
-            for feld in ("ziel_pdf", "ziel_txt", "ziel_md", "ziel_bericht", "ziel_vokabular"):
+            for feld in ("ziel_pdf", "ziel_txt", "ziel_md", "ziel_bericht", "ziel_vokabular",
+                         "ziel_kapsel"):
                 pfad = getattr(quelle, feld)
                 if pfad is not None:
                     neu = ziel_ordner / pfad.name
@@ -277,3 +294,23 @@ class Sitzung:
         if self._scratch is not None and self._scratch.exists():
             shutil.rmtree(self._scratch, ignore_errors=True)
             self._scratch = None
+
+
+class _Ungeschlossen:
+    """The session's one-time store handed out to callers that close what they get:
+    closing is a no-op, the store lives as long as the recipient mode does."""
+
+    def __init__(self, speicher: Pseudonymspeicher) -> None:
+        self._speicher = speicher
+
+    def __getattr__(self, name: str):
+        return getattr(self._speicher, name)
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
