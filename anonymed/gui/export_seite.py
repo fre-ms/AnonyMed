@@ -56,6 +56,20 @@ class ExportSeite(QWidget):
         self.erneut.clicked.connect(self.pruefen)
         kopf.addWidget(self.erneut)
         aussen.addLayout(kopf)
+        risiko = QHBoxLayout()
+        risiko.addWidget(QLabel(self.tr("Restrisiko (Schätzung aus „7 Kontrolle“):")))
+        self.risiko_text = QLabel("")
+        self.risiko_text.setWordWrap(True)
+        risiko.addWidget(self.risiko_text, 1)
+        self.risiko_ampel = QLabel()
+        self.risiko_ampel.setFixedSize(28, 28)
+        risiko.addWidget(self.risiko_ampel)
+        aussen.addLayout(risiko)
+        self.risiko_bestaetigt = QCheckBox(self.tr(
+            "Rotes Restrisiko zur Kenntnis genommen: trotzdem exportieren"))
+        self.risiko_bestaetigt.setVisible(False)
+        self.risiko_bestaetigt.toggled.connect(lambda _an: self._knopf_schalten())
+        aussen.addWidget(self.risiko_bestaetigt)
 
         optionen = QGroupBox(self.tr("Ausgabe"))
         form = QFormLayout(optionen)
@@ -131,7 +145,30 @@ class ExportSeite(QWidget):
         self.ampel.setToolTip(text)
         self.ampel_text.setText(text)
         self.farbe = farbe
-        self.knopf.setEnabled(farbe in ("gruen", "gelb"))
+        self._risiko_setzen()
+        self._knopf_schalten()
+
+    def _risiko_setzen(self) -> None:
+        gesamt, fruehere = self.sitzung.kontrolle()
+        self.risiko_farbe = gesamt.ampel if gesamt is not None else "grau"
+        self.risiko_ampel.setStyleSheet(
+            f"background: {AMPELFARBEN[self.risiko_farbe]}; border-radius: 14px;"
+            " border: 1px solid #555;")
+        if gesamt is None:
+            self.risiko_text.setText(self.tr("noch nicht geschätzt"))
+        else:
+            self.risiko_text.setText(gesamt.kurz() + (
+                self.tr(" (mit {n} früheren Dokumenten)").format(n=fruehere) if fruehere else ""))
+        self.risiko_bestaetigt.setVisible(self.risiko_farbe == "rot")
+        if self.risiko_farbe != "rot":
+            self.risiko_bestaetigt.setChecked(False)
+
+    def _knopf_schalten(self) -> None:
+        frei = self.farbe in ("gruen", "gelb")
+        rot = getattr(self, "risiko_farbe", "grau") == "rot"
+        if rot and not self.risiko_bestaetigt.isChecked():
+            frei = False
+        self.knopf.setEnabled(frei)
 
     def aktualisiere(self) -> None:
         """Called when the step is shown: run the re-check for everything that needs it."""
@@ -199,6 +236,13 @@ class ExportSeite(QWidget):
             self._nach_pruefung()
             if self.synchron:
                 raise RuntimeError("Erneute Prüfung nicht bestanden; nichts exportiert.")
+            return
+        self._risiko_setzen()
+        if self.risiko_farbe == "rot" and not self.risiko_bestaetigt.isChecked():
+            self.status.setText(self.tr("Rotes Restrisiko: bitte in „7 Kontrolle“ nacharbeiten"
+                                        " oder den Export ausdrücklich bestätigen."))
+            if self.synchron:
+                raise RuntimeError("Rotes Restrisiko nicht bestätigt; nichts exportiert.")
             return
         self._phase = "exportieren"
         self._warteschlange = list(offen)

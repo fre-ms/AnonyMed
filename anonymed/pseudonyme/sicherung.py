@@ -529,7 +529,8 @@ def importiere(archiv: Path, speicherpfad: Path | None = None, passphrase: str |
                 ziel.executescript(_SCHEMA)
                 ziel.execute("ATTACH DATABASE ? AS archiv", (str(quelle_pfad),))
                 zaehler = {}
-                for tabelle in ("patienten", "aliasse", "zuordnungen", "verworfen", "vokabular"):
+                for tabelle in ("patienten", "aliasse", "zuordnungen", "verworfen", "vokabular",
+                                "restrisiko", "restrisiko_dokumente"):
                     vorher = ziel.execute(f"SELECT COUNT(*) FROM {tabelle}").fetchone()[0]
                     try:
                         ziel.execute(f"INSERT OR IGNORE INTO {tabelle}"

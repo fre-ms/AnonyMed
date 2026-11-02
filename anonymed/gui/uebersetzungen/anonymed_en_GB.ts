@@ -923,33 +923,33 @@
 <context>
     <name>ExportSeite</name>
     <message>
-        <location filename="../export_seite.py" line="60" />
+        <location filename="../export_seite.py" line="74" />
         <source>Ausgabe</source>
         <translation>Output</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="64" />
+        <location filename="../export_seite.py" line="78" />
         <source>leer = neben der Quelle</source>
         <translation>empty = next to the source</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="69" />
-        <location filename="../export_seite.py" line="111" />
+        <location filename="../export_seite.py" line="83" />
+        <location filename="../export_seite.py" line="125" />
         <source>Zielordner</source>
         <translation>Target folder</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="77" />
+        <location filename="../export_seite.py" line="91" />
         <source>Prüfbericht (JSON)</source>
         <translation>Report (JSON)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="79" />
+        <location filename="../export_seite.py" line="93" />
         <source>Vermerk in den PDF-Metadaten</source>
         <translation>Note in the PDF metadata</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="71" />
+        <location filename="../export_seite.py" line="85" />
         <source>PDF mit Textebene: OCR-Text unsichtbar einbetten (Scans bleiben durchsuchbar)</source>
         <translation>PDF with text layer: embed the OCR text invisibly (scans stay searchable)</translation>
     </message>
@@ -964,143 +964,168 @@
         <translation>Check again</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="74" />
+        <location filename="../export_seite.py" line="60" />
+        <source>Restrisiko (Schätzung aus „7 Kontrolle“):</source>
+        <translation>Residual risk (estimate from “7 Control”):</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="69" />
+        <source>Rotes Restrisiko zur Kenntnis genommen: trotzdem exportieren</source>
+        <translation>Red residual risk noted: export anyway</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="88" />
         <source>Textdatei (.txt) in Lesereihenfolge (Eingabe für das Sprachmodell)</source>
         <translation>Text file (.txt) in reading order (input for the language model)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="76" />
+        <location filename="../export_seite.py" line="90" />
         <source>Markdown-Datei (.md) zusätzlich</source>
         <translation>Markdown file (.md) as well</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="82" />
+        <location filename="../export_seite.py" line="96" />
         <source>PDF vollständig rastern (nur Bild; die Textebene wird danach unsichtbar ergänzt)</source>
         <translation>Rasterise the PDF completely (image only; the text layer is added invisibly afterwards)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="83" />
+        <location filename="../export_seite.py" line="97" />
         <source>Vorschaubilder immer schreiben</source>
         <translation>Always write preview images</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="99" />
+        <location filename="../export_seite.py" line="113" />
         <source>Zielordner öffnen</source>
         <translation>Open target folder</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="102" />
+        <location filename="../export_seite.py" line="116" />
         <source>Exportieren</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="108" />
+        <location filename="../export_seite.py" line="122" />
         <source>Noch nicht geprüft.</source>
         <translation>Not checked yet.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="154" />
-        <location filename="../export_seite.py" line="195" />
+        <location filename="../export_seite.py" line="158" />
+        <source>noch nicht geschätzt</source>
+        <translation>not estimated yet</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="161" />
+        <source> (mit {n} früheren Dokumenten)</source>
+        <translation> (with {n} earlier documents)</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="191" />
+        <location filename="../export_seite.py" line="232" />
         <source>Erneute Prüfung läuft …</source>
         <translation>Re-check running …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="170" />
+        <location filename="../export_seite.py" line="207" />
         <source>Abbruch: Bei der erneuten Prüfung wurden noch Daten aus „1 Patient“ gefunden. Es wird nichts exportiert. Bitte im Prüfschritt nacharbeiten (Kasten oder Maske) und erneut prüfen.</source>
         <translation>Aborted: the re-check still found data from “1 Patient”. Nothing is exported. Please rework in the review step (box or mask) and check again.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="175" />
+        <location filename="../export_seite.py" line="212" />
         <source>Export nicht möglich</source>
         <translation>Export not possible</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="177" />
+        <location filename="../export_seite.py" line="214" />
         <source>Bereit; bitte die Warnungen lesen.</source>
         <translation>Ready; please read the warnings.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="179" />
+        <location filename="../export_seite.py" line="216" />
         <source>Bereit zum Export.</source>
         <translation>Ready to export.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="188" />
+        <location filename="../export_seite.py" line="225" />
         <source>Export</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="189" />
+        <location filename="../export_seite.py" line="226" />
         <source>Keine analysierten Dokumente.</source>
         <translation>No analysed documents.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="212" />
+        <location filename="../export_seite.py" line="242" />
+        <source>Rotes Restrisiko: bitte in „7 Kontrolle“ nacharbeiten oder den Export ausdrücklich bestätigen.</source>
+        <translation>Red residual risk: rework in “7 Control” or confirm the export explicitly.</translation>
+    </message>
+    <message>
+        <location filename="../export_seite.py" line="256" />
         <source>Fertig.</source>
         <translation>Done.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="222" />
+        <location filename="../export_seite.py" line="266" />
         <source>Prüfe {name} …</source>
         <translation>Checking {name} …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="223" />
+        <location filename="../export_seite.py" line="267" />
         <source>Exportiere {name} …</source>
         <translation>Exporting {name} …</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="242" />
+        <location filename="../export_seite.py" line="286" />
         <source>Erneute Prüfung bestanden; Export möglich.</source>
         <translation>Re-check passed; export possible.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="243" />
+        <location filename="../export_seite.py" line="287" />
         <source>Erneute Prüfung NICHT bestanden; Export gesperrt.</source>
         <translation>Re-check NOT passed; export blocked.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="245" />
+        <location filename="../export_seite.py" line="289" />
         <source>Freigegeben: {pfad}</source>
         <translation>Released: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="247" />
+        <location filename="../export_seite.py" line="291" />
         <source>Text: {pfad}</source>
         <translation>Text: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="249" />
+        <location filename="../export_seite.py" line="293" />
         <source>Markdown: {pfad}</source>
         <translation>Markdown: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="251" />
+        <location filename="../export_seite.py" line="295" />
         <source>Vokabular: {pfad}</source>
         <translation>Vocabulary: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="253" />
+        <location filename="../export_seite.py" line="297" />
         <source>Schlüsselkapsel (nur an den Empfänger geben): {pfad}</source>
         <translation>Key capsule (give it to the recipient only): {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="258" />
+        <location filename="../export_seite.py" line="302" />
         <source>NICHT freigegeben.</source>
         <translation>NOT released.</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="256" />
+        <location filename="../export_seite.py" line="300" />
         <source>Vorschau: {pfad}</source>
         <translation>Preview: {pfad}</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="85" />
+        <location filename="../export_seite.py" line="99" />
         <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „2 Vokabular“ importierbar)</source>
         <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “2 Vocabulary”)</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="265" />
+        <location filename="../export_seite.py" line="309" />
         <source>{name}: Fehler: {fehler}</source>
         <translation>{name}: error: {fehler}</translation>
     </message>
@@ -1108,65 +1133,213 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="41" />
+        <location filename="../hauptfenster.py" line="43" />
         <source>1 Patient</source>
         <translation>1 Patient</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="42" />
+        <location filename="../hauptfenster.py" line="44" />
         <source>2 Vokabular</source>
         <translation>2 Vocabulary</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="43" />
+        <location filename="../hauptfenster.py" line="45" />
         <source>3 Dokumente</source>
         <translation>3 Documents</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="44" />
+        <location filename="../hauptfenster.py" line="46" />
         <source>4 Texterkennung</source>
         <translation>4 Text recognition</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="45" />
+        <location filename="../hauptfenster.py" line="47" />
         <source>5 Analysieren</source>
         <translation>5 Analyse</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="46" />
+        <location filename="../hauptfenster.py" line="48" />
         <source>6 Prüfen</source>
         <translation>6 Review</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="47" />
-        <source>7 Exportieren</source>
-        <translation>7 Export</translation>
-    </message>
-    <message>
-        <location filename="../hauptfenster.py" line="48" />
-        <source>8 Rückersetzen</source>
-        <translation>8 Re-identify</translation>
-    </message>
-    <message>
         <location filename="../hauptfenster.py" line="49" />
-        <source>9 Datenbank</source>
-        <translation>9 Database</translation>
+        <source>7 Kontrolle</source>
+        <translation>7 Control</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="68" />
+        <location filename="../hauptfenster.py" line="50" />
+        <source>8 Exportieren</source>
+        <translation>8 Export</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="51" />
+        <source>9 Rückersetzen</source>
+        <translation>9 Re-identify</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="52" />
+        <source>10 Datenbank</source>
+        <translation>10 Database</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="71" />
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="72" />
-        <location filename="../hauptfenster.py" line="82" />
+        <location filename="../hauptfenster.py" line="75" />
+        <location filename="../hauptfenster.py" line="85" />
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="83" />
+        <location filename="../hauptfenster.py" line="86" />
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
+    </message>
+</context>
+<context>
+    <name>KontrolleSeite</name>
+    <message>
+        <location filename="../kontrolle_seite.py" line="48" />
+        <source>Erneute Prüfung: alle Angaben aus „1 Patient“ entfernt?</source>
+        <translation>Re-check: everything from “1 Patient” removed?</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="55" />
+        <source>Erneut prüfen</source>
+        <translation>Check again</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="62" />
+        <source>Restrisiko: wie viele Menschen teilen, was im Text bleibt?</source>
+        <translation>Residual risk: how many people share what remains in the text?</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="72" />
+        <source>Schätzung nach dem k-map-Prinzip (El Emam, EMA Policy 0070, Rocher et al.): Referenz ÷ Produkt der Häufigkeiten von Geschlecht, Geburtsjahr, kleinstem genanntem Ort (Destatis) und seltenster genannter Erkrankung (Orphanet). Grün ab 11 gleichartigen Personen (κ ≤ 0,09), Gelb ab 5, Rot darunter. Eigene Synthese, kein Standard; die Unabhängigkeitsannahme ist bei untypischen Kombinationen zu optimistisch.</source>
+        <translation>Estimate on the k-map principle (El Emam, EMA Policy 0070, Rocher et al.): reference ÷ product of the frequencies of sex, year of birth, smallest named place (Destatis) and rarest named disease (Orphanet). Green from 11 people alike (κ ≤ 0.09), yellow from 5, red below. Own synthesis, not a standard; the independence assumption is optimistic for atypical combinations.</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="80" />
+        <source>Referenzpopulation</source>
+        <translation>Reference population</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="84" />
+        <source>Aus wie vielen Menschen ein Angreifer wählt: Deutschland 83.600.000, oder das Einzugsgebiet der Sprechstunde, wenn der Absender bekannt ist</source>
+        <translation>How many people an attacker chooses from: Germany 83,600,000, or the catchment area of the practice when the sender is known</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="87" />
+        <source>Eigene Orte (nicht gezählt)</source>
+        <translation>Own places (not counted)</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="89" />
+        <source>Ort der Sprechstunde, Klinik … (Komma)</source>
+        <translation>Place of the practice, clinic … (comma)</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="91" />
+        <source>Neu berechnen</source>
+        <translation>Recalculate</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="99" />
+        <source>Dokument</source>
+        <translation>Document</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="99" />
+        <source>Erneute Prüfung</source>
+        <translation>Re-check</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="99" />
+        <source>λ (Personen)</source>
+        <translation>λ (people)</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="100" />
+        <source>κ</source>
+        <translation>κ</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="100" />
+        <source>Restrisiko</source>
+        <translation>Residual risk</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="100" />
+        <source>Größter Beitrag</source>
+        <translation>Largest contribution</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="112" />
+        <source>Merkmal</source>
+        <translation>Attribute</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="112" />
+        <source>Bit</source>
+        <translation>Bits</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="113" />
+        <source>Beleg</source>
+        <translation>Evidence</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="159" />
+        <source>Referenzpopulation: bitte eine Zahl ab 1.000.</source>
+        <translation>Reference population: please a number from 1,000.</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="181" />
+        <source>Erneute Prüfung läuft …</source>
+        <translation>Re-check running …</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="191" />
+        <source>Prüfe {name} …</source>
+        <translation>Checking {name} …</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="213" />
+        <source>Noch kein geprüftes Dokument.</source>
+        <translation>No checked document yet.</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="218" />
+        <source>Alle Dokumente dieses Patienten zusammen: {kurz}; {schwelle}.</source>
+        <translation>All documents of this patient together: {kurz}; {schwelle}.</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="220" />
+        <source> Größter Beitrag: {merkmal} ({bits:.1f} Bit).</source>
+        <translation> Largest contribution: {merkmal} ({bits:.1f} bits).</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="222" />
+        <source> Einschließlich {n} früher freigegebener Dokument(e).</source>
+        <translation> Including {n} earlier released document(s).</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="230" />
+        <source>bestanden</source>
+        <translation>passed</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="230" />
+        <source>NICHT bestanden</source>
+        <translation>NOT passed</translation>
+    </message>
+    <message>
+        <location filename="../kontrolle_seite.py" line="257" />
+        <source> (nicht gezählt)</source>
+        <translation> (not counted)</translation>
     </message>
 </context>
 <context>

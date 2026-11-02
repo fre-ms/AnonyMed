@@ -21,6 +21,7 @@ from anonymed.konfig import (
     UMGEBUNG_PASSWORT,
     CardDAVKonfig,
     konfigpfad,
+    lade_einstellungen,
     lade_konfig,
     passwort_laden,
     passwort_speichern,
@@ -274,6 +275,13 @@ def anonymisieren(
         "--gliedern/--roh",
         help="OCR-Text als Markdown gliedern: Absätze zusammenfügen, Überschriften, Listen,"
              " Tabellen.")] = True,
+    referenzpopulation: Annotated[int | None, typer.Option(
+        "--referenzpopulation",
+        help="Restrisiko: aus wie vielen Menschen ein Angreifer wählt (Standard aus der"
+             " Konfiguration, sonst 83.600.000 für Deutschland).")] = None,
+    eigene_orte: Annotated[str | None, typer.Option(
+        "--eigene-orte", help="Restrisiko: Orte des Absenders (Sprechstunde, Klinik), die nicht"
+                              " als Patientenmerkmal zählen; Komma-getrennt.")] = None,
     empfaenger: Annotated[str | None, typer.Option(
         "--empfaenger",
         help="Öffentlicher OpenPGP-Schlüssel des Empfängers (Datei oder https-Adresse):"
@@ -323,6 +331,8 @@ def anonymisieren(
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
         vokabular=vokabular, gliedern=gliedern,
+        referenzpopulation=referenzpopulation or lade_einstellungen().referenzpopulation,
+        eigene_orte=eigene_orte if eigene_orte is not None else lade_einstellungen().eigene_orte,
         empfaenger=zertifikat.armor if zertifikat else "",
         empfaenger_fingerabdruck=zertifikat.fingerabdruck if zertifikat else "",
         schwaerzen=Schwaerzoptionen(rastern=rastern, dpi=dpi, vermerk=vermerk,

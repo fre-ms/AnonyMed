@@ -10,6 +10,7 @@ from anonymed.gui.analysieren_seite import AnalysierenSeite
 from anonymed.gui.datenbank_seite import DatenbankSeite
 from anonymed.gui.dokumente_seite import DokumenteSeite
 from anonymed.gui.export_seite import ExportSeite
+from anonymed.gui.kontrolle_seite import KontrolleSeite
 from anonymed.gui.patient_seite import PatientSeite
 from anonymed.gui.pruefen_seite import PruefenSeite
 from anonymed.gui.rueckersetzen_seite import RueckersetzenSeite
@@ -37,6 +38,7 @@ class Hauptfenster(QMainWindow):
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
         self.datenbank = DatenbankSeite(self.sitzung)
         self.vokabular = VokabularSeite(self.sitzung)
+        self.kontrolle = KontrolleSeite(self.sitzung)
         self._seiten: list = []
         for seite, titel in ((self.patient, self.tr("1 Patient")),
                              (self.vokabular, self.tr("2 Vokabular")),
@@ -44,9 +46,10 @@ class Hauptfenster(QMainWindow):
                              (self.texterkennung, self.tr("4 Texterkennung")),
                              (self.analysieren, self.tr("5 Analysieren")),
                              (self.pruefen, self.tr("6 Prüfen")),
-                             (self.export, self.tr("7 Exportieren")),
-                             (self.rueckersetzen, self.tr("8 Rückersetzen")),
-                             (self.datenbank, self.tr("9 Datenbank"))):
+                             (self.kontrolle, self.tr("7 Kontrolle")),
+                             (self.export, self.tr("8 Exportieren")),
+                             (self.rueckersetzen, self.tr("9 Rückersetzen")),
+                             (self.datenbank, self.tr("10 Datenbank"))):
             # a scroll area per step: the window shrinks below a step's natural size
             # and shows scrollbars instead of refusing to get smaller
             rahmen = QScrollArea()
@@ -111,6 +114,8 @@ class Hauptfenster(QMainWindow):
             self.texterkennung.aktualisiere()
         elif seite is self.export:
             self.export.aktualisiere()
+        elif seite is self.kontrolle:
+            self.kontrolle.aktualisiere()
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self.sitzung.schliessen()

@@ -68,6 +68,23 @@ CREATE TABLE IF NOT EXISTS verworfen (
     geaendert  TEXT NOT NULL,
     PRIMARY KEY (schluessel, regel, text)
 );
+CREATE TABLE IF NOT EXISTS restrisiko (
+    schluessel   TEXT NOT NULL,
+    merkmal      TEXT NOT NULL,
+    kategorie    TEXT NOT NULL DEFAULT '',
+    beschreibung TEXT NOT NULL DEFAULT '',
+    bits         REAL NOT NULL,
+    geaendert    TEXT NOT NULL,
+    PRIMARY KEY (schluessel, merkmal)
+);
+CREATE TABLE IF NOT EXISTS restrisiko_dokumente (
+    schluessel TEXT NOT NULL,
+    quelle     TEXT NOT NULL,
+    bits       REAL NOT NULL,
+    lam        REAL NOT NULL,
+    geaendert  TEXT NOT NULL,
+    PRIMARY KEY (schluessel, quelle)
+);
 CREATE TABLE IF NOT EXISTS vokabular (
     begriff   TEXT PRIMARY KEY COLLATE NOCASE,
     kategorie TEXT NOT NULL DEFAULT '',
@@ -354,6 +371,38 @@ class Pseudonymspeicher:
                 (schluessel, pseudonym, klartext, vergabe.arten.get(pseudonym, ""), jetzt),
             )
         self.verbindung.commit()
+
+    # -- residual risk across documents ----------------------------------------------------------
+    def merke_restrisiko(self, patient: Patient, quelle: str, merkmale: Iterable[dict[str, Any]],
+                         bits: float, lam: float) -> None:
+        """Keep the categories and weights (never clear text) a released document revealed,
+        so that the next document of the patient is judged together with it."""
+        schluessel = self._kanonischer_schluessel(patient.schluessel())
+        jetzt = _jetzt()
+        for m in merkmale:
+            self.verbindung.execute(
+                "INSERT INTO restrisiko (schluessel, merkmal, kategorie, beschreibung, bits,"
+                " geaendert) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(schluessel, merkmal) DO UPDATE"
+                " SET bits = MAX(bits, excluded.bits), beschreibung = excluded.beschreibung,"
+                " geaendert = excluded.geaendert",
+                (schluessel, m["schluessel"], m.get("kategorie", ""), m.get("beschreibung", ""),
+                 float(m.get("bits", 0.0)), jetzt))
+        self.verbindung.execute(
+            "INSERT INTO restrisiko_dokumente (schluessel, quelle, bits, lam, geaendert)"
+            " VALUES (?, ?, ?, ?, ?) ON CONFLICT(schluessel, quelle) DO UPDATE SET bits ="
+            " excluded.bits, lam = excluded.lam, geaendert = excluded.geaendert",
+            (schluessel, quelle, float(bits), float(lam), jetzt))
+        self.verbindung.commit()
+
+    def restrisiko_fruehere(self, patient: Patient) -> tuple[list[dict[str, Any]], int]:
+        """Merkmale of earlier released documents of the patient and how many there were."""
+        schluessel = self._kanonischer_schluessel(patient.schluessel())
+        merkmale = [dict(r) for r in self.verbindung.execute(
+            "SELECT merkmal AS schluessel, kategorie, beschreibung, bits FROM restrisiko"
+            " WHERE schluessel = ?", (schluessel,))]
+        n = self.verbindung.execute("SELECT COUNT(*) FROM restrisiko_dokumente WHERE schluessel"
+                                    " = ?", (schluessel,)).fetchone()[0]
+        return merkmale, n
 
     def zuordnung(self, schluessel: str) -> dict[str, str]:
         schluessel = self._kanonischer_schluessel(schluessel)

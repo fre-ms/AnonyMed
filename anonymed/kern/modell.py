@@ -252,6 +252,7 @@ class Pruefbericht:
     optionen: dict[str, Any] = field(default_factory=dict)
     warnungen: list[str] = field(default_factory=list)  # things that need attention
     hinweise: list[str] = field(default_factory=list)  # what was done, for the record
+    restrisiko: dict[str, Any] | None = None  # k-map estimate of what the text still reveals
 
     @property
     def bestanden(self) -> bool:

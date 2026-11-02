@@ -32,6 +32,7 @@ from anonymed.erkennung.deterministisch import (
 )
 from anonymed.erkennung.unscharf import Ziel, finde_unscharf, ziele_fuer
 from anonymed.kern.modell import Art, Fundstelle, Gegenprobe, Patient, Pruefbericht
+from anonymed.pruefung import restrisiko as risikomodul
 from anonymed.pruefung.bericht import erstelle_bericht, speichere_bericht
 from anonymed.pruefung.gegenprobe import (
     geprueft_aus,
@@ -84,6 +85,8 @@ class Ablaufoptionen:
     gliedern: bool = True  # OCR text as Markdown: paragraphs joined, headings, lists, tables
     empfaenger: str = ""  # armoured public key of a recipient: one-time pseudonyms + capsule
     empfaenger_fingerabdruck: str = ""
+    referenzpopulation: int = risikomodul.REFERENZ_DEUTSCHLAND  # people the attacker chooses from
+    eigene_orte: str = ""  # places of the sender (practice, clinic), comma-separated, not counted
     schwaerzen: Schwaerzoptionen = field(default_factory=Schwaerzoptionen)
 
     def als_dict(self) -> dict[str, object]:
@@ -106,6 +109,7 @@ class Ablaufoptionen:
             "ocr_tabellen": self.ocr_tabellen,
             "gliedern": self.gliedern,
             "empfaenger": self.empfaenger_fingerabdruck or None,
+            "referenzpopulation": self.referenzpopulation,
         }
 
 
@@ -121,6 +125,7 @@ class Ergebnis:
     ziel_bericht: Path | None = None
     ziel_vokabular: Path | None = None  # discarded guesses, one term per line
     ziel_kapsel: Path | None = None  # the mapping, encrypted to the recipient
+    restrisiko: risikomodul.Restrisiko | None = None  # what the text still reveals
     vorschau: list[Path] = field(default_factory=list)
     text: str = ""
     ist_text: bool = False  # the source was a text file; ``ziel_txt`` is the output itself
@@ -174,6 +179,13 @@ def _kapsel_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
                     f" geschrieben: {ziel.name}. Die Zuordnung der Pseudonyme steht nur dort,"
                     " verschlüsselt; die lokale Datenbank bleibt unberührt. Die Kapsel geht an"
                     " den Empfänger, nie an das Sprachmodell.")
+
+
+def _restrisiko(v: Vorbereitung | Textvorbereitung, text: str) -> risikomodul.Restrisiko:
+    """The k-map estimate of the pseudonymised text (see :mod:`anonymed.pruefung.restrisiko`)."""
+    fach = fachmodul.standard() if v.opt.fachbegriffe else None
+    return risikomodul.schaetze(text, v.patient.geschlecht, v.opt.referenzpopulation,
+                                [o for o in v.opt.eigene_orte.split(",") if o.strip()], fach)
 
 
 def _vokabular_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
@@ -1119,6 +1131,7 @@ def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis
         ziel = zielpfad(quelle, opt, v.ausgabe_endung)
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
                             kennung=v.kennung, text=ausgabe, ist_text=True)
+        ergebnis.restrisiko = _restrisiko(v, ausgabe)
         if gegenprobe.bestanden:
             ziel.parent.mkdir(parents=True, exist_ok=True)
             ziel.write_text(ausgabe, encoding="utf-8")
@@ -1131,7 +1144,8 @@ def _abschliessen_text(v: Textvorbereitung, endgueltig: bool = True) -> Ergebnis
         else:
             warnungen.append("Nicht freigegeben: keine Ausgabe geschrieben.")
         ergebnis.bericht = erstelle_bericht(quelle, ergebnis.ziel_txt, 1, True, fundstellen,
-                                            gegenprobe, opt.als_dict(), warnungen, hinweise)
+                                            gegenprobe, opt.als_dict(), warnungen, hinweise,
+                                            ergebnis.restrisiko.als_dict())
         if opt.bericht:
             ziel.parent.mkdir(parents=True, exist_ok=True)
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")
@@ -1248,6 +1262,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
 
         ergebnis = Ergebnis(quelle=quelle, bericht=None, fundstellen=fundstellen,  # type: ignore[arg-type]
                             kennung=v.kennung, text=text, vorschau=vorschau)
+        ergebnis.restrisiko = _restrisiko(v, text)
         if v.ohne_text:
             gegenprobe.anmerkungen.append("Seiten ohne Textebene konnten nicht geprüft werden")
         if gegenprobe.bestanden and not v.ohne_text:
@@ -1269,6 +1284,7 @@ def abschliessen(v: Vorbereitung | Textvorbereitung, endgueltig: bool = True) ->
         ergebnis.bericht = erstelle_bericht(
             quelle, ergebnis.ziel_pdf, seitenzahl, not ocr_seiten and not v.ohne_text,
             fundstellen, gegenprobe, optionen, warnungen, hinweise,
+            ergebnis.restrisiko.als_dict(),
         )
         if opt.bericht:
             ergebnis.ziel_bericht = zielpfad(quelle, opt, ".bericht.json")

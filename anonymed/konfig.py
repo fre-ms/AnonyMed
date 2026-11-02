@@ -58,6 +58,8 @@ class Einstellungen:
     speicher_datenbank: str = ""  # pseudonym database elsewhere than the data folder
     speicher_schluessel: str = ""  # key file elsewhere than next to the database
     adressbuch_lokal: str = ""  # a vCard file or a folder of vCard files as address book
+    referenzpopulation: int = 83_600_000  # people the residual-risk estimate chooses from
+    eigene_orte: str = ""  # places of the sender that are not the patient's, comma-separated
 
 
 def _lese_toml(pfad: Path) -> dict:
@@ -76,6 +78,7 @@ def lade_einstellungen(pfad: str | Path | None = None) -> Einstellungen:
     pgp = daten.get("pgp", {})
     speicher = daten.get("speicher", {})
     adressbuch = daten.get("adressbuch", {})
+    kontrolle = daten.get("kontrolle", {})
     e = Einstellungen(
         ocr_backend=str(ocr.get("backend", "auto")),
         tesseract_pfad=str(ocr.get("tesseract", "")),
@@ -87,6 +90,8 @@ def lade_einstellungen(pfad: str | Path | None = None) -> Einstellungen:
         speicher_datenbank=str(speicher.get("datenbank", "")),
         speicher_schluessel=str(speicher.get("schluessel", "")),
         adressbuch_lokal=str(adressbuch.get("lokal", "")),
+        referenzpopulation=int(kontrolle.get("referenzpopulation", 83_600_000) or 83_600_000),
+        eigene_orte=str(kontrolle.get("eigene_orte", "")),
     )
     e.ocr_backend = os.environ.get("ANONYMED_OCR", e.ocr_backend).strip() or "auto"
     e.tesseract_pfad = os.environ.get("ANONYMED_TESSERACT", e.tesseract_pfad).strip()
@@ -110,7 +115,9 @@ def _schreibe(pfad: Path, carddav: dict, e: Einstellungen) -> Path:
                "", "[pgp]", f"privater_schluessel = {_toml_wert(e.pgp_privater_schluessel)}",
                "", "[speicher]", f"datenbank = {_toml_wert(e.speicher_datenbank)}",
                f"schluessel = {_toml_wert(e.speicher_schluessel)}",
-               "", "[adressbuch]", f"lokal = {_toml_wert(e.adressbuch_lokal)}"]
+               "", "[adressbuch]", f"lokal = {_toml_wert(e.adressbuch_lokal)}",
+               "", "[kontrolle]", f"referenzpopulation = {int(e.referenzpopulation)}",
+               f"eigene_orte = {_toml_wert(e.eigene_orte)}"]
     pfad.write_text("\n".join(zeilen) + "\n", encoding="utf-8")
     try:
         os.chmod(pfad, 0o600)

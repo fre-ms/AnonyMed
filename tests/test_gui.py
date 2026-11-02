@@ -366,7 +366,8 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
         assert tabs == ["1 Patient", "2 Vocabulary", "3 Documents", "4 Text recognition",
-                    "5 Analyse", "6 Review", "7 Export", "8 Re-identify", "9 Database"]
+                    "5 Analyse", "6 Review", "7 Control", "8 Export", "9 Re-identify",
+                    "10 Database"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()

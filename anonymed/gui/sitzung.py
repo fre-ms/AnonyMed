@@ -23,6 +23,7 @@ from anonymed.ablauf import (
 from anonymed.dokument import aufbereitung as aufmodul
 from anonymed.dokument.textdatei import TEXTENDUNGEN, ist_textdatei
 from anonymed.kern.modell import Patient
+from anonymed.pruefung import restrisiko as risikomodul
 from anonymed.pseudonyme.pgp import Zertifikat
 from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich, einmalspeicher
 
@@ -244,10 +245,13 @@ class Sitzung:
                 kopie.vorschau.append(neu_ordner / bild.name)
             d.vorbereitung.opt = self._optionen_fuer(d, self.optionen.ziel_ordner)
             self._abschluss_ohne_ausgabe(d)
+            kopie.restrisiko = quelle.restrisiko
             d.ergebnis = kopie
+            self._restrisiko_merken(d)
             return d.ergebnis
         d.vorbereitung.opt = self._optionen_fuer(d, self.optionen.ziel_ordner)
         d.ergebnis = abschliessen(d.vorbereitung, endgueltig=True)
+        self._restrisiko_merken(d)
         return d.ergebnis
 
     def _abschluss_ohne_ausgabe(self, d: Dokument) -> None:
@@ -282,6 +286,41 @@ class Sitzung:
             return "gelb", (f"Erneute Prüfung bestanden; {len(gelb)} Dokument(e) mit"
                             " Warnungen, bitte lesen.")
         return "gruen", "Erneute Prüfung bestanden: nichts mehr gefunden, bereit zum Export."
+
+    def kontrolle(self) -> tuple[risikomodul.Restrisiko | None, int]:
+        """All checked documents of the session together with what earlier released
+        documents of the same patient revealed; (None, 0) before any check."""
+        risiken = [d.vorpruefung.restrisiko for d in self.dokumente
+                   if d.vorpruefung is not None and d.vorpruefung.restrisiko is not None]
+        if not risiken:
+            return None, 0
+        fruehere: list = []
+        anzahl = 0
+        if self.patient is not None and self.empfaenger is None:
+            try:
+                with self.speicher() as sp:
+                    gespeichert, anzahl = sp.restrisiko_fruehere(self.patient)
+                fruehere = [risikomodul.Merkmal(**m) for m in gespeichert]
+            except Exception:  # noqa: BLE001
+                fruehere, anzahl = [], 0
+        return risikomodul.vereinige(risiken, fruehere, anzahl), anzahl
+
+    def _restrisiko_merken(self, d: Dokument) -> None:
+        """After a release: remember categories and weights for the patient (never clear
+        text), so that later documents are judged together with this one."""
+        e = d.ergebnis
+        if e is None or e.restrisiko is None or not e.freigegeben or self.patient is None \
+                or self.empfaenger is not None:
+            return
+        r = e.restrisiko
+        try:
+            with self.speicher() as sp:
+                sp.merke_restrisiko(self.patient, d.pfad.name,
+                                    [{"schluessel": m.schluessel, "kategorie": m.kategorie,
+                                      "beschreibung": m.beschreibung, "bits": m.bits}
+                                     for m in r.merkmale], r.bits, r.lam)
+        except Exception:  # noqa: BLE001
+            pass
 
     def schliessen(self) -> None:
         for d in self.dokumente:
