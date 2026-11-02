@@ -570,6 +570,104 @@ def konfig(speicher: SpeicherOption = None) -> None:
         typer.echo("CardDAV:             nicht eingerichtet")
 
 
+datenbank_app = typer.Typer(
+    help="Pseudonym-Datenbank und Schlüssel: Statistik, Sicherung, Wiederherstellung.",
+    no_args_is_help=True,
+)
+app.add_typer(datenbank_app, name="datenbank")
+
+
+@datenbank_app.command("status")
+def datenbank_status(speicher: SpeicherOption = None) -> None:
+    """Was gespeichert ist: Zuordnungen je Kategorie, Größe, Integrität, Schlüssel."""
+    from anonymed.pseudonyme import sicherung as sichmodul
+
+    st = sichmodul.statistik(speicher)
+    breite = max(len(m) for m, _w in st.zeilen())
+    for merkmal, wert in st.zeilen():
+        typer.echo(f"{merkmal:<{breite}}  {wert}")
+
+
+@datenbank_app.command("exportieren")
+def datenbank_exportieren(
+    ziel: Annotated[Path, typer.Argument(help="Zielordner oder Dateiname (.zip).")],
+    speicher: SpeicherOption = None,
+    konfig: Annotated[bool, typer.Option("--konfig/--ohne-konfig",
+                                         help="konfig.toml einschließen.")] = True,
+    vokabular: Annotated[bool, typer.Option("--vokabular/--ohne-vokabular",
+                                            help="Nutzervokabular einschließen.")] = True,
+    passphrase: Annotated[str | None, typer.Option(
+        "--passphrase", envvar="ANONYMED_SICHERUNG_PASSPHRASE",
+        help="Passphrase für das Archiv (sonst Abfrage).")] = None,
+    unverschluesselt: Annotated[bool, typer.Option(
+        "--unverschluesselt", help="Ohne Verschlüsselung schreiben (nicht empfohlen).")] = False,
+) -> None:
+    """Datenbank, Schlüssel und wahlweise Konfiguration und Vokabular sichern."""
+    from anonymed.pseudonyme import pgp as pgpmodul
+    from anonymed.pseudonyme import sicherung as sichmodul
+
+    if unverschluesselt:
+        passphrase = None
+    elif passphrase is None:
+        if not pgpmodul.verfuegbar():
+            typer.echo("Verschlüsselung braucht das Extra 'pgp' oder GnuPG; sonst"
+                       " --unverschluesselt.", err=True)
+            raise typer.Exit(code=1)
+        passphrase = typer.prompt("Passphrase für das Archiv", hide_input=True,
+                                  confirmation_prompt=True)
+    if passphrase is not None and len(passphrase) < 8:
+        typer.echo("Passphrase zu kurz (mindestens 8 Zeichen).", err=True)
+        raise typer.Exit(code=1)
+    try:
+        pfad = sichmodul.exportiere(ziel, speicher, konfig, vokabular, passphrase)
+    except (sichmodul.SicherungFehler, pgpmodul.PGPFehler, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(f"Gesichert: {pfad}" + ("" if passphrase else "  (UNVERSCHLÜSSELT: enthält"
+                                                           " Schlüssel und Klardaten)"))
+
+
+@datenbank_app.command("importieren")
+def datenbank_importieren(
+    archiv: Annotated[Path, typer.Argument(exists=True, help="Sicherungsarchiv.")],
+    speicher: SpeicherOption = None,
+    modus: Annotated[str, typer.Option("--modus", help="ersetzen oder zusammenfuehren.")]
+    = "ersetzen",
+    passphrase: Annotated[str | None, typer.Option(
+        "--passphrase", envvar="ANONYMED_SICHERUNG_PASSPHRASE",
+        help="Passphrase des Archivs (sonst Abfrage, falls verschlüsselt).")] = None,
+    konfig: Annotated[bool, typer.Option("--konfig/--ohne-konfig",
+                                         help="Konfiguration übernehmen.")] = True,
+    vokabular: Annotated[bool, typer.Option("--vokabular/--ohne-vokabular",
+                                            help="Nutzervokabular übernehmen.")] = True,
+    ja: Annotated[bool, typer.Option("--ja", help="Ohne Rückfrage.")] = False,
+) -> None:
+    """Ein Archiv wiederherstellen (ersetzen) oder in die Datenbank übernehmen."""
+    from anonymed.pseudonyme import sicherung as sichmodul
+
+    if modus not in sichmodul.MODI:
+        typer.echo(f"--modus muss eines von {', '.join(sichmodul.MODI)} sein.", err=True)
+        raise typer.Exit(code=1)
+    if passphrase is None and not archiv.read_bytes().startswith(b"PK"):
+        passphrase = typer.prompt("Passphrase des Archivs", hide_input=True)
+    try:
+        m = sichmodul.pruefe(archiv, passphrase)
+    except (sichmodul.SicherungFehler, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(f"Archiv: {m.beschreibung()}")
+    if not ja and not typer.confirm(
+            "Datenbank und Schlüssel ersetzen (die jetzigen werden daneben gesichert)?"
+            if modus == "ersetzen" else "Einträge des Archivs übernehmen?"):
+        raise typer.Exit(code=1)
+    try:
+        b = sichmodul.importiere(archiv, speicher, passphrase, modus, konfig, vokabular)
+    except (sichmodul.SicherungFehler, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(b.beschreibung())
+
+
 schluessel_app = typer.Typer(
     help="OpenPGP-Schlüssel für Schlüsselkapseln: Pseudonyme, die ein Empfänger auflöst.",
     no_args_is_help=True,

@@ -421,6 +421,231 @@
     </message>
 </context>
 <context>
+    <name>DatenbankSeite</name>
+    <message>
+        <location filename="../datenbank_seite.py" line="47" />
+        <source>Datenbank und Schlüssel: alles, was zur Rückersetzung nötig ist. Sichern Sie beides regelmäßig; ohne den Schlüssel sind die Pseudonyme nicht mehr auflösbar.</source>
+        <translation>Database and key: everything re-identification needs. Back both up regularly; without the key the pseudonyms can no longer be resolved.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="49" />
+        <source>Aktualisieren</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="55" />
+        <source>Merkmal</source>
+        <translation>Item</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="55" />
+        <source>Wert</source>
+        <translation>Value</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="62" />
+        <source>Sichern (Export)</source>
+        <translation>Back up (export)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="66" />
+        <source>Zielordner (Dateiname wird vergeben)</source>
+        <translation>Target folder (the file name is chosen for you)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="71" />
+        <source>Ziel</source>
+        <translation>Target</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="72" />
+        <source>Konfiguration (konfig.toml) einschließen</source>
+        <translation>Include the configuration (konfig.toml)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="74" />
+        <source>Nutzervokabular einschließen</source>
+        <translation>Include your vocabulary</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="83" />
+        <source>Wiederholung</source>
+        <translation>Repeat</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="86" />
+        <location filename="../datenbank_seite.py" line="122" />
+        <source>Passphrase</source>
+        <translation>Passphrase</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="88" />
+        <source>Unverschlüsselt sichern (nicht empfohlen: Archiv enthält Schlüssel und Klardaten)</source>
+        <translation>Back up unencrypted (not recommended: the archive holds the key and clear data)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="96" />
+        <source>Verschlüsselung braucht das Extra 'pgp' (pysequoia) oder GnuPG.</source>
+        <translation>Encryption needs the extra 'pgp' (pysequoia) or GnuPG.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="100" />
+        <location filename="../datenbank_seite.py" line="175" />
+        <location filename="../datenbank_seite.py" line="181" />
+        <location filename="../datenbank_seite.py" line="186" />
+        <source>Sichern</source>
+        <translation>Back up</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="107" />
+        <source>Wiederherstellen (Import)</source>
+        <translation>Restore (import)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="111" />
+        <source>Sicherungsarchiv (.zip oder .zip.gpg)</source>
+        <translation>Backup archive (.zip or .zip.gpg)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="114" />
+        <source>Prüfen</source>
+        <translation>Check</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="119" />
+        <source>Archiv</source>
+        <translation>Archive</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="127" />
+        <source>Ersetzen: Datenbank und Schlüssel aus dem Archiv übernehmen (die jetzigen werden vorher daneben gesichert)</source>
+        <translation>Replace: take database and key from the archive (the current ones are set aside first)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="131" />
+        <source>Zusammenführen: Einträge des Archivs ergänzen (nur bei gleichem Schlüssel)</source>
+        <translation>Merge: add the entries of the archive (same key only)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="134" />
+        <source>Konfiguration aus dem Archiv übernehmen</source>
+        <translation>Take the configuration from the archive</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="136" />
+        <source>Nutzervokabular aus dem Archiv übernehmen</source>
+        <translation>Take the vocabulary from the archive</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="143" />
+        <location filename="../datenbank_seite.py" line="244" />
+        <location filename="../datenbank_seite.py" line="249" />
+        <location filename="../datenbank_seite.py" line="258" />
+        <source>Importieren</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="168" />
+        <source>Zielordner der Sicherung</source>
+        <translation>Target folder of the backup</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="175" />
+        <source>Bitte einen Zielordner wählen.</source>
+        <translation>Please choose a target folder.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="182" />
+        <source>Bitte eine Passphrase mit mindestens 8 Zeichen eingeben oder „Unverschlüsselt“ wählen.</source>
+        <translation>Please enter a passphrase of at least 8 characters or choose “unencrypted”.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="186" />
+        <source>Die Wiederholung stimmt nicht.</source>
+        <translation>The repeat does not match.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="194" />
+        <source>Sicherung fehlgeschlagen: {fehler}</source>
+        <translation>Backup failed: {fehler}</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="199" />
+        <source>Gesichert: {pfad}</source>
+        <translation>Backed up: {pfad}</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="200" />
+        <source> (verschlüsselt; gpg --decrypt öffnet das Archiv auch ohne AnonyMed)</source>
+        <translation> (encrypted; gpg --decrypt opens the archive without AnonyMed as well)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="201" />
+        <source> (UNVERSCHLÜSSELT, enthält Schlüssel und Klardaten)</source>
+        <translation> (UNENCRYPTED, holds the key and clear data)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="209" />
+        <source>Sicherungsarchiv</source>
+        <translation>Backup archive</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="210" />
+        <source>AnonyMed-Sicherungen (*.zip *.gpg);;Alle Dateien (*)</source>
+        <translation>AnonyMed backups (*.zip *.gpg);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="220" />
+        <source>Bitte ein Archiv wählen.</source>
+        <translation>Please choose an archive.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="225" />
+        <source>Archiv nicht lesbar: {fehler}</source>
+        <translation>Archive not readable: {fehler}</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="232" />
+        <source>Archiv: {beschreibung}. </source>
+        <translation>Archive: {beschreibung}. </translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="234" />
+        <source>Gleicher Schlüssel wie lokal: Zusammenführen möglich.</source>
+        <translation>Same key as the local one: merging is possible.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="235" />
+        <source>Anderer Schlüssel als lokal (oder noch keiner): nur Ersetzen.</source>
+        <translation>A different key from the local one (or none yet): replace only.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="244" />
+        <source>Bitte zuerst ein Archiv prüfen.</source>
+        <translation>Please check an archive first.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="250" />
+        <source>Es gibt analysierte, noch nicht exportierte Dokumente. Bitte zuerst exportieren oder entfernen, dann importieren.</source>
+        <translation>There are analysed documents not yet exported. Export or remove them first, then import.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="255" />
+        <source>Datenbank und Schlüssel durch das Archiv ersetzen? Die jetzigen werden vorher daneben gesichert.</source>
+        <translation>Replace database and key by the archive? The current ones are set aside first.</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="257" />
+        <source>Einträge des Archivs in die lokale Datenbank übernehmen?</source>
+        <translation>Add the entries of the archive to the local database?</translation>
+    </message>
+    <message>
+        <location filename="../datenbank_seite.py" line="267" />
+        <source>Import fehlgeschlagen: {fehler}</source>
+        <translation>Import failed: {fehler}</translation>
+    </message>
+</context>
+<context>
     <name>DokumenteSeite</name>
     <message>
         <location filename="../dokumente_seite.py" line="73" />
@@ -741,53 +966,58 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="37" />
+        <location filename="../hauptfenster.py" line="39" />
         <source>1 Patient</source>
         <translation>1 Patient</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="38" />
+        <location filename="../hauptfenster.py" line="40" />
         <source>2 Dokumente</source>
         <translation>2 Documents</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="39" />
+        <location filename="../hauptfenster.py" line="41" />
         <source>3 Texterkennung</source>
         <translation>3 Text recognition</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="40" />
+        <location filename="../hauptfenster.py" line="42" />
         <source>4 Analysieren</source>
         <translation>4 Analyse</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="41" />
+        <location filename="../hauptfenster.py" line="43" />
         <source>5 Prüfen</source>
         <translation>5 Review</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="42" />
+        <location filename="../hauptfenster.py" line="44" />
         <source>6 Exportieren</source>
         <translation>6 Export</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="43" />
+        <location filename="../hauptfenster.py" line="45" />
         <source>7 Rückersetzen</source>
         <translation>7 Re-identify</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="62" />
+        <location filename="../hauptfenster.py" line="46" />
+        <source>8 Datenbank</source>
+        <translation>8 Database</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="65" />
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="66" />
-        <location filename="../hauptfenster.py" line="76" />
+        <location filename="../hauptfenster.py" line="69" />
+        <location filename="../hauptfenster.py" line="79" />
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="77" />
+        <location filename="../hauptfenster.py" line="80" />
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
     </message>

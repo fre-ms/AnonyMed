@@ -253,6 +253,35 @@ def entschluessele(daten: bytes, privater_schluessel: str | Path | None = None,
         return _gpg([*argumente, str(datei)], eingabe=eingabe, home=gnupg_home)
 
 
+# -- passphrase (symmetric) ------------------------------------------------------------------------
+def verschluessele_mit_passphrase(daten: bytes, passphrase: str) -> bytes:
+    """``daten`` as a binary OpenPGP message protected by a passphrase (backups)."""
+    if not passphrase:
+        raise PGPFehler("Leere Passphrase.")
+    if pysequoia_verfuegbar():
+        import pysequoia as sq
+
+        return sq.encrypt(passwords=[passphrase], bytes=daten, armor=False)
+    return _gpg(["--pinentry-mode", "loopback", "--passphrase-fd", "0", "--symmetric",
+                 "--cipher-algo", "AES256", "--output", "-"],
+                eingabe=passphrase.encode("utf-8") + b"\n" + daten)
+
+
+def entschluessele_mit_passphrase(daten: bytes, passphrase: str) -> bytes:
+    if pysequoia_verfuegbar():
+        import pysequoia as sq
+
+        try:
+            return bytes(sq.decrypt(passwords=[passphrase], bytes=daten).bytes)
+        except Exception as e:  # noqa: BLE001
+            raise PGPFehler(f"Entschlüsselung fehlgeschlagen (Passphrase?): {e}") from e
+    with tempfile.TemporaryDirectory() as ordner:
+        datei = Path(ordner) / "sicherung.gpg"
+        datei.write_bytes(daten)
+        return _gpg(["--pinentry-mode", "loopback", "--passphrase-fd", "0", "--decrypt",
+                     str(datei)], eingabe=passphrase.encode("utf-8") + b"\n")
+
+
 # -- key pairs for people without GnuPG ------------------------------------------------------------
 def erzeuge_schluesselpaar(name: str, email: str) -> tuple[str, str]:
     """A fresh OpenPGP key pair (Curve25519) as armoured public and secret key."""

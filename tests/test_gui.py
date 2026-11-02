@@ -339,7 +339,7 @@ def test_fenster_laesst_sich_verkleinern(qapp: QApplication, tmp_path: Path) -> 
         fenster.tabs.setCurrentIndex(i)
         qapp.processEvents()
         assert fenster.width() <= 720, fenster.tabs.tabText(i)
-    assert fenster.aktuelle_seite() is fenster.rueckersetzen
+    assert fenster.aktuelle_seite() is fenster.datenbank
     fenster.close()
 
 
@@ -364,7 +364,7 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
         assert tabs == ["1 Patient", "2 Documents", "3 Text recognition", "4 Analyse", "5 Review",
-                    "6 Export", "7 Re-identify"]
+                    "6 Export", "7 Re-identify", "8 Database"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QScrollArea, QTabWidget
 
 from anonymed import WERKZEUG
 from anonymed.gui.analysieren_seite import AnalysierenSeite
+from anonymed.gui.datenbank_seite import DatenbankSeite
 from anonymed.gui.dokumente_seite import DokumenteSeite
 from anonymed.gui.export_seite import ExportSeite
 from anonymed.gui.patient_seite import PatientSeite
@@ -33,6 +34,7 @@ class Hauptfenster(QMainWindow):
         self.pruefen = PruefenSeite(self.sitzung)
         self.export = ExportSeite(self.sitzung)
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
+        self.datenbank = DatenbankSeite(self.sitzung)
         self._seiten: list = []
         for seite, titel in ((self.patient, self.tr("1 Patient")),
                              (self.dokumente, self.tr("2 Dokumente")),
@@ -40,7 +42,8 @@ class Hauptfenster(QMainWindow):
                              (self.analysieren, self.tr("4 Analysieren")),
                              (self.pruefen, self.tr("5 Prüfen")),
                              (self.export, self.tr("6 Exportieren")),
-                             (self.rueckersetzen, self.tr("7 Rückersetzen"))):
+                             (self.rueckersetzen, self.tr("7 Rückersetzen")),
+                             (self.datenbank, self.tr("8 Datenbank"))):
             # a scroll area per step: the window shrinks below a step's natural size
             # and shows scrollbars instead of refusing to get smaller
             rahmen = QScrollArea()
@@ -95,6 +98,8 @@ class Hauptfenster(QMainWindow):
         seite = self.seite(index)
         if seite is self.rueckersetzen:
             self.rueckersetzen.aktualisiere()
+        elif seite is self.datenbank:
+            self.datenbank.aktualisiere()
         elif seite is self.analysieren:
             self.analysieren.aktualisiere()
         elif seite is self.texterkennung:
