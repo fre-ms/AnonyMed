@@ -60,6 +60,40 @@ class DatenbankSeite(QWidget):
         self.tabelle.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         aussen.addWidget(self.tabelle, 1)
 
+        ort = QGroupBox(self.tr("Speicherort"))
+        of = QFormLayout(ort)
+        z1 = QHBoxLayout()
+        self.ort_datenbank = QLineEdit()
+        db_waehlen = QPushButton("…")
+        db_waehlen.clicked.connect(self.ort_datenbank_waehlen)
+        z1.addWidget(self.ort_datenbank, 1)
+        z1.addWidget(db_waehlen)
+        of.addRow(self.tr("Datenbank"), z1)
+        z2 = QHBoxLayout()
+        self.ort_schluessel = QLineEdit()
+        key_waehlen = QPushButton("…")
+        key_waehlen.clicked.connect(self.ort_schluessel_waehlen)
+        z2.addWidget(self.ort_schluessel, 1)
+        z2.addWidget(key_waehlen)
+        of.addRow(self.tr("Schlüsseldatei"), z2)
+        self.ort_kopieren = QCheckBox(self.tr(
+            "Vorhandene Dateien an den neuen Ort kopieren (die alten werden umbenannt)"))
+        self.ort_kopieren.setChecked(True)
+        of.addRow(self.ort_kopieren)
+        oz = QHBoxLayout()
+        self.ort_status = QLabel(self.tr(
+            "Beide Dateien dürfen in beliebigen Ordnern liegen, auch getrennt; wer die Datenbank"
+            " ohne den Schlüssel hat, kann nichts auflösen."))
+        self.ort_status.setWordWrap(True)
+        self.ort_knopf = QPushButton(self.tr("Speicherort übernehmen"))
+        self.ort_knopf.clicked.connect(self.speicherort_setzen)
+        oz.addWidget(self.ort_status, 1)
+        oz.addWidget(self.ort_knopf)
+        of.addRow(oz)
+        if sitzung.speicherpfad is not None:  # an explicit path (tests, --speicher): fixed
+            ort.setEnabled(False)
+        aussen.addWidget(ort)
+
         export = QGroupBox(self.tr("Sichern (Export)"))
         ef = QFormLayout(export)
         zeile = QHBoxLayout()
@@ -152,6 +186,10 @@ class DatenbankSeite(QWidget):
     # -- statistics --------------------------------------------------------------------------------
     def aktualisiere(self) -> sichmodul.Statistik:
         st = sichmodul.statistik(self.sitzung.speicherpfad)
+        if not self.ort_datenbank.hasFocus():
+            self.ort_datenbank.setText(str(st.pfad))
+        if not self.ort_schluessel.hasFocus():
+            self.ort_schluessel.setText(str(st.schluessel_pfad or ""))
         zeilen = st.zeilen()
         self.tabelle.setRowCount(len(zeilen))
         for i, (merkmal, wert) in enumerate(zeilen):
@@ -163,6 +201,41 @@ class DatenbankSeite(QWidget):
         if self.synchron:
             raise RuntimeError(text)
         (QMessageBox.warning if fehler else QMessageBox.information)(self, titel, text)
+
+    # -- storage location --------------------------------------------------------------------------
+    def ort_datenbank_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getSaveFileName(self, self.tr("Datenbank"), self.ort_datenbank.text(),
+                                              self.tr("SQLite (*.sqlite)"))
+        if pfad:
+            self.ort_datenbank.setText(pfad)
+
+    def ort_schluessel_waehlen(self) -> None:
+        pfad, _ = QFileDialog.getSaveFileName(self, self.tr("Schlüsseldatei"),
+                                              self.ort_schluessel.text(), self.tr("Text (*.txt)"))
+        if pfad:
+            self.ort_schluessel.setText(pfad)
+
+    def speicherort_setzen(self) -> sichmodul.Verlegung | None:
+        offen = [d for d in self.sitzung.dokumente
+                 if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen]
+        if offen:
+            self._melde(self.tr("Speicherort"), self.tr(
+                "Es gibt analysierte, noch nicht exportierte Dokumente. Bitte zuerst exportieren"
+                " oder entfernen."), True)
+            return None
+        try:
+            v = sichmodul.verlege(Path(self.ort_datenbank.text().strip()),
+                                  Path(self.ort_schluessel.text().strip()),
+                                  self.ort_kopieren.isChecked())
+        except (sichmodul.SicherungFehler, OSError) as e:
+            self.ort_status.setText(self.tr("Speicherort nicht übernommen: {fehler}").format(
+                fehler=e))
+            if self.synchron:
+                raise RuntimeError(str(e)) from e
+            return None
+        self.ort_status.setText(v.beschreibung())
+        self.aktualisiere()
+        return v
 
     # -- export --------------------------------------------------------------------------------
     def export_ziel_waehlen(self) -> None:

@@ -35,7 +35,7 @@ from anonymed.pseudonyme.speicher import (
     schluesselpfad_zu,
     standardpfad,
 )
-from anonymed.quellen.carddav import CardDAVClient, CardDAVFehler, Kontakt, passt
+from anonymed.quellen.carddav import CardDAVClient, CardDAVFehler, passt
 from anonymed.schwaerzen.pdf import Schwaerzoptionen
 
 app = typer.Typer(
@@ -138,13 +138,21 @@ def _verbindung(konfig: Path | None) -> tuple[CardDAVClient, CardDAVKonfig]:
         raise typer.Exit(code=1) from e
 
 
-def _kontakte_suchen(begriff: str, konfig: Path | None) -> list[Kontakt]:
-    client, k = _verbindung(konfig)
-    try:
-        return client.suche(client.adressbuch(k.adressbuch), begriff)
-    except CardDAVFehler as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(code=1) from e
+def _kontakte_suchen(begriff: str, konfig: Path | None) -> list[Patient]:
+    """Local vCard book and CardDAV together; a source that fails is reported, and only
+    when nothing at all is set up or every source failed the command stops."""
+    from anonymed.quellen import adressbuch
+
+    if not adressbuch.eingerichtet(konfig):
+        typer.echo("Kein Adressbuch eingerichtet: 'anonymed kontakte einrichten' (Nextcloud) oder"
+                   " 'anonymed kontakte lokal DATEI' (vCard-Datei oder Ordner).", err=True)
+        raise typer.Exit(code=1)
+    ergebnis = adressbuch.suche(begriff, konfig)
+    for fehler in ergebnis.fehler:
+        typer.echo(fehler, err=True)
+    if ergebnis.fehler and len(ergebnis.fehler) == len(ergebnis.quellen):
+        raise typer.Exit(code=1)
+    return ergebnis.patienten
 
 
 def _zeile(nr: int, p: Patient, kennung: str | None = None) -> str:
@@ -189,7 +197,7 @@ def _patient_bestimmen(
             kandidaten = [p for p in kandidaten if passt(p, kontakt)]
         return _auswahl(kandidaten, kontakt or vcf.name, nr)
     if kontakt:
-        return _auswahl([k.patient for k in _kontakte_suchen(kontakt, konfig)], kontakt, nr)
+        return _auswahl(_kontakte_suchen(kontakt, konfig), kontakt, nr)
     typer.echo("Bitte --patient, --vcf oder --kontakt angeben.", err=True)
     raise typer.Exit(code=1)
 
@@ -551,9 +559,16 @@ def konfig(speicher: SpeicherOption = None) -> None:
     quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
     typer.echo(f"Fachbegriffe:        {fb.anzahl} geschützte Begriffe ({quellen});"
                f" eigene Listen in {fachmodul.datenordner()}")
+    from anonymed.konfig import schluesselbund
+    from anonymed.pseudonyme.speicher import standard_schluesselpfad
+
     typer.echo(f"Pseudonym-Datenbank: {speicher or standardpfad()}")
-    typer.echo(f"Pseudonymschlüssel:  {schluesselpfad_zu(speicher or standardpfad())}"
+    schluessel = schluesselpfad_zu(speicher) if speicher else standard_schluesselpfad()
+    typer.echo(f"Pseudonymschlüssel:  {schluessel}"
                "  (sichern; gleicher Schlüssel = gleiche Kennungen auf jedem Rechner)")
+    typer.echo("Schlüsselbund:       " + (schluesselbund() or "keiner (Extra 'carddav')"))
+    if einstellungen.adressbuch_lokal:
+        typer.echo(f"Lokales Adressbuch:  {einstellungen.adressbuch_lokal}")
     from anonymed.pseudonyme import pgp as pgpmodul
 
     typer.echo("OpenPGP:             " + (", ".join(pgpmodul.engines()) or
@@ -586,6 +601,35 @@ def datenbank_status(speicher: SpeicherOption = None) -> None:
     breite = max(len(m) for m, _w in st.zeilen())
     for merkmal, wert in st.zeilen():
         typer.echo(f"{merkmal:<{breite}}  {wert}")
+
+
+@datenbank_app.command("speicherort")
+def datenbank_speicherort(
+    datenbank: Annotated[Path | None, typer.Option("--datenbank", help="Neuer Pfad der"
+                                                                      " Datenbank.")] = None,
+    schluessel: Annotated[Path | None, typer.Option("--schluessel", help="Neuer Pfad der"
+                                                                        " Schlüsseldatei.")]
+    = None,
+    kopieren: Annotated[bool, typer.Option(
+        "--kopieren/--nicht-kopieren",
+        help="Vorhandene Dateien an den neuen Ort kopieren (Originale werden umbenannt).")]
+    = True,
+) -> None:
+    """Datenbank und Schlüsseldatei an beliebigen Orten ablegen; ohne Angaben: anzeigen."""
+    from anonymed.pseudonyme import sicherung as sichmodul
+    from anonymed.pseudonyme.speicher import standard_schluesselpfad, standardpfad
+
+    if datenbank is None and schluessel is None:
+        typer.echo(f"Datenbank:     {standardpfad()}")
+        typer.echo(f"Schlüsseldatei: {standard_schluesselpfad()}")
+        return
+    try:
+        v = sichmodul.verlege(datenbank or standardpfad(), schluessel or standard_schluesselpfad(),
+                              kopieren)
+    except (sichmodul.SicherungFehler, OSError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(v.beschreibung())
 
 
 @datenbank_app.command("exportieren")
@@ -819,6 +863,9 @@ def einrichten(
     schluesselbund: Annotated[bool, typer.Option(
         "--schluesselbund/--kein-schluesselbund",
         help="App-Passwort im Schlüsselbund des Betriebssystems ablegen.")] = True,
+    passwort_datei: Annotated[bool, typer.Option(
+        "--passwort-datei", help="Ohne Schlüsselbund: App-Passwort in der Konfigurationsdatei"
+                                 " (nur für den Benutzer lesbar) ablegen.")] = False,
 ) -> None:
     """Zugang einrichten: Adresse, Benutzer, App-Passwort (Nextcloud → Sicherheit)."""
     passwort = os.environ.get(UMGEBUNG_PASSWORT) or typer.prompt("App-Passwort", hide_input=True)
@@ -831,17 +878,49 @@ def einrichten(
     except CardDAVFehler as e:
         typer.echo(f"Verbindung fehlgeschlagen: {e}", err=True)
         raise typer.Exit(code=1) from e
+    if schluesselbund and passwort_speichern(k, passwort):
+        typer.echo(f"App-Passwort im Schlüsselbund abgelegt ({k.kennung}).")
+    elif passwort_datei:
+        k.passwort_datei = passwort
+        typer.echo("App-Passwort in der Konfigurationsdatei abgelegt (Rechte 0600).")
+    else:
+        typer.echo(
+            "Kein Schlüsselbund verfügbar (Extra 'carddav' installieren) – Passwort stattdessen"
+            f" in {UMGEBUNG_PASSWORT} setzen oder --passwort-datei wählen.", err=True,
+        )
     pfad = speichere_konfig(k, konfig)
     typer.echo(f"Konfiguration gespeichert: {pfad}")
-    if schluesselbund:
-        if passwort_speichern(k, passwort):
-            typer.echo(f"App-Passwort im Schlüsselbund abgelegt ({k.kennung}).")
-        else:
-            typer.echo(
-                "Kein Schlüsselbund verfügbar (Extra 'carddav' installieren) – Passwort stattdessen"
-                f" in {UMGEBUNG_PASSWORT} setzen.", err=True,
-            )
     typer.echo("Adressbücher: " + ", ".join(f"{b.name} ({b.uri})" for b in buecher))
+
+
+@kontakte_app.command("lokal")
+def kontakte_lokal(
+    pfad: Annotated[Path | None, typer.Argument(
+        help="vCard-Datei oder Ordner mit vCard-Dateien; ohne Angabe: anzeigen.")] = None,
+    entfernen: Annotated[bool, typer.Option("--entfernen",
+                                            help="Lokales Adressbuch austragen.")] = False,
+    konfig: KonfigOption = None,
+) -> None:
+    """Ein lokales Adressbuch (vCard-Datei oder Ordner) einrichten oder anzeigen."""
+    from anonymed.konfig import lade_einstellungen, speichere_einstellungen
+    from anonymed.quellen.adressbuch import lokale_dateien
+
+    e = lade_einstellungen(konfig)
+    if entfernen:
+        e.adressbuch_lokal = ""
+        speichere_einstellungen(e, konfig)
+        typer.echo("Lokales Adressbuch ausgetragen.")
+        return
+    if pfad is None:
+        typer.echo(e.adressbuch_lokal or "Kein lokales Adressbuch eingerichtet.")
+        return
+    dateien = lokale_dateien(pfad)
+    if not dateien:
+        typer.echo(f"{pfad}: keine vCard-Datei(en) gefunden.", err=True)
+        raise typer.Exit(code=1)
+    e.adressbuch_lokal = str(pfad.expanduser().resolve())
+    speichere_einstellungen(e, konfig)
+    typer.echo(f"Lokales Adressbuch: {e.adressbuch_lokal} ({len(dateien)} Datei(en)).")
 
 
 @kontakte_app.command()
@@ -864,14 +943,14 @@ def suchen(
     speicher: SpeicherOption = None,
 ) -> None:
     """Kontakte suchen; zeigt vergebene Pseudonym-Buchstaben an."""
-    kontakte = _kontakte_suchen(begriff, konfig)
-    if not kontakte:
+    patienten = _kontakte_suchen(begriff, konfig)
+    if not patienten:
         typer.echo(f"Kein Kontakt passt zu {begriff!r}.")
         raise typer.Exit(code=1)
     with _speicher(speicher) as sp:
-        for i, kontakt in enumerate(kontakte, 1):
-            info = sp.patient_info(kontakt.patient.schluessel())
-            typer.echo(_zeile(i, kontakt.patient, info["kennung"] if info else None))
+        for i, p in enumerate(patienten, 1):
+            info = sp.patient_info(p.schluessel())
+            typer.echo(_zeile(i, p, info["kennung"] if info else None))
 
 
 def _patient_text(p: Patient) -> str:
@@ -905,7 +984,7 @@ def zeigen(
     konfig: KonfigOption = None,
 ) -> None:
     """Abgeleitete Identifikatoren eines Kontakts anzeigen (nur lokal)."""
-    p = _auswahl([k.patient for k in _kontakte_suchen(begriff, konfig)], begriff, nr)
+    p = _auswahl(_kontakte_suchen(begriff, konfig), begriff, nr)
     if als_json:
         typer.echo(json.dumps(p.als_dict(), ensure_ascii=False, indent=2))
     else:
@@ -922,7 +1001,7 @@ def export(
     konfig: KonfigOption = None,
 ) -> None:
     """Kontakt als Patientendatei speichern, um Angehörige, Zuweiser und Begriffe zu ergänzen."""
-    p = _auswahl([k.patient for k in _kontakte_suchen(begriff, konfig)], begriff, nr)
+    p = _auswahl(_kontakte_suchen(begriff, konfig), begriff, nr)
     if ausgabe.exists() and not ueberschreiben:
         typer.echo(f"{ausgabe} existiert bereits (--ueberschreiben).", err=True)
         raise typer.Exit(code=1)

@@ -88,14 +88,33 @@ class Kennungsergebnis:
 
 
 def standardpfad() -> Path:
-    """Pseudonym database in the user data folder; ANONYMED_DATENORDNER overrides the folder."""
+    """The pseudonym database: the path from ``[speicher] datenbank`` in the
+    configuration, else ``pseudonyme.sqlite`` in the user data folder
+    (ANONYMED_DATENORDNER overrides that folder)."""
+    from anonymed.konfig import lade_einstellungen
+
+    konfiguriert = lade_einstellungen().speicher_datenbank
+    if konfiguriert:
+        return Path(konfiguriert).expanduser()
     ordner = os.environ.get("ANONYMED_DATENORDNER")
     basis = Path(ordner) if ordner else user_data_path("AnonyMed", appauthor=False)
     return basis / "pseudonyme.sqlite"
 
 
 def schluesselpfad_zu(speicherpfad: Path) -> Path:
+    """The key file next to a database (explicitly chosen databases keep their key there)."""
     return speicherpfad.parent / "pseudonymschluessel.txt"
+
+
+def standard_schluesselpfad(speicherpfad: Path | None = None) -> Path:
+    """The key file for the default database: ``[speicher] schluessel`` in the
+    configuration, else next to the database."""
+    from anonymed.konfig import lade_einstellungen
+
+    konfiguriert = lade_einstellungen().speicher_schluessel
+    if konfiguriert:
+        return Path(konfiguriert).expanduser()
+    return schluesselpfad_zu(speicherpfad or standardpfad())
 
 
 def buchstabe(index: int) -> str:
@@ -131,6 +150,7 @@ class Pseudonymspeicher:
         if schema not in SCHEMATA:
             raise ValueError(f"Unbekanntes Pseudonymschema: {schema!r}")
         self.schema = schema
+        explizit = pfad is not None
         if pfad is None:
             pfad = standardpfad()
         self.pfad = Path(pfad) if str(pfad) != ":memory:" else None
@@ -155,9 +175,13 @@ class Pseudonymspeicher:
         if geheimnis is not None:
             self.geheimnis = geheimnis
         elif self.pfad is not None or schluesselpfad is not None:
-            self.schluesselpfad = (
-                Path(schluesselpfad) if schluesselpfad else schluesselpfad_zu(self.pfad)
-            )
+            if schluesselpfad:
+                self.schluesselpfad = Path(schluesselpfad)
+            elif explizit:
+                self.schluesselpfad = schluesselpfad_zu(self.pfad)
+            else:
+                self.schluesselpfad = standard_schluesselpfad(self.pfad)
+            self.schluesselpfad.parent.mkdir(parents=True, exist_ok=True)
             self.geheimnis = geheimnis_laden(self.schluesselpfad)
         else:
             self.geheimnis = secrets.token_bytes(32)  # in-memory store: ephemeral key

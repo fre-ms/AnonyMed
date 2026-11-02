@@ -32,7 +32,7 @@ from anonymed import WERKZEUG
 from anonymed.erkennung.fachbegriffe import datenordner as vokabularordner
 from anonymed.konfig import konfigpfad
 from anonymed.pseudonyme import pgp as pgpmodul
-from anonymed.pseudonyme.speicher import schluesselpfad_zu, standardpfad
+from anonymed.pseudonyme.speicher import schluesselpfad_zu, standard_schluesselpfad, standardpfad
 
 VERSION = 1
 NAME_DB = "pseudonyme.sqlite"
@@ -139,8 +139,83 @@ def _mb(n: int) -> str:
 
 
 def _pfade(speicherpfad: Path | None) -> tuple[Path, Path]:
-    db = Path(speicherpfad) if speicherpfad else standardpfad()
-    return db, schluesselpfad_zu(db)
+    """Database and key file: the configured ones for the default database, the key
+    next to the database when a database path was given explicitly."""
+    if speicherpfad:
+        db = Path(speicherpfad)
+        return db, schluesselpfad_zu(db)
+    return standardpfad(), standard_schluesselpfad()
+
+
+@dataclass
+class Verlegung:
+    datenbank: Path
+    schluessel: Path
+    kopiert: bool = False
+    umbenannt: list[Path] = field(default_factory=list)
+
+    def beschreibung(self) -> str:
+        text = f"Speicherort: Datenbank {self.datenbank}, Schlüssel {self.schluessel}."
+        if self.kopiert:
+            text += " Vorhandene Dateien wurden dorthin kopiert"
+            if self.umbenannt:
+                text += "; die alten heißen jetzt " + ", ".join(p.name for p in self.umbenannt)
+            text += "."
+        return text
+
+
+def verlege(datenbank: Path, schluessel: Path, kopieren: bool = True) -> Verlegung:
+    """Store database and key at the given paths from now on (``[speicher]`` in the
+    configuration).  With ``kopieren`` the current files are copied there first (the
+    database through the backup API) and the originals renamed ``*.verlegt-<stamp>``,
+    so that exactly one database stays live."""
+    from anonymed.konfig import lade_einstellungen, speichere_einstellungen
+
+    datenbank, schluessel = Path(datenbank).expanduser(), Path(schluessel).expanduser()
+    if not datenbank.is_absolute() or not schluessel.is_absolute():
+        raise SicherungFehler("Bitte absolute Pfade angeben.")
+    if datenbank == schluessel:
+        raise SicherungFehler("Datenbank und Schlüsseldatei brauchen verschiedene Dateinamen.")
+    alt_db, alt_schluessel = _pfade(None)
+    v = Verlegung(datenbank=datenbank, schluessel=schluessel)
+    if kopieren and (alt_db != datenbank or alt_schluessel != schluessel):
+        stempel = dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        if alt_db.exists() and alt_db != datenbank:
+            if datenbank.exists() and not _leer(datenbank):
+                raise SicherungFehler(f"Am Ziel gibt es schon eine Datenbank: {datenbank}."
+                                      " Anderen Pfad wählen oder sie über den Import ersetzen.")
+            datenbank.parent.mkdir(parents=True, exist_ok=True)
+            quelle = sqlite3.connect(f"file:{alt_db}?mode=ro", uri=True)
+            ziel = sqlite3.connect(datenbank)
+            try:
+                quelle.backup(ziel)
+            finally:
+                ziel.close()
+                quelle.close()
+            alt_db.rename(alt_db.with_name(f"{alt_db.name}.verlegt-{stempel}"))
+            v.umbenannt.append(alt_db.with_name(f"{alt_db.name}.verlegt-{stempel}"))
+            v.kopiert = True
+        if alt_schluessel.exists() and alt_schluessel != schluessel:
+            if schluessel.exists() and schluessel.read_bytes().strip() != \
+                    alt_schluessel.read_bytes().strip():
+                raise SicherungFehler("Am Ziel gibt es schon einen anderen Schlüssel:"
+                                      f" {schluessel}.")
+            schluessel.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(alt_schluessel, schluessel)
+            alt_schluessel.rename(alt_schluessel.with_name(
+                f"{alt_schluessel.name}.verlegt-{stempel}"))
+            v.umbenannt.append(alt_schluessel.with_name(f"{alt_schluessel.name}.verlegt-{stempel}"))
+            v.kopiert = True
+        for p in (datenbank, schluessel):
+            if p.exists():
+                try:
+                    os.chmod(p, 0o600)
+                except OSError:
+                    pass
+    e = lade_einstellungen()
+    e.speicher_datenbank, e.speicher_schluessel = str(datenbank), str(schluessel)
+    speichere_einstellungen(e)
+    return v
 
 
 def statistik(speicherpfad: Path | None = None) -> Statistik:

@@ -23,13 +23,52 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from anonymed.dokument.textdatei import lese_textdatei
 from anonymed.erkennung.varianten import strasse_und_nummer
+from anonymed.gui.adressbuch_dialog import AdressbuchDialog
 from anonymed.gui.sitzung import Sitzung
 from anonymed.kern.modell import Patient, Person, parse_datum
-from anonymed.konfig import lade_konfig, passwort_laden
-from anonymed.quellen.carddav import CardDAVClient, CardDAVFehler
-from anonymed.quellen.manuell import lade_patient
+from anonymed.quellen import adressbuch
+from anonymed.quellen.manuell import lade_patient, vorlage
 from anonymed.quellen.vcf import patienten_aus_vcf
+
+
+class Listenfeld(QPlainTextEdit):
+    """One entry per line; a text file dropped on it adds its lines (one term per line,
+    blank lines and # comments skipped)."""
+
+    def canInsertFromMimeData(self, quelle) -> bool:  # noqa: N802
+        return quelle.hasUrls() or super().canInsertFromMimeData(quelle)
+
+    def insertFromMimeData(self, quelle) -> None:  # noqa: N802
+        if quelle.hasUrls():
+            zeilen: list[str] = []
+            for url in quelle.urls():
+                if url.isLocalFile():
+                    zeilen += zeilen_aus_datei(Path(url.toLocalFile()))
+            self.haenge_an(zeilen)
+            return
+        super().insertFromMimeData(quelle)
+
+    def haenge_an(self, zeilen: list[str]) -> int:
+        vorhanden = [z.strip() for z in self.toPlainText().splitlines() if z.strip()]
+        neue = [z for z in zeilen if z not in vorhanden]
+        if neue:
+            self.setPlainText("\n".join(vorhanden + neue))
+        return len(neue)
+
+
+def zeilen_aus_datei(pfad: Path) -> list[str]:
+    try:
+        text = lese_textdatei(pfad)
+    except OSError:
+        return []
+    aus: list[str] = []
+    for zeile in text.splitlines():
+        zeile = zeile.strip()
+        if zeile and not zeile.startswith("#") and zeile not in aus:
+            aus.append(zeile)
+    return aus
 
 
 def _personen(text: str) -> list[Person]:
@@ -58,6 +97,7 @@ class PatientSeite(QWidget):
     def __init__(self, sitzung: Sitzung, eltern: QWidget | None = None) -> None:
         super().__init__(eltern)
         self.sitzung = sitzung
+        self.synchron = False
         self._treffer: list[Patient] = []
         aussen = QVBoxLayout(self)
 
@@ -68,20 +108,37 @@ class PatientSeite(QWidget):
         self.suche.returnPressed.connect(self.suchen)
         knopf_suche = QPushButton(self.tr("Im Adressbuch suchen"))
         knopf_suche.clicked.connect(self.suchen)
+        knopf_adressbuch = QPushButton(self.tr("Adressbücher einrichten …"))
+        knopf_adressbuch.setToolTip(self.tr(
+            "Lokale vCard-Datei oder -Ordner und Nextcloud (CardDAV)"))
+        knopf_adressbuch.clicked.connect(self.adressbuecher_einrichten)
         knopf_datei = QPushButton(self.tr("Patientendatei …"))
+        knopf_datei.setToolTip(self.tr(
+            "JSON- oder TOML-Datei mit den Identifikatoren, wie 'anonymed kontakte export' sie"
+            " schreibt; eine leere Vorlage gibt „Vorlage speichern …“."))
         knopf_datei.clicked.connect(self.datei_laden)
+        knopf_vorlage = QPushButton(self.tr("Vorlage speichern …"))
+        knopf_vorlage.setToolTip(self.tr("Leere Patientendatei (JSON) zum Ausfüllen"))
+        knopf_vorlage.clicked.connect(self.vorlage_speichern)
         knopf_vcf = QPushButton(self.tr("vCard …"))
+        knopf_vcf.setToolTip(self.tr("Eine einzelne vCard-Datei (.vcf) laden"))
         knopf_vcf.clicked.connect(self.vcf_laden)
         q.addWidget(self.suche, 1)
         q.addWidget(knopf_suche)
+        q.addWidget(knopf_adressbuch)
         q.addWidget(knopf_datei)
+        q.addWidget(knopf_vorlage)
         q.addWidget(knopf_vcf)
         aussen.addWidget(quelle)
 
+        self.treffer_gruppe = QGroupBox(self.tr("Treffer (anklicken übernimmt die Daten)"))
+        tg = QVBoxLayout(self.treffer_gruppe)
         self.liste = QListWidget()
         self.liste.setMaximumHeight(120)
         self.liste.itemSelectionChanged.connect(self._treffer_gewaehlt)
-        aussen.addWidget(self.liste)
+        tg.addWidget(self.liste)
+        self.treffer_gruppe.setVisible(False)  # shown once a search or a file delivered hits
+        aussen.addWidget(self.treffer_gruppe)
 
         felder = QGroupBox(self.tr("Identifikatoren (werden geschwärzt)"))
         form = QFormLayout(felder)
@@ -106,14 +163,18 @@ class PatientSeite(QWidget):
         self.f["hausnummer"].setMaximumWidth(120)
         aussen.addWidget(felder)
 
-        zusatz = QGroupBox(self.tr("Weitere Personen und Begriffe (eine je Zeile)"))
+        zusatz = QGroupBox(self.tr(
+            "Weitere Personen und Begriffe (eine je Zeile; Textdatei hierher ziehen)"))
         z = QHBoxLayout(zusatz)
-        self.angehoerige = QPlainTextEdit()
-        self.angehoerige.setPlaceholderText(self.tr("Angehörige: Vorname Nachname"))
-        self.zuweiser = QPlainTextEdit()
-        self.zuweiser.setPlaceholderText(self.tr("Zuweiser: Dr. med. Vorname Nachname"))
-        self.begriffe = QPlainTextEdit()
-        self.begriffe.setPlaceholderText(self.tr("Begriffe: weitere Namen, Praxen, Nummern"))
+        self.angehoerige = Listenfeld()
+        self.angehoerige.setPlaceholderText(self.tr(
+            "Angehörige: Vorname Nachname\n(Textdatei mit einem Namen je Zeile hierher ziehen)"))
+        self.zuweiser = Listenfeld()
+        self.zuweiser.setPlaceholderText(self.tr(
+            "Zuweiser: Dr. med. Vorname Nachname\n(Textdatei hierher ziehen)"))
+        self.begriffe = Listenfeld()
+        self.begriffe.setPlaceholderText(self.tr(
+            "Begriffe: weitere Namen, Praxen, Nummern\n(Textdatei hierher ziehen)"))
         for w in (self.angehoerige, self.zuweiser, self.begriffe):
             w.setMaximumHeight(90)
             z.addWidget(w)
@@ -130,33 +191,51 @@ class PatientSeite(QWidget):
         aussen.addLayout(unten)
 
     # -- sources -----------------------------------------------------------------------------------
-    def suchen(self) -> None:
+    def _melde(self, titel: str, text: str) -> None:
+        if self.synchron:
+            raise RuntimeError(text)
+        QMessageBox.information(self, titel, text)
+
+    def adressbuecher_einrichten(self) -> None:
+        dialog = AdressbuchDialog(self)
+        if dialog.exec():
+            self.hinweis.setText(self.tr("Adressbücher gespeichert."))
+
+    def suchen(self) -> adressbuch.Suchergebnis | None:
         begriff = self.suche.text().strip()
         if not begriff:
-            return
-        k = lade_konfig()
-        passwort = passwort_laden(k) if k.vollstaendig else None
-        if not k.vollstaendig or not passwort:
-            QMessageBox.information(self, self.tr("Adressbuch"), self.tr(
-                "CardDAV ist nicht eingerichtet. Bitte zuerst 'anonymed kontakte einrichten'"
-                " ausführen."))
-            return
-        try:
-            client = CardDAVClient(k.url, k.benutzer, passwort)
-            kontakte = client.suche(client.adressbuch(k.adressbuch), begriff)
-        except CardDAVFehler as e:
-            QMessageBox.warning(self, self.tr("Adressbuch"), str(e))
-            return
-        self.zeige_treffer([kk.patient for kk in kontakte])
+            return None
+        if not adressbuch.eingerichtet():
+            self.hinweis.setText(self.tr(
+                "Kein Adressbuch eingerichtet: lokale vCard-Datei oder Nextcloud unter"
+                " „Adressbücher einrichten …“."))
+            if not self.synchron:
+                self.adressbuecher_einrichten()
+            return None
+        ergebnis = adressbuch.suche(begriff)
+        if ergebnis.fehler:
+            self.hinweis.setText(" | ".join(ergebnis.fehler))
+            if len(ergebnis.fehler) == len(ergebnis.quellen) and not self.synchron:
+                QMessageBox.warning(self, self.tr("Adressbuch"), "\n".join(ergebnis.fehler))
+        self.zeige_treffer(ergebnis.patienten)
+        return ergebnis
 
     def datei_laden(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(self, self.tr("Patientendatei"), "",
-                                              self.tr("JSON/TOML (*.json *.toml)"))
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Patientendatei"), "",
+            self.tr("Patientendatei JSON/TOML (*.json *.toml);;Alle Dateien (*)"))
         if pfad:
             try:
                 self.zeige_treffer([lade_patient(pfad)])
             except (OSError, ValueError) as e:
                 QMessageBox.warning(self, self.tr("Patientendatei"), str(e))
+
+    def vorlage_speichern(self) -> None:
+        pfad, _ = QFileDialog.getSaveFileName(self, self.tr("Vorlage speichern"),
+                                              "patient.json", self.tr("JSON (*.json)"))
+        if pfad:
+            Path(pfad).write_text(vorlage(), encoding="utf-8")
+            self.hinweis.setText(self.tr("Vorlage geschrieben: {pfad}").format(pfad=pfad))
 
     def vcf_laden(self) -> None:
         pfad, _ = QFileDialog.getOpenFileName(self, self.tr("vCard"), "", self.tr("vCard (*.vcf)"))
@@ -165,6 +244,7 @@ class PatientSeite(QWidget):
 
     def zeige_treffer(self, patienten: list[Patient]) -> None:
         self._treffer = patienten
+        self.treffer_gruppe.setVisible(bool(patienten))
         self.liste.clear()
         for p in patienten:
             geb = p.geburtsdatum.strftime("%d.%m.%Y") if p.geburtsdatum else "–"

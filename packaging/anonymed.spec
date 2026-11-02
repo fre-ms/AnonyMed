@@ -25,7 +25,7 @@ datas += [(str(wurzel / "anonymed" / "gui" / "uebersetzungen"), "anonymed/gui/ue
 datas += [(str(wurzel / "anonymed" / "daten"), "anonymed/daten")]  # medical vocabulary
 # NER travels only when the build environment has spaCy and a German model (extra "ner").
 for paket in ("spacy", "thinc", "de_core_news_lg", "de_core_news_md", "de_core_news_sm",
-              "pysequoia"):
+              "pysequoia", "keyring"):
     if importlib.util.find_spec(paket) is not None:
         d, b, h = collect_all(paket)
         datas += d
