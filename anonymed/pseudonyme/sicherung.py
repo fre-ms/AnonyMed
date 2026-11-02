@@ -103,6 +103,7 @@ class Statistik:
     vokabular_begriffe: int = 0
     vokabular_kategorien: list[tuple[str, int]] = field(default_factory=list)
     lexikon_klassen: list[tuple[str, str, int]] = field(default_factory=list)
+    lexikon_zusatz: list[tuple[str, int, str]] = field(default_factory=list)
     konfig_vorhanden: bool = False
 
     def zeilen(self) -> list[tuple[str, str]]:
@@ -135,6 +136,8 @@ class Statistik:
                         str(sum(n for _k, _r, n in self.lexikon_klassen))))
             aus += [(f"    {k} ({'Merkmal' if r == 'merkmal' else 'Fachbegriff'})", str(n))
                     for k, r, n in self.lexikon_klassen]
+        aus += [("Zusatzdaten (selbst geladen)", f"{q}: {n} Einträge, {g[:10]}")
+                for q, n, g in self.lexikon_zusatz]
         aus.append(("Konfiguration", "vorhanden" if self.konfig_vorhanden else "keine"))
         return aus
 
@@ -290,6 +293,9 @@ def statistik(speicherpfad: Path | None = None) -> Statistik:
         from anonymed.erkennung.lexikon import je_klasse
 
         st.lexikon_klassen = je_klasse(v)
+        from anonymed.erkennung.zusatzdaten import geladene
+
+        st.lexikon_zusatz = geladene(v)
     except sqlite3.DatabaseError as e:
         st.integritaet = f"Fehler: {e}"
     finally:

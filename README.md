@@ -183,6 +183,8 @@ The data files in `anonymed/daten/` are not covered by the AGPL; each carries it
 | `titel_de.csv.gz` | academic, noble, clerical, official and honorary titles with abbreviations | AnonyMed; Wikidata | AGPL-3.0-or-later; CC0 1.0 |
 | `studien_dach.csv.gz` | clinical studies with a site in Germany, Austria or Switzerland: acronym, size, sites | ClinicalTrials.gov; DRKS (registered from 2025) | NLM terms (attribution, date, changes); CC BY 4.0 |
 
+Not bundled: the Austrian ministry of health's list of hospitals, whose reprint is permitted only for non-commercial purposes. On request (`anonymed datenbank zusatzdaten kliniken-at`, or *Fetch from the ministry* in step 10) AnonyMed downloads the current workbook from the ministry into the user's own lexicon, under a source of its own that the reloading of the bundled data leaves alone; nothing is passed on.
+
 ## Licence
 
 AGPL-3.0-or-later (PyMuPDF is AGPL). See `LICENSE`.

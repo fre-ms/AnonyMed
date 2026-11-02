@@ -8,9 +8,13 @@ passphrase unless the user insists on plain."""
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QFileDialog,
     QFormLayout,
@@ -28,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from anonymed.erkennung import zusatzdaten as zusatzmodul
 from anonymed.gui.sitzung import Sitzung
 from anonymed.pseudonyme import pgp as pgpmodul
 from anonymed.pseudonyme import sicherung as sichmodul
@@ -182,6 +187,72 @@ class DatenbankSeite(QWidget):
         iz.addWidget(self.import_knopf)
         jf.addRow(iz)
         aussen.addWidget(imp)
+
+        zusatz = QGroupBox(self.tr("Zusatzdaten (nicht mitgeliefert)"))
+        zl = QVBoxLayout(zusatz)
+        hinweis = QLabel(self.tr(
+            "Krankenanstalten in Österreich: Das Sozialministerium gestattet den Nachdruck seiner"
+            " Liste nur außer zu kommerziellen Zwecken, deshalb liefert AnonyMed sie nicht mit."
+            " Auf Wunsch lädt AnonyMed die aktuelle Liste direkt beim Ministerium in Ihre lokale"
+            " Datenbank und gibt sie nicht weiter. Sie dient später der Einschätzung, welchen Ort"
+            " ein stehen gelassener Klinikname verrät."))
+        hinweis.setWordWrap(True)
+        zl.addWidget(hinweis)
+        zk = QHBoxLayout()
+        self.zusatz_status = QLabel("")
+        self.zusatz_status.setWordWrap(True)
+        self.zusatz_knopf = QPushButton(self.tr("Beim Ministerium laden"))
+        self.zusatz_knopf.clicked.connect(lambda: self.kliniken_at_laden())
+        zusatz_datei = QPushButton(self.tr("Aus Datei …"))
+        zusatz_datei.clicked.connect(self.kliniken_at_aus_datei)
+        zk.addWidget(self.zusatz_status, 1)
+        zk.addWidget(self.zusatz_knopf)
+        zk.addWidget(zusatz_datei)
+        zl.addLayout(zk)
+        aussen.addWidget(zusatz)
+        self.holen = zusatzmodul.abrufen  # replaced in tests
+
+    # -- optional reference data -------------------------------------------------------------------
+    def kliniken_at_aus_datei(self) -> None:
+        pfad, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Liste der Krankenanstalten (Excel-Mappe des Ministeriums)"), "",
+            self.tr("Excel-Mappe (*.xlsx)"))
+        if pfad:
+            self.kliniken_at_laden(Path(pfad))
+
+    def kliniken_at_laden(self, datei: Path | None = None
+                          ) -> zusatzmodul.Ladebericht | None:
+        from anonymed.erkennung.vokabular import Vokabular
+
+        if not self.synchron:
+            frage = self.tr(
+                "Quelle: BMASGPK, Liste der Krankenanstalten in Österreich. Nachdruck mit"
+                " Quellenangabe außer zu kommerziellen Zwecken gestattet. Die Liste kommt nur in"
+                " Ihre lokale Datenbank.") + "\n\n" + (
+                self.tr("Jetzt beim Ministerium laden?") if datei is None else
+                self.tr("Jetzt aus der gewählten Datei laden?"))
+            if QMessageBox.question(self, self.tr("Zusatzdaten"), frage) != \
+                    QMessageBox.StandardButton.Yes:
+                return None
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            with Vokabular(self.sitzung.speicherpfad) as v:
+                bericht = zusatzmodul.lade_kliniken_at(v.verbindung, datei=datei,
+                                                      holen=self.holen)
+        except (zusatzmodul.ZusatzFehler, OSError, ValueError, KeyError, zipfile.BadZipFile,
+                ET.ParseError) as e:
+            self.zusatz_status.setText(self.tr("Laden fehlgeschlagen: {fehler}").format(fehler=e))
+            if self.synchron:
+                raise RuntimeError(str(e)) from e
+            return None
+        finally:
+            if not self.synchron:
+                QApplication.restoreOverrideCursor()
+        self.zusatz_status.setText(self.tr(
+            "{anzahl} Einträge geladen, {ohne} ohne Gemeinde (Stand {stand}).").format(
+            anzahl=bericht.anzahl, ohne=bericht.ohne_gemeinde, stand=bericht.stand or "–"))
+        self.aktualisiere()
+        return bericht
 
     # -- statistics --------------------------------------------------------------------------------
     def aktualisiere(self) -> sichmodul.Statistik:

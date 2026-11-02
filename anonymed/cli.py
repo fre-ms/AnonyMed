@@ -613,6 +613,30 @@ def datenbank_status(speicher: SpeicherOption = None) -> None:
         typer.echo(f"{merkmal:<{breite}}  {wert}")
 
 
+@datenbank_app.command("zusatzdaten")
+def datenbank_zusatzdaten(
+    name: Annotated[str, typer.Argument(help="Welche Zusatzdaten: kliniken-at")],
+    datei: Annotated[Path | None, typer.Option(
+        "--datei", help="Excel-Mappe des Ministeriums statt Abruf über das Netz")] = None,
+    speicher: SpeicherOption = None,
+) -> None:
+    """Daten laden, die AnonyMed nicht mitliefern darf, direkt aus der Quelle in die eigene
+    Datenbank (bisher: Krankenanstalten in Österreich, BMASGPK)."""
+    from anonymed.erkennung import zusatzdaten as zusatzmodul
+    from anonymed.erkennung.vokabular import Vokabular
+
+    if name != "kliniken-at":
+        raise typer.BadParameter("bekannt ist nur: kliniken-at")
+    typer.echo(zusatzmodul.HINWEIS_KLINIKEN_AT)
+    try:
+        with Vokabular(speicher) as v:
+            bericht = zusatzmodul.lade_kliniken_at(v.verbindung, datei=datei)
+    except (zusatzmodul.ZusatzFehler, OSError, ValueError) as e:
+        typer.echo(f"Laden fehlgeschlagen: {e}", err=True)
+        raise typer.Exit(1) from e
+    typer.echo(bericht.beschreibung())
+
+
 @datenbank_app.command("speicherort")
 def datenbank_speicherort(
     datenbank: Annotated[Path | None, typer.Option("--datenbank", help="Neuer Pfad der"
