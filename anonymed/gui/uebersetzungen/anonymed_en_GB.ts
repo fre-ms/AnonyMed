@@ -123,225 +123,195 @@
 <context>
     <name>AnalysierenSeite</name>
     <message>
-        <location filename="../analysieren_seite.py" line="47" />
+        <location filename="../analysieren_seite.py" line="45" />
         <source>Erkennung der Identifikatoren</source>
         <translation>Detection of identifiers</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="50" />
+        <location filename="../analysieren_seite.py" line="48" />
         <source>Geburtsjahr [geb. 1990]</source>
         <translation>Year of birth [geb. 1990]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="51" />
+        <location filename="../analysieren_seite.py" line="49" />
         <source>Alter [Alter 36]</source>
         <translation>Age [Alter 36]</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="52" />
+        <location filename="../analysieren_seite.py" line="50" />
         <source>Geburtsdatum als</source>
         <translation>Date of birth as</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="53" />
+        <location filename="../analysieren_seite.py" line="51" />
         <source>Barcodes und QR-Codes schwärzen</source>
         <translation>Redact barcodes and QR codes</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="56" />
+        <location filename="../analysieren_seite.py" line="54" />
         <source>Unlesbare OCR-Zeilen schwärzen</source>
         <translation>Redact unreadable OCR lines</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="60" />
+        <location filename="../analysieren_seite.py" line="58" />
         <source>Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen</source>
         <translation>Mark medical terms and protect them from NER and the fuzzy OCR search</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="64" />
+        <location filename="../analysieren_seite.py" line="62" />
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="67" />
+        <location filename="../analysieren_seite.py" line="65" />
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="72" />
+        <location filename="../analysieren_seite.py" line="70" />
         <source>Extra 'ner' und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra 'ner' and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="76" />
+        <location filename="../analysieren_seite.py" line="74" />
         <source>Fachvokabular (geschützt vor NER und unscharfer Suche)</source>
         <translation>Medical vocabulary (shielded from NER and fuzzy search)</translation>
     </message>
     <message>
         <location filename="../analysieren_seite.py" line="81" />
-        <source>Vokabular importieren …</source>
-        <translation>Import vocabulary …</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="83" />
-        <source>Textdatei mit einem Begriff je Zeile, z. B. die beim Export geschriebene .vokabular.txt; die Begriffe kommen ins Nutzervokabular.</source>
-        <translation>Text file with one term per line, e.g. the .vokabular.txt written on export; the terms go into your own vocabulary.</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="89" />
         <source>Empfänger (Pseudonyme zum Weitergeben)</source>
         <translation>Recipient (pseudonyms to pass on)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="92" />
+        <location filename="../analysieren_seite.py" line="84" />
         <source>Für einen Empfänger pseudonymisieren: Einmalschlüssel, die Zuordnung steht nur in einer verschlüsselten Kapsel für den Empfänger; lokal wird nichts gespeichert</source>
         <translation>Pseudonymise for a recipient: one-time key, the mapping lives only in an encrypted capsule for the recipient; nothing is stored locally</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="98" />
+        <location filename="../analysieren_seite.py" line="90" />
         <source>Öffentlicher Schlüssel: Datei (.asc) oder https-Adresse</source>
         <translation>Public key: file (.asc) or https address</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="101" />
+        <location filename="../analysieren_seite.py" line="93" />
         <source>Schlüssel prüfen</source>
         <translation>Check key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="116" />
+        <location filename="../analysieren_seite.py" line="108" />
         <source>Extra 'pgp' (pysequoia) oder GnuPG installieren.</source>
         <translation>Install the extra 'pgp' (pysequoia) or GnuPG.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="119" />
+        <location filename="../analysieren_seite.py" line="111" />
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="130" />
-        <location filename="../analysieren_seite.py" line="242" />
-        <location filename="../analysieren_seite.py" line="245" />
-        <location filename="../analysieren_seite.py" line="248" />
+        <location filename="../analysieren_seite.py" line="122" />
+        <location filename="../analysieren_seite.py" line="214" />
+        <location filename="../analysieren_seite.py" line="217" />
+        <location filename="../analysieren_seite.py" line="220" />
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="149" />
-        <source>{gesamt} geschützte Begriffe ({quellen}). Eigene Listen: {ordner}</source>
-        <translation>{gesamt} protected terms ({quellen}). Your own lists: {ordner}</translation>
+        <location filename="../analysieren_seite.py" line="141" />
+        <source>{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter „2 Vokabular“.</source>
+        <translation>{gesamt} protected terms ({quellen}). View, add and import under “2 Vocabulary”.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="154" />
-        <source>Vokabular importieren</source>
-        <translation>Import vocabulary</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="155" />
-        <source>Textdateien (*.txt);;Alle Dateien (*)</source>
-        <translation>Text files (*.txt);;All files (*)</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="164" />
-        <source>Vokabular</source>
-        <translation>Vocabulary</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="168" />
-        <source>{n} neue Begriffe aus {name} ins Nutzervokabular übernommen ({ziel}).</source>
-        <translation>{n} new terms from {name} added to your vocabulary ({ziel}).</translation>
-    </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="189" />
+        <location filename="../analysieren_seite.py" line="161" />
         <source>Öffentlicher Schlüssel des Empfängers</source>
         <translation>Recipient's public key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="190" />
+        <location filename="../analysieren_seite.py" line="162" />
         <source>OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)</source>
         <translation>OpenPGP keys (*.asc *.gpg *.pgp);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="200" />
+        <location filename="../analysieren_seite.py" line="172" />
         <source>Bitte Schlüsseldatei oder Adresse angeben.</source>
         <translation>Please give a key file or an address.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="207" />
+        <location filename="../analysieren_seite.py" line="179" />
         <source>Schlüssel nicht brauchbar: {fehler}</source>
         <translation>Key not usable: {fehler}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="214" />
+        <location filename="../analysieren_seite.py" line="186" />
         <source> ACHTUNG: Der Fingerabdruck weicht vom früher geprüften ab ({alt}). Nur weiterverwenden, wenn der Empfänger den neuen Schlüssel bestätigt hat.</source>
         <translation> WARNING: the fingerprint differs from the one checked before ({alt}). Go on only if the recipient has confirmed the new key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="224" />
+        <location filename="../analysieren_seite.py" line="196" />
         <source>Empfänger: {beschreibung}. Fingerabdruck mit dem Empfänger auf einem zweiten Weg abgleichen (Webseite, Briefkopf, Telefon).</source>
         <translation>Recipient: {beschreibung}. Compare the fingerprint with the recipient by a second channel (website, letterhead, telephone).</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="233" />
+        <location filename="../analysieren_seite.py" line="205" />
         <source>Empfänger</source>
         <translation>Recipient</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="234" />
+        <location filename="../analysieren_seite.py" line="206" />
         <source>Für einen Empfänger braucht es dessen öffentlichen Schlüssel.</source>
         <translation>A recipient needs their public key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="242" />
+        <location filename="../analysieren_seite.py" line="214" />
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="245" />
+        <location filename="../analysieren_seite.py" line="217" />
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="249" />
+        <location filename="../analysieren_seite.py" line="221" />
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="264" />
+        <location filename="../analysieren_seite.py" line="236" />
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="272" />
+        <location filename="../analysieren_seite.py" line="244" />
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="300" />
+        <location filename="../analysieren_seite.py" line="272" />
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="313" />
+        <location filename="../analysieren_seite.py" line="285" />
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="317" />
+        <location filename="../analysieren_seite.py" line="289" />
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="318" />
+        <location filename="../analysieren_seite.py" line="290" />
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="320" />
+        <location filename="../analysieren_seite.py" line="292" />
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="322" />
+        <location filename="../analysieren_seite.py" line="294" />
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -1014,11 +984,6 @@
         <translation>Always write preview images</translation>
     </message>
     <message>
-        <location filename="../export_seite.py" line="85" />
-        <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „4 Analysieren“ importierbar)</source>
-        <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “4 Analyse”)</translation>
-    </message>
-    <message>
         <location filename="../export_seite.py" line="99" />
         <source>Zielordner öffnen</source>
         <translation>Open target folder</translation>
@@ -1130,6 +1095,11 @@
         <translation>Preview: {pfad}</translation>
     </message>
     <message>
+        <location filename="../export_seite.py" line="85" />
+        <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „2 Vokabular“ importierbar)</source>
+        <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “2 Vocabulary”)</translation>
+    </message>
+    <message>
         <location filename="../export_seite.py" line="265" />
         <source>{name}: Fehler: {fehler}</source>
         <translation>{name}: error: {fehler}</translation>
@@ -1138,58 +1108,63 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="39" />
+        <location filename="../hauptfenster.py" line="41" />
         <source>1 Patient</source>
         <translation>1 Patient</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="40" />
-        <source>2 Dokumente</source>
-        <translation>2 Documents</translation>
-    </message>
-    <message>
-        <location filename="../hauptfenster.py" line="41" />
-        <source>3 Texterkennung</source>
-        <translation>3 Text recognition</translation>
-    </message>
-    <message>
         <location filename="../hauptfenster.py" line="42" />
-        <source>4 Analysieren</source>
-        <translation>4 Analyse</translation>
+        <source>2 Vokabular</source>
+        <translation>2 Vocabulary</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="43" />
-        <source>5 Prüfen</source>
-        <translation>5 Review</translation>
+        <source>3 Dokumente</source>
+        <translation>3 Documents</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="44" />
-        <source>6 Exportieren</source>
-        <translation>6 Export</translation>
+        <source>4 Texterkennung</source>
+        <translation>4 Text recognition</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="45" />
-        <source>7 Rückersetzen</source>
-        <translation>7 Re-identify</translation>
+        <source>5 Analysieren</source>
+        <translation>5 Analyse</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="46" />
-        <source>8 Datenbank</source>
-        <translation>8 Database</translation>
+        <source>6 Prüfen</source>
+        <translation>6 Review</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="65" />
+        <location filename="../hauptfenster.py" line="47" />
+        <source>7 Exportieren</source>
+        <translation>7 Export</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="48" />
+        <source>8 Rückersetzen</source>
+        <translation>8 Re-identify</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="49" />
+        <source>9 Datenbank</source>
+        <translation>9 Database</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="68" />
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="69" />
-        <location filename="../hauptfenster.py" line="79" />
+        <location filename="../hauptfenster.py" line="72" />
+        <location filename="../hauptfenster.py" line="82" />
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="80" />
+        <location filename="../hauptfenster.py" line="83" />
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
     </message>
@@ -1921,6 +1896,183 @@
         <location filename="../texterkennung_seite.py" line="306" />
         <source>Text der Textebene (nicht veränderbar)</source>
         <translation>Text of the text layer (not editable)</translation>
+    </message>
+</context>
+<context>
+    <name>VokabularModell</name>
+    <message>
+        <location filename="../vokabular_seite.py" line="37" />
+        <source>Begriff</source>
+        <translation>Term</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="37" />
+        <source>Kategorie</source>
+        <translation>Category</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="37" />
+        <source>Angelegt</source>
+        <translation>Added</translation>
+    </message>
+</context>
+<context>
+    <name>VokabularSeite</name>
+    <message>
+        <location filename="../vokabular_seite.py" line="88" />
+        <source>Begriffe, die NER und die unscharfe Suche nie schwärzen dürfen: Fachbegriffe, Körperteile, Befundwörter, Eponyme und Ihre eigenen. Spaltenkopf anklicken sortiert; Doppelklick ändert Begriff oder Kategorie.</source>
+        <translation>Terms NER and the fuzzy search must never redact: medical terms, body parts, findings words, eponyms and your own. Click a column header to sort; double-click changes a term or category.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="96" />
+        <source>Suchen …</source>
+        <translation>Search …</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="102" />
+        <source>Kategorie</source>
+        <translation>Category</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="127" />
+        <source>Neuer Begriff (auch mehrere Wörter)</source>
+        <translation>New term (several words allowed)</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="131" />
+        <source>Hinzufügen</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="139" />
+        <source>Ausgewählte löschen</source>
+        <translation>Delete selected</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="141" />
+        <source>CSV exportieren …</source>
+        <translation>Export CSV …</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="143" />
+        <source>CSV oder Liste importieren …</source>
+        <translation>Import CSV or list …</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="145" />
+        <source>CSV (begriff,kategorie; Kopfzeile optional; Komma, Semikolon oder Tabulator) oder eine Liste mit einem Begriff je Zeile, etwa die beim Export geschriebene .vokabular.txt</source>
+        <translation>CSV (begriff,kategorie; header optional; comma, semicolon or tab) or a list with one term per line, such as the .vokabular.txt written on export</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="149" />
+        <source>Mitgelieferte Listen erneut einspielen</source>
+        <translation>Load the bundled lists again</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="150" />
+        <source>Fehlende Begriffe der mitgelieferten Listen wieder aufnehmen</source>
+        <translation>Take missing terms of the bundled lists back in</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="152" />
+        <source>Aktualisieren</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="178" />
+        <location filename="../vokabular_seite.py" line="203" />
+        <source>{n} von {gesamt} Begriffen</source>
+        <translation>{n} of {gesamt} terms</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="187" />
+        <source>alle</source>
+        <translation>all</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="226" />
+        <source>Geändert: {begriff}</source>
+        <translation>Changed: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="229" />
+        <source>Nicht geändert: {begriff} (zu kurz oder schon vorhanden)</source>
+        <translation>Not changed: {begriff} (too short or already there)</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="237" />
+        <source>Begriffe haben mindestens drei Zeichen.</source>
+        <translation>Terms have at least three characters.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="242" />
+        <source>Hinzugefügt: {begriff}</source>
+        <translation>Added: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="243" />
+        <source>Schon vorhanden: {begriff}</source>
+        <translation>Already there: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="251" />
+        <source>Nichts ausgewählt.</source>
+        <translation>Nothing selected.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="254" />
+        <source>Löschen</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="255" />
+        <source>{n} Begriff(e) aus dem Vokabular löschen?</source>
+        <translation>Delete {n} term(s) from the vocabulary?</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="261" />
+        <source>{n} Begriff(e) gelöscht.</source>
+        <translation>{n} term(s) deleted.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="267" />
+        <source>Vokabular als CSV</source>
+        <translation>Vocabulary as CSV</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="268" />
+        <source>CSV (*.csv)</source>
+        <translation>CSV (*.csv)</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="276" />
+        <source>{n} Begriffe nach {pfad} geschrieben.</source>
+        <translation>{n} terms written to {pfad}.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="282" />
+        <source>Vokabular importieren</source>
+        <translation>Import vocabulary</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="283" />
+        <source>CSV und Listen (*.csv *.txt);;Alle Dateien (*)</source>
+        <translation>CSV and lists (*.csv *.txt);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="294" />
+        <source>Vokabular</source>
+        <translation>Vocabulary</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="297" />
+        <source>{neu} neue von {gelesen} Begriffen aus {name} übernommen.</source>
+        <translation>{neu} new of {gelesen} terms taken over from {name}.</translation>
+    </message>
+    <message>
+        <location filename="../vokabular_seite.py" line="308" />
+        <source>{n} fehlende Begriffe der mitgelieferten Listen aufgenommen.</source>
+        <translation>{n} missing terms of the bundled lists taken in.</translation>
     </message>
 </context>
 </TS>

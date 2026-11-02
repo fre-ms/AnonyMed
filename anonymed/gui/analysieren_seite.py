@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -78,12 +76,6 @@ class AnalysierenSeite(QWidget):
         self.vokabular_info = QLabel("")
         self.vokabular_info.setWordWrap(True)
         vz.addWidget(self.vokabular_info, 1)
-        self.vokabular_knopf = QPushButton(self.tr("Vokabular importieren …"))
-        self.vokabular_knopf.setToolTip(self.tr(
-            "Textdatei mit einem Begriff je Zeile, z. B. die beim Export geschriebene"
-            " .vokabular.txt; die Begriffe kommen ins Nutzervokabular."))
-        self.vokabular_knopf.clicked.connect(self.vokabular_waehlen)
-        vz.addWidget(self.vokabular_knopf)
         aussen.addWidget(vokabular)
 
         weitergabe = QGroupBox(self.tr("Empfänger (Pseudonyme zum Weitergeben)"))
@@ -146,28 +138,8 @@ class AnalysierenSeite(QWidget):
         fb = fachmodul.standard()
         quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
         self.vokabular_info.setText(self.tr(
-            "{gesamt} geschützte Begriffe ({quellen}). Eigene Listen: {ordner}").format(
-            gesamt=fb.anzahl, quellen=quellen, ordner=fachmodul.datenordner()))
-
-    def vokabular_waehlen(self) -> None:
-        pfad, _ = QFileDialog.getOpenFileName(
-            self, self.tr("Vokabular importieren"), "",
-            self.tr("Textdateien (*.txt);;Alle Dateien (*)"))
-        if pfad:
-            self.vokabular_importieren(Path(pfad))
-
-    def vokabular_importieren(self, pfad: Path) -> int:
-        """Merge a one-term-per-line file into the user's vocabulary; returns the new terms."""
-        try:
-            ziel, neu = fachmodul.ergaenze(pfad)
-        except OSError as e:
-            self._melde(self.tr("Vokabular"), str(e))
-            return 0
-        self._vokabular_anzeigen()
-        self.status.setText(self.tr(
-            "{n} neue Begriffe aus {name} ins Nutzervokabular übernommen ({ziel}).").format(
-            n=neu, name=pfad.name, ziel=ziel))
-        return neu
+            "{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter"
+            " „2 Vokabular“.").format(gesamt=fb.anzahl, quellen=quellen))
 
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen

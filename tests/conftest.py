@@ -13,6 +13,24 @@ from tests.carddav_fake import FakeCardDAV
 from tests.synthetisch import erzeuge_befund, synthetischer_patient, vcard_aus_patient
 
 
+@pytest.fixture(autouse=True, scope="session")
+def datenordner_isoliert(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """No test touches the user's real data folder: database, key, vocabulary and
+    configuration go to a folder of the session (tests may override per test)."""
+    import os
+
+    ordner = tmp_path_factory.mktemp("anonymed-daten")
+    alt = os.environ.get("ANONYMED_DATENORDNER")
+    os.environ["ANONYMED_DATENORDNER"] = str(ordner)
+    try:
+        yield ordner
+    finally:
+        if alt is None:
+            os.environ.pop("ANONYMED_DATENORDNER", None)
+        else:
+            os.environ["ANONYMED_DATENORDNER"] = alt
+
+
 @pytest.fixture
 def patient() -> Patient:
     return synthetischer_patient(7, "m")

@@ -6,7 +6,7 @@ pseudonyms, so that the document itself reveals nothing and nothing is tied to t
 sender's own pseudonym space, and writes the mapping back to the clear data into a
 capsule encrypted with the recipient's public key: ``<name>_anonym.kapsel.asc``.  The
 document and the language model's answer may travel anywhere; the capsule goes to
-the recipient only, who opens it with the private key in step 7 and gets every
+the recipient only, who opens it with the private key in step 8 and gets every
 pseudonym back, including those of relatives, referrers and places the recipient's own
 records do not know.  The capsule also names the patient, so the recipient can match
 the person against their records.

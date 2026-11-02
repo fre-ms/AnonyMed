@@ -100,6 +100,8 @@ class Statistik:
     freie_seiten: int = 0
     vokabular_dateien: int = 0
     vokabular_bytes: int = 0
+    vokabular_begriffe: int = 0
+    vokabular_kategorien: list[tuple[str, int]] = field(default_factory=list)
     konfig_vorhanden: bool = False
 
     def zeilen(self) -> list[tuple[str, str]]:
@@ -124,9 +126,10 @@ class Statistik:
             ("Letzter Eintrag", self.letzter_eintrag or "–"),
             ("Integrität", self.integritaet or "–"),
             ("Seiten / frei", f"{self.seiten} / {self.freie_seiten}"),
-            ("Nutzervokabular", f"{self.vokabular_dateien} Datei(en), {_mb(self.vokabular_bytes)}"),
-            ("Konfiguration", "vorhanden" if self.konfig_vorhanden else "keine"),
+            ("Vokabular (Begriffe)", str(self.vokabular_begriffe)),
         ]
+        aus += [(f"    {k}", str(n)) for k, n in self.vokabular_kategorien]
+        aus.append(("Konfiguration", "vorhanden" if self.konfig_vorhanden else "keine"))
         return aus
 
 
@@ -238,32 +241,46 @@ def statistik(speicherpfad: Path | None = None) -> Statistik:
         return st
     st.groesse = db.stat().st_size
     v = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    try:
-        def eins(sql: str):
-            return v.execute(sql).fetchone()[0]
 
+    def eins(sql: str, sonst=0):
+        """One value; a table that does not exist yet counts as empty."""
+        try:
+            return v.execute(sql).fetchone()[0]
+        except sqlite3.OperationalError:
+            return sonst
+
+    def zeilen(sql: str) -> list:
+        try:
+            return list(v.execute(sql))
+        except sqlite3.OperationalError:
+            return []
+
+    try:
         st.patienten = eins("SELECT COUNT(*) FROM patienten")
         st.aliasse = eins("SELECT COUNT(*) FROM aliasse")
         st.zuordnungen = eins("SELECT COUNT(*) FROM zuordnungen")
         st.verworfen = eins("SELECT COUNT(*) FROM verworfen")
-        schemata = [r[0] for r in v.execute("SELECT DISTINCT schema FROM patienten")]
-        st.schema = ", ".join(sorted(schemata))
+        st.schema = ", ".join(sorted(r[0] for r in zeilen("SELECT DISTINCT schema FROM patienten")))
         zaehler: dict[str, int] = {}
-        for pseudonym, art in v.execute("SELECT pseudonym, art FROM zuordnungen"):
+        for pseudonym, art in zeilen("SELECT pseudonym, art FROM zuordnungen"):
             k = kategorie(pseudonym, art or "")
             zaehler[k] = zaehler.get(k, 0) + 1
         st.je_kategorie = sorted(zaehler.items(), key=lambda kv: (-kv[1], kv[0]))
-        st.verworfen_je_regel = [(r, n) for r, n in v.execute(
+        st.verworfen_je_regel = [(r, n) for r, n in zeilen(
             "SELECT regel, COUNT(*) FROM verworfen GROUP BY regel ORDER BY COUNT(*) DESC, regel")]
-        zeiten = [t for t in (eins("SELECT MIN(angelegt) FROM patienten"),
-                              eins("SELECT MAX(geaendert) FROM zuordnungen"),
-                              eins("SELECT MAX(angelegt) FROM patienten")) if t]
+        zeiten = [t for t in (eins("SELECT MIN(angelegt) FROM patienten", None),
+                              eins("SELECT MAX(geaendert) FROM zuordnungen", None),
+                              eins("SELECT MAX(angelegt) FROM patienten", None)) if t]
         if zeiten:
             st.erster_eintrag = min(zeiten)[:19].replace("T", " ")
             st.letzter_eintrag = max(zeiten)[:19].replace("T", " ")
-        st.integritaet = str(eins("PRAGMA integrity_check"))
+        st.integritaet = str(eins("PRAGMA integrity_check", "?"))
         st.seiten = eins("PRAGMA page_count")
         st.freie_seiten = eins("PRAGMA freelist_count")
+        st.vokabular_begriffe = eins("SELECT COUNT(*) FROM vokabular")
+        st.vokabular_kategorien = [(k, n) for k, n in zeilen(
+            "SELECT kategorie, COUNT(*) FROM vokabular GROUP BY kategorie"
+            " ORDER BY COUNT(*) DESC, kategorie")]
     except sqlite3.DatabaseError as e:
         st.integritaet = f"Fehler: {e}"
     finally:
@@ -419,6 +436,8 @@ class Importbericht:
     konfig_ersetzt: bool = False
     vokabular_dateien: int = 0
 
+    vokabular_neu: int = 0
+
     def beschreibung(self) -> str:
         if self.modus == "ersetzen":
             return (f"Wiederhergestellt: {self.patienten_neu} Patienten, {self.zuordnungen_neu}"
@@ -432,7 +451,7 @@ class Importbericht:
                        if self.sicherung_vorher else "."))
         return (f"Zusammengeführt: {self.patienten_neu} neue Patienten, {self.aliasse_neu} neue"
                 f" Schreibweisen, {self.zuordnungen_neu} neue Zuordnungen, {self.verworfen_neu}"
-                f" neue Verwerfungen"
+                f" neue Verwerfungen, {self.vokabular_neu} neue Vokabeln"
                 + (f", {self.vokabular_dateien} neue Vokabulardatei(en)" if self.vokabular_dateien
                    else "") + ".")
 
@@ -510,11 +529,19 @@ def importiere(archiv: Path, speicherpfad: Path | None = None, passphrase: str |
                 ziel.executescript(_SCHEMA)
                 ziel.execute("ATTACH DATABASE ? AS archiv", (str(quelle_pfad),))
                 zaehler = {}
-                for tabelle in ("patienten", "aliasse", "zuordnungen", "verworfen"):
+                for tabelle in ("patienten", "aliasse", "zuordnungen", "verworfen", "vokabular"):
                     vorher = ziel.execute(f"SELECT COUNT(*) FROM {tabelle}").fetchone()[0]
-                    ziel.execute(f"INSERT OR IGNORE INTO {tabelle} SELECT * FROM archiv.{tabelle}")
+                    try:
+                        ziel.execute(f"INSERT OR IGNORE INTO {tabelle}"
+                                     f" SELECT * FROM archiv.{tabelle}")
+                    except sqlite3.OperationalError:
+                        pass  # an archive from before the table existed
                     nachher = ziel.execute(f"SELECT COUNT(*) FROM {tabelle}").fetchone()[0]
                     zaehler[tabelle] = nachher - vorher
+                if zaehler.get("vokabular"):
+                    ziel.execute("INSERT INTO vokabular_meta (schluessel, wert) VALUES"
+                                 " ('version', '1') ON CONFLICT(schluessel) DO UPDATE SET"
+                                 " wert = CAST(CAST(wert AS INTEGER) + 1 AS TEXT)")
                 ziel.commit()
                 ziel.execute("DETACH DATABASE archiv")
             finally:
@@ -522,6 +549,11 @@ def importiere(archiv: Path, speicherpfad: Path | None = None, passphrase: str |
             bericht.patienten_neu, bericht.aliasse_neu = zaehler["patienten"], zaehler["aliasse"]
             bericht.zuordnungen_neu, bericht.verworfen_neu = (zaehler["zuordnungen"],
                                                               zaehler["verworfen"])
+            bericht.vokabular_neu = zaehler.get("vokabular", 0)
+            if bericht.vokabular_neu:
+                from anonymed.erkennung.fachbegriffe import standard
+
+                standard.cache_clear()
         try:
             os.chmod(schluessel, 0o600)
             os.chmod(db, 0o600)

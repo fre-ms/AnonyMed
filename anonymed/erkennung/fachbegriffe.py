@@ -6,15 +6,13 @@ scores, eponyms.  Spans covered by such a term are protected from those two
 heuristics (the deterministic rules for the patient's own identifiers are
 not affected, a patient really called "Herz" is still redacted).
 
-Sources, merged at load time:
-
-* the bundled base list ``anonymed/daten/fachbegriffe_de.txt.gz`` (German
-  labels and aliases from Wikidata for items with MeSH, ICD-10, ATC or INN
-  identifiers; CC0),
-* the eponym list of :mod:`anonymed.erkennung.ner`,
-* every ``*.txt`` in the user's data folder ``fachbegriffe/`` (one term per
-  line), filled by ``anonymed fachbegriffe importieren`` from MeSH XML (NLM
-  or the German translation), ICD-10-GM or ATC files, or any plain list.
+The terms live in the ``vokabular`` table of the pseudonym database
+(:mod:`anonymed.erkennung.vokabular`): the bundled lists (German labels and aliases
+from Wikidata for items with MeSH, ICD-10, ATC or INN identifiers, CC0; body parts;
+findings terms; the eponyms of :mod:`anonymed.erkennung.ner`) are loaded into it on
+first use, and the user adds, deletes and imports terms there (vocabulary step,
+``anonymed fachbegriffe``).  :func:`laden` still reads the bundled files directly, as
+the fallback when the database cannot be opened.
 
 Matching is case-insensitive, tolerates German inflection (-s, -n, -en, -e,
 -es, -er, -em, -ern), hyphenated compounds ("Parkinson-Syndrom") and umlaut
@@ -30,7 +28,6 @@ import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from functools import lru_cache
 from pathlib import Path
 
 from platformdirs import user_data_path
@@ -206,10 +203,38 @@ def laden(zusatz: Iterable[Path] = (), mit_basis: bool = True,
     return fb
 
 
-@lru_cache(maxsize=1)
+_cache: tuple[Path, int, Fachbegriffe] | None = None
+
+
 def standard() -> Fachbegriffe:
-    """The vocabulary used by the pipeline, loaded once per process."""
-    return laden()
+    """The vocabulary used by the pipeline: built from the database table, rebuilt only
+    when the table's version changed; the bundled files when the database is unusable."""
+    global _cache
+    import sqlite3
+
+    from anonymed.erkennung import vokabular as vokmodul
+
+    try:
+        pfad = vokmodul.standardpfad()
+        with vokmodul.Vokabular(pfad) as v:
+            version = v.version()
+            if _cache is not None and _cache[0] == pfad and _cache[1] == version:
+                return _cache[2]
+            fb = Fachbegriffe()
+            for kategorie, begriffe in v.je_kategorie().items():
+                fb.fuege_hinzu(begriffe, kategorie)
+    except (sqlite3.Error, OSError):
+        return laden()
+    _cache = (pfad, version, fb)
+    return fb
+
+
+def _cache_clear() -> None:
+    global _cache
+    _cache = None
+
+
+standard.cache_clear = _cache_clear  # type: ignore[attr-defined]
 
 
 # -- import ----------------------------------------------------------------------------------
@@ -235,24 +260,24 @@ NUTZERLISTE = "nutzervokabular"
 
 
 def ergaenze(pfad: Path, name: str = NUTZERLISTE) -> tuple[Path, int]:
-    """Merge the terms of ``pfad`` (one per line, # comments) into the user's own list
-    ``<name>.txt`` in the vocabulary folder; returns the file and how many were new.
-    This is what the import in the analysis step and the exported ``.vokabular.txt``
-    files are for: the vocabulary grows with every review."""
-    ziel = datenordner() / f"{name}.txt"
-    vorhanden = set(_lies_liste(ziel)) if ziel.exists() else set()
-    neue = {b for b in _lies_liste(pfad) if len(b) >= 3} - vorhanden
-    alle = sorted(vorhanden | neue, key=str.casefold)
-    ziel.parent.mkdir(parents=True, exist_ok=True)
-    ziel.write_text("# Nutzervokabular: im Prüfschritt verworfene Begriffe und eigene Ergänzungen,"
-                    " ein Begriff je Zeile\n" + "\n".join(alle) + "\n", encoding="utf-8")
+    """Merge the terms of ``pfad`` (one per line or CSV) into the vocabulary table under
+    the category ``name`` ("nutzervokabular" = Nutzervokabular); returns the database
+    and how many were new.  This is what the exported ``.vokabular.txt`` files are for:
+    the vocabulary grows with every review."""
+    from anonymed.erkennung import vokabular as vokmodul
+
+    kategorie = vokmodul.KATEGORIE_NUTZER if name == NUTZERLISTE else name
+    with vokmodul.Vokabular() as v:
+        neu, _gelesen = v.importiere_csv(pfad, kategorie)
+        ziel = v.pfad
     standard.cache_clear()
-    return ziel, len(neue)
+    return ziel, neu
 
 
 def importiere(pfad: Path, name: str, format_: str = "liste", spalte: int = 0,
-               trennzeichen: str = ";") -> Path:
-    """Write the terms of ``pfad`` to the user's vocabulary folder as ``<name>.txt``."""
+               trennzeichen: str = ";") -> tuple[Path, int]:
+    """Add the terms of ``pfad`` to the vocabulary table under the category ``name``;
+    returns the database and how many were new."""
     if format_ == "mesh-xml":
         begriffe = begriffe_aus_mesh_xml(pfad)
     elif format_ == "csv":
@@ -261,10 +286,10 @@ def importiere(pfad: Path, name: str, format_: str = "liste", spalte: int = 0,
         begriffe = _lies_liste(pfad)
     else:
         raise ValueError(f"Unbekanntes Format: {format_!r} (liste, csv, mesh-xml)")
-    eindeutig = sorted({b for b in begriffe if len(b) >= 3}, key=str.casefold)
-    ziel = datenordner() / f"{name}.txt"
-    ziel.parent.mkdir(parents=True, exist_ok=True)
-    ziel.write_text(f"# importiert aus {pfad.name}\n" + "\n".join(eindeutig) + "\n",
-                    encoding="utf-8")
+    from anonymed.erkennung import vokabular as vokmodul
+
+    with vokmodul.Vokabular() as v:
+        neu = v.fuege_hinzu(begriffe, name)
+        ziel = v.pfad
     standard.cache_clear()
-    return ziel
+    return ziel, neu

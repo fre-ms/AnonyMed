@@ -92,7 +92,7 @@ def rauchtest() -> None:
         aus = lauf([str(exe("anonymed")), "konfig"], capture_output=True, env=umgebung)
         print(aus.stdout)
         assert "AnonyMed" in aus.stdout and "OCR-Backends" in aus.stdout
-        assert "Fachbegriffe:" in aus.stdout and "Basis (fachbegriffe_de.txt.gz)" in aus.stdout
+        assert "Fachbegriffe:" in aus.stdout and "Medizin (Wikidata)" in aus.stdout
         import importlib.util
 
         if importlib.util.find_spec("de_core_news_md") is not None:
@@ -123,7 +123,7 @@ def rauchtest() -> None:
         assert "Selbsttest bestanden" in aus.stdout, aus.stdout + aus.stderr
         aus = lauf([str(gui), "--selbsttest", "--sprache", "en"], capture_output=True,
                    env=umgebung)
-        assert "2 Documents" in aus.stdout, aus.stdout + aus.stderr  # translation shipped
+        assert "3 Documents" in aus.stdout, aus.stdout + aus.stderr  # translation shipped
     print("Rauchtest bestanden.")
 
 

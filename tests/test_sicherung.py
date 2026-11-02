@@ -52,7 +52,7 @@ def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Pat
                                       monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
     (tmp_path / "daten" / "fachbegriffe").mkdir(parents=True)
-    (tmp_path / "daten" / "fachbegriffe" / "nutzervokabular.txt").write_text("Strichgang\n")
+    (tmp_path / "daten" / "fachbegriffe" / "nutzervokabular.txt").write_text("Flantzlegacy\n")
     (tmp_path / "daten" / "konfig.toml").write_text('[gui]\nsprache = "de"\n')
     db = _gefuellt(tmp_path, befund, patient)
     with Pseudonymspeicher(db) as sp:
@@ -64,23 +64,28 @@ def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Pat
     assert archiv.parent == tmp_path / "sicherung" and archiv.suffix == ".zip"
     with zipfile.ZipFile(archiv) as z:
         namen = set(z.namelist())
-    assert {"manifest.json", "pseudonyme.sqlite", "pseudonymschluessel.txt", "konfig.toml",
-            "fachbegriffe/nutzervokabular.txt"} <= namen
+    assert {"manifest.json", "pseudonyme.sqlite", "pseudonymschluessel.txt",
+            "konfig.toml"} <= namen
+    assert "fachbegriffe/nutzervokabular.txt" not in namen  # taken over into the table
     m = sichmodul.pruefe(archiv)
-    assert m.patienten == 1 and m.zuordnungen >= 8 and m.konfig and m.vokabular == 1
+    assert m.patienten == 1 and m.zuordnungen >= 8 and m.konfig and m.vokabular == 0
     assert m.schluessel_kennung == sichmodul.statistik(db).schluessel_kennung
     # restore into an empty place: same identifiers, same mapping, same key
     neu = tmp_path / "neu" / "pseudonyme.sqlite"
     monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "neu"))
     b = sichmodul.importiere(archiv, neu)
     assert b.modus == "ersetzen" and b.patienten_neu == 1 and b.schluessel_ersetzt
-    assert b.konfig_ersetzt and b.vokabular_dateien == 1 and b.sicherung_vorher == []
+    assert b.konfig_ersetzt and b.vokabular_dateien == 0 and b.sicherung_vorher == []
     with Pseudonymspeicher(neu) as sp2:
         assert sp2.finde()[0]["kennung"] == kennung
         assert sp2.zuordnung(patient.schluessel()) == zuordnung
         assert sp2.kennung_fuer(patient).kennung == kennung  # the key came along
     assert (tmp_path / "neu" / "konfig.toml").exists()
-    assert (tmp_path / "neu" / "fachbegriffe" / "nutzervokabular.txt").exists()
+    from anonymed.erkennung import vokabular as vokmodul
+
+    # the old per-file list went into the default database of the original data folder
+    with vokmodul.Vokabular(tmp_path / "daten" / "pseudonyme.sqlite", grundbestand=False) as v:
+        assert v.enthaelt("Flantzlegacy")
     # restore over an existing database sets the old one aside
     b2 = sichmodul.importiere(archiv, neu)
     assert len(b2.sicherung_vorher) == 2 and all(p.exists() for p in b2.sicherung_vorher)
@@ -181,7 +186,7 @@ def test_fenster_datenbank(qapp: QApplication, tmp_path: Path, befund: Path,  # 
     seite.synchron = True
     fenster.zeige_seite(seite)
     qapp.processEvents()
-    assert fenster.tabs.tabText(fenster.tabs.currentIndex()) == "8 Datenbank"
+    assert fenster.tabs.tabText(fenster.tabs.currentIndex()) == "9 Datenbank"
     st = seite.aktualisiere()
     assert st.patienten == 1 and seite.tabelle.rowCount() == len(st.zeilen())
     with pytest.raises(RuntimeError):

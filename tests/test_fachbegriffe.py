@@ -111,18 +111,28 @@ def test_import_und_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     fb = fachmodul.standard()
     for w in ("Flantzitis", "Typhus abdominalis", "Cucumis-Syndrom", "Gurkenkrankheit"):
         assert fb.geschuetzt(w, 0, len(w), ganz=True), w
-    assert any(name == "eigene.txt" for name, _n in fb.quellen)
+    assert any(name == "eigene" for name, _n in fb.quellen)
 
     from anonymed.cli import app
 
     r = CliRunner().invoke(app, ["fachbegriffe", "status"])
-    assert r.exit_code == 0 and "eigene.txt" in r.output
+    assert r.exit_code == 0 and "eigene" in r.output and "vokabular" in r.output
     r = CliRunner().invoke(app, ["fachbegriffe", "pruefen", "Flantzitis", "Flantz",
                                  "Morbus Parkinson"])
     assert "Flantzitis: geschützt" in r.output and "Flantz: frei" in r.output
     assert "Morbus Parkinson: geschützt" in r.output
     r = CliRunner().invoke(app, ["fachbegriffe", "importieren", str(liste), "--name", "zwei"])
-    assert r.exit_code == 0 and "2 Begriffe" in r.output
+    assert r.exit_code == 0 and "0 Begriffe" in r.output  # already there under "eigene"
+    r = CliRunner().invoke(app, ["fachbegriffe", "hinzufuegen", "Flantzose", "--kategorie", "x"])
+    assert r.exit_code == 0 and "1 neue" in r.output
+    assert fachmodul.standard().ist_fachbegriff("Flantzose")
+    r = CliRunner().invoke(app, ["fachbegriffe", "entfernen", "Flantzose", "Cholera"])
+    assert r.exit_code == 0 and "2 Begriffe gelöscht" in r.output
+    assert not fachmodul.standard().ist_fachbegriff("Flantzose")
+    r = CliRunner().invoke(app, ["fachbegriffe", "exportieren", str(tmp_path / "v.csv"),
+                                 "--kategorie", "eigene"])
+    assert r.exit_code == 0 and (tmp_path / "v.csv").read_text(encoding="utf-8").startswith(
+        "begriff,kategorie\nFlantzitis,eigene\n")
     fachmodul.standard.cache_clear()
 
 

@@ -83,7 +83,7 @@ class ExportSeite(QWidget):
         self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
         self.vokabular = QCheckBox(self.tr(
             "Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile;"
-            " in „4 Analysieren“ importierbar)"))
+            " in „2 Vokabular“ importierbar)"))
         self.vokabular.setChecked(True)
         for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vokabular,
                   self.vermerk, self.rastern, self.vorschau):

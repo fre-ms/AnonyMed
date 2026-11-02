@@ -15,6 +15,7 @@ from anonymed.gui.pruefen_seite import PruefenSeite
 from anonymed.gui.rueckersetzen_seite import RueckersetzenSeite
 from anonymed.gui.sitzung import Sitzung
 from anonymed.gui.texterkennung_seite import TexterkennungSeite
+from anonymed.gui.vokabular_seite import VokabularSeite
 from anonymed.konfig import lade_einstellungen, speichere_einstellungen
 
 
@@ -35,15 +36,17 @@ class Hauptfenster(QMainWindow):
         self.export = ExportSeite(self.sitzung)
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
         self.datenbank = DatenbankSeite(self.sitzung)
+        self.vokabular = VokabularSeite(self.sitzung)
         self._seiten: list = []
         for seite, titel in ((self.patient, self.tr("1 Patient")),
-                             (self.dokumente, self.tr("2 Dokumente")),
-                             (self.texterkennung, self.tr("3 Texterkennung")),
-                             (self.analysieren, self.tr("4 Analysieren")),
-                             (self.pruefen, self.tr("5 Prüfen")),
-                             (self.export, self.tr("6 Exportieren")),
-                             (self.rueckersetzen, self.tr("7 Rückersetzen")),
-                             (self.datenbank, self.tr("8 Datenbank"))):
+                             (self.vokabular, self.tr("2 Vokabular")),
+                             (self.dokumente, self.tr("3 Dokumente")),
+                             (self.texterkennung, self.tr("4 Texterkennung")),
+                             (self.analysieren, self.tr("5 Analysieren")),
+                             (self.pruefen, self.tr("6 Prüfen")),
+                             (self.export, self.tr("7 Exportieren")),
+                             (self.rueckersetzen, self.tr("8 Rückersetzen")),
+                             (self.datenbank, self.tr("9 Datenbank"))):
             # a scroll area per step: the window shrinks below a step's natural size
             # and shows scrollbars instead of refusing to get smaller
             rahmen = QScrollArea()
@@ -100,6 +103,8 @@ class Hauptfenster(QMainWindow):
             self.rueckersetzen.aktualisiere()
         elif seite is self.datenbank:
             self.datenbank.aktualisiere()
+        elif seite is self.vokabular:
+            self.vokabular.aktualisiere()
         elif seite is self.analysieren:
             self.analysieren.aktualisiere()
         elif seite is self.texterkennung:

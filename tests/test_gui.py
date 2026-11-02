@@ -314,13 +314,15 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient,
     zeilen = [z for z in vokabular.read_text(encoding="utf-8").splitlines()
               if z and not z.startswith("#")]
     assert zeilen == [unscharf.text] and patient.nachname not in zeilen
-    # … which the analysis step merges into the user's own list
+    # … which the vocabulary step merges into the table
     assert not fachmodul.standard().ist_fachbegriff(unscharf.text)
-    assert fenster.analysieren.vokabular_importieren(vokabular) == 1
+    fenster.vokabular.synchron = True
+    assert fenster.vokabular.importiere_datei(vokabular) == 1
     assert fachmodul.standard().ist_fachbegriff(unscharf.text)
-    assert "Nutzervokabular" in fenster.analysieren.status.text()
-    assert "nutzervokabular.txt" in fenster.analysieren.vokabular_info.text()
-    assert fenster.analysieren.vokabular_importieren(vokabular) == 0  # already known
+    assert "1 neue von 1" in fenster.vokabular.status.text()
+    assert fenster.vokabular.importiere_datei(vokabular) == 0  # already known
+    fenster.analysieren.aktualisiere()
+    assert "Nutzervokabular" in fenster.analysieren.vokabular_info.text()
     fenster.close()
     fachmodul.standard.cache_clear()
 
@@ -363,15 +365,15 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
     try:
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
-        assert tabs == ["1 Patient", "2 Documents", "3 Text recognition", "4 Analyse", "5 Review",
-                    "6 Export", "7 Re-identify", "8 Database"]
+        assert tabs == ["1 Patient", "2 Vocabulary", "3 Documents", "4 Text recognition",
+                    "5 Analyse", "6 Review", "7 Export", "8 Re-identify", "9 Database"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()
     finally:
         qapp.removeTranslator(uebersetzer)
     fenster = Hauptfenster(Sitzung(speicherpfad=None))
-    assert fenster.tabs.tabText(1) == "2 Dokumente"
+    assert fenster.tabs.tabText(2) == "3 Dokumente"
     fenster.close()
 
 

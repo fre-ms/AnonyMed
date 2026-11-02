@@ -780,14 +780,59 @@ app.add_typer(fachbegriffe_app, name="fachbegriffe")
 
 @fachbegriffe_app.command("status")
 def fachbegriffe_status() -> None:
-    """Umfang und Quellen des Vokabulars anzeigen."""
+    """Umfang und Kategorien des Vokabulars anzeigen."""
     from anonymed.erkennung import fachbegriffe as fachmodul
+    from anonymed.erkennung import vokabular as vokmodul
 
     fb = fachmodul.standard()
     typer.echo(f"{fb.anzahl} geschützte Begriffe")
     for name, n in fb.quellen:
         typer.echo(f"  {n:>7}  {name}")
-    typer.echo(f"Eigene Listen: {fachmodul.datenordner()} (*.txt, ein Begriff je Zeile)")
+    typer.echo(f"Tabelle vokabular in {vokmodul.standardpfad()} (Schritt „2 Vokabular“,"
+               " 'fachbegriffe hinzufuegen|entfernen|exportieren|importieren')")
+
+
+@fachbegriffe_app.command("hinzufuegen")
+def fachbegriffe_hinzufuegen(
+    begriffe: Annotated[list[str], typer.Argument(help="Begriffe (auch mehrwortig).")],
+    kategorie: Annotated[str, typer.Option("--kategorie", help="Kategorie in der Tabelle.")]
+    = "Nutzervokabular",
+) -> None:
+    """Begriffe ins Vokabular aufnehmen."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+    from anonymed.erkennung import vokabular as vokmodul
+
+    with vokmodul.Vokabular() as v:
+        n = v.fuege_hinzu(begriffe, kategorie)
+    fachmodul.standard.cache_clear()
+    typer.echo(f"{n} neue Begriffe ({kategorie}).")
+
+
+@fachbegriffe_app.command("entfernen")
+def fachbegriffe_entfernen(
+    begriffe: Annotated[list[str], typer.Argument(help="Begriffe, genau wie gespeichert.")],
+) -> None:
+    """Begriffe aus dem Vokabular löschen (auch mitgelieferte)."""
+    from anonymed.erkennung import fachbegriffe as fachmodul
+    from anonymed.erkennung import vokabular as vokmodul
+
+    with vokmodul.Vokabular() as v:
+        n = v.entferne(begriffe)
+    fachmodul.standard.cache_clear()
+    typer.echo(f"{n} Begriffe gelöscht.")
+
+
+@fachbegriffe_app.command("exportieren")
+def fachbegriffe_exportieren(
+    datei: Annotated[Path, typer.Argument(help="Zieldatei (.csv).")],
+    kategorie: Annotated[str, typer.Option("--kategorie", help="Nur diese Kategorie.")] = "",
+) -> None:
+    """Das Vokabular als CSV (begriff,kategorie) schreiben."""
+    from anonymed.erkennung import vokabular as vokmodul
+
+    with vokmodul.Vokabular() as v:
+        n = v.exportiere_csv(datei, kategorie)
+    typer.echo(f"{n} Begriffe nach {datei} geschrieben.")
 
 
 @fachbegriffe_app.command("pruefen")
@@ -811,7 +856,7 @@ def fachbegriffe_ergaenzen(
     name: Annotated[str, typer.Option("--name", help="Eigene Liste im Datenordner.")]
     = "nutzervokabular",
 ) -> None:
-    """Begriffe in das Nutzervokabular übernehmen (zusammenführen statt ersetzen)."""
+    """Begriffe einer Liste oder CSV in das Vokabular übernehmen (zusammenführen)."""
     from anonymed.erkennung import fachbegriffe as fachmodul
 
     try:
@@ -837,13 +882,12 @@ def fachbegriffe_importieren(
     from anonymed.erkennung import fachbegriffe as fachmodul
 
     try:
-        ziel = fachmodul.importiere(datei, name, format_, spalte, trennzeichen)
+        ziel, n = fachmodul.importiere(datei, name, format_, spalte, trennzeichen)
     except (ValueError, OSError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(code=1) from e
-    n = sum(1 for z in ziel.read_text(encoding="utf-8").splitlines() if not z.startswith("#"))
-    typer.echo(f"{n} Begriffe nach {ziel} geschrieben; jetzt {fachmodul.standard().anzahl}"
-               " geschützte Begriffe")
+    typer.echo(f"{n} Begriffe nach {ziel} übernommen (Kategorie {name}); jetzt"
+               f" {fachmodul.standard().anzahl} geschützte Begriffe")
 
 
 kontakte_app = typer.Typer(
