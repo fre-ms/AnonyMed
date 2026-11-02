@@ -1,0 +1,264 @@
+# Laborparameter und ihre üblichen Abkürzungen in deutschen Befunden (Blut, Urin, Liquor),
+# einschließlich neurologischer und psychiatrischer Diagnostik. Ergänzt die wenigen
+# Wikidata-Einträge mit LOINC-Kennung und deutscher Bezeichnung. Kuratiert für AnonyMed,
+# Stand 2.11.2026. Ein Begriff je Zeile; Abkürzungen bewusst aufgenommen.
+# Blutbild
+Blutbild
+Differentialblutbild
+Hämoglobin
+Hb
+Hämatokrit
+Hkt
+Erythrozyten
+Leukozyten
+Thrombozyten
+Retikulozyten
+MCV
+MCH
+MCHC
+RDW
+Neutrophile
+Lymphozyten
+Monozyten
+Eosinophile
+Basophile
+Blutsenkung
+BSG
+# Elektrolyte und Säure-Basen-Haushalt
+Natrium
+Kalium
+Calcium
+Kalzium
+Magnesium
+Chlorid
+Phosphat
+Bicarbonat
+Bikarbonat
+Basenüberschuss
+pH-Wert
+pCO2
+pO2
+Laktat
+Osmolalität
+Anionenlücke
+# Niere
+Kreatinin
+Harnstoff
+eGFR
+GFR
+Cystatin C
+Harnsäure
+Kreatinin-Clearance
+Albumin-Kreatinin-Quotient
+Proteinurie
+Mikroalbuminurie
+Urinstatus
+Urinsediment
+# Leber, Galle, Pankreas
+GOT
+GPT
+AST
+ALT
+ASAT
+ALAT
+Gamma-GT
+GGT
+alkalische Phosphatase
+Bilirubin
+direktes Bilirubin
+Cholinesterase
+Lipase
+Amylase
+Ammoniak
+Albumin
+Gesamteiweiß
+Eiweißelektrophorese
+# Gerinnung
+Quick
+INR
+aPTT
+PTT
+Thrombinzeit
+Fibrinogen
+D-Dimere
+Antithrombin
+Faktor VIII
+Anti-Xa
+# Entzündung und Infektion
+CRP
+C-reaktives Protein
+Procalcitonin
+PCT
+Interleukin-6
+IL-6
+Blutkultur
+Blutkulturen
+Urinkultur
+# Stoffwechsel und Lipide
+Glukose
+Nüchternglukose
+HbA1c
+oGTT
+Gesamtcholesterin
+Cholesterin
+LDL-Cholesterin
+HDL-Cholesterin
+LDL
+HDL
+Triglyzeride
+Triglyceride
+Lipoprotein(a)
+Homocystein
+# Herz und Muskel
+Troponin
+hs-Troponin
+Troponin T
+Troponin I
+CK
+Creatinkinase
+CK-MB
+Myoglobin
+LDH
+NT-proBNP
+BNP
+# Schilddrüse, Hormone
+TSH
+fT3
+fT4
+TPO-Antikörper
+TRAK
+Thyreoglobulin
+Cortisol
+ACTH
+Prolaktin
+Testosteron
+Östradiol
+LH
+FSH
+Parathormon
+PTH
+Insulin
+C-Peptid
+Wachstumshormon
+IGF-1
+# Vitamine, Spurenelemente, Eisen
+Vitamin B12
+Holotranscobalamin
+Folsäure
+Vitamin D
+25-OH-Vitamin D
+Vitamin B1
+Vitamin B6
+Ferritin
+Transferrin
+Transferrinsättigung
+Eisen
+Zink
+Kupfer
+Coeruloplasmin
+# Tumormarker
+PSA
+CEA
+AFP
+CA 19-9
+CA 125
+CA 15-3
+NSE
+S100
+Chromogranin A
+# Immunologie und Autoantikörper
+ANA
+ANCA
+anti-dsDNA
+ENA
+Rheumafaktor
+Anti-CCP
+Komplement C3
+Komplement C4
+Immunglobuline
+IgG
+IgA
+IgM
+IgE
+Immunfixation
+freie Leichtketten
+Anti-NMDA-Rezeptor-Antikörper
+Aquaporin-4-Antikörper
+AQP4-Antikörper
+MOG-Antikörper
+Acetylcholinrezeptor-Antikörper
+MuSK-Antikörper
+Gangliosid-Antikörper
+onkoneuronale Antikörper
+Anti-Hu
+Anti-Yo
+Anti-Ri
+LGI1-Antikörper
+CASPR2-Antikörper
+GAD-Antikörper
+# Liquordiagnostik
+Liquor
+Liquorzellzahl
+Liquoreiweiß
+Liquorlaktat
+Liquorglukose
+Liquor-Serum-Albuminquotient
+Albuminquotient
+Qalb
+Reiber-Schema
+oligoklonale Banden
+intrathekale IgG-Synthese
+IgG-Index
+MRZ-Reaktion
+Tau-Protein
+Gesamt-Tau
+Phospho-Tau
+p-Tau181
+p-Tau217
+Beta-Amyloid 1-42
+Beta-Amyloid 1-40
+Amyloid-Quotient
+Aβ42
+Aβ40
+Aβ42/40
+Neurofilament-Leichtketten
+NfL
+GFAP
+14-3-3-Protein
+RT-QuIC
+# Medikamentenspiegel und Toxikologie
+Medikamentenspiegel
+Lithiumspiegel
+Valproinsäurespiegel
+Carbamazepinspiegel
+Lamotriginspiegel
+Levetiracetamspiegel
+Phenytoinspiegel
+Clozapinspiegel
+Digoxinspiegel
+Tacrolimusspiegel
+Drogenscreening
+Ethanol
+CDT
+Ethylglucuronid
+# Infektionsserologie
+HIV-Test
+Hepatitis-Serologie
+HBsAg
+Anti-HBs
+Anti-HCV
+Lues-Serologie
+TPHA
+VDRL
+Borrelien-Serologie
+Borrelien-Antikörper
+Quantiferon
+SARS-CoV-2-PCR
+# Genetik
+Genanalyse
+Exomsequenzierung
+Genomsequenzierung
+Panelanalyse
+Repeat-Analyse
+Karyotyp
+APOE-Genotyp

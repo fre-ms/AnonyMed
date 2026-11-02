@@ -21,14 +21,17 @@ def datenordner_isoliert(tmp_path_factory: pytest.TempPathFactory) -> Iterator[P
 
     ordner = tmp_path_factory.mktemp("anonymed-daten")
     alt = os.environ.get("ANONYMED_DATENORDNER")
+    alt_lexikon = os.environ.get("ANONYMED_LEXIKON")
     os.environ["ANONYMED_DATENORDNER"] = str(ordner)
+    os.environ["ANONYMED_LEXIKON"] = "0"  # the lexicon tests switch it on for themselves
     try:
         yield ordner
     finally:
-        if alt is None:
-            os.environ.pop("ANONYMED_DATENORDNER", None)
-        else:
-            os.environ["ANONYMED_DATENORDNER"] = alt
+        for name, wert in (("ANONYMED_DATENORDNER", alt), ("ANONYMED_LEXIKON", alt_lexikon)):
+            if wert is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = wert
 
 
 @pytest.fixture

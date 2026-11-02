@@ -99,6 +99,10 @@ class Vokabular:
             pass
         if grundbestand and self.anzahl() == 0:
             self.grundbestand()
+        if grundbestand:
+            from anonymed.erkennung import lexikon  # reference classes; used by no analysis yet
+
+            lexikon.sicherstellen(self.verbindung)
 
     def close(self) -> None:
         self.verbindung.close()

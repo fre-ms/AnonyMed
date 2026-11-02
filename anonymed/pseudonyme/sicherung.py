@@ -102,6 +102,7 @@ class Statistik:
     vokabular_bytes: int = 0
     vokabular_begriffe: int = 0
     vokabular_kategorien: list[tuple[str, int]] = field(default_factory=list)
+    lexikon_klassen: list[tuple[str, str, int]] = field(default_factory=list)
     konfig_vorhanden: bool = False
 
     def zeilen(self) -> list[tuple[str, str]]:
@@ -129,6 +130,11 @@ class Statistik:
             ("Vokabular (Begriffe)", str(self.vokabular_begriffe)),
         ]
         aus += [(f"    {k}", str(n)) for k, n in self.vokabular_kategorien]
+        if self.lexikon_klassen:
+            aus.append(("Lexikon (Einträge, noch ohne Wirkung)",
+                        str(sum(n for _k, _r, n in self.lexikon_klassen))))
+            aus += [(f"    {k} ({'Merkmal' if r == 'merkmal' else 'Fachbegriff'})", str(n))
+                    for k, r, n in self.lexikon_klassen]
         aus.append(("Konfiguration", "vorhanden" if self.konfig_vorhanden else "keine"))
         return aus
 
@@ -281,6 +287,9 @@ def statistik(speicherpfad: Path | None = None) -> Statistik:
         st.vokabular_kategorien = [(k, n) for k, n in zeilen(
             "SELECT kategorie, COUNT(*) FROM vokabular GROUP BY kategorie"
             " ORDER BY COUNT(*) DESC, kategorie")]
+        from anonymed.erkennung.lexikon import je_klasse
+
+        st.lexikon_klassen = je_klasse(v)
     except sqlite3.DatabaseError as e:
         st.integritaet = f"Fehler: {e}"
     finally:

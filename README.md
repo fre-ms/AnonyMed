@@ -167,6 +167,22 @@ uv run --group build python packaging/build.py   # folder distribution plus smok
 
 Layout: `anonymed/kern` (data model), `dokument` (loading incl. HEIC, text layer, OCR backends), `erkennung` (rules, generic and label patterns, fuzzy OCR search, barcodes), `schwaerzen` (redaction of text and pixels, clean-up, rasterising), `pruefung` (re-check incl. OCR, report, previews), `gui` (PySide6 pages over a Qt-free session model), `pseudonyme` (assignment, SQLite store, re-identification), `quellen` (patient file, vCard reader, CardDAV client), `konfig.py` (configuration and keyring), `ablauf.py` (pipeline), `cli.py`.
 
+## Bundled data
+
+The data files in `anonymed/daten/` are not covered by the AGPL; each carries its source, licence and date in its first line, and each is rebuilt by a script in `werkzeuge/`. Since November 2026 the term lists among them also fill the table `lexikon` of the pseudonym database (term, class, role, source, identifier, details). The lexicon records what a term *is*: medical classes (anatomy, drug, disease, symptom, substance, procedure, psyche, physiology, organism, laboratory value, finding, eponym) and quasi-identifying attributes (occupation, employment status, title, hospital, study). It is kept apart from the protected vocabulary on purpose, so that occupations such as *Bauer* or hospital names never become protected from redaction, and nothing in the analysis or the control step uses it yet. It is reloaded whenever a bundled file changes; rows of the source `Nutzer` stay.
+
+| File | Content | Source | Licence |
+|---|---|---|---|
+| `fachbegriffe_de.txt.gz`, `fachklassen_de.csv.gz` | medical vocabulary and its classes | Wikidata (ICD-10, ATC, INN, LOINC, MeSH trees A–G) | CC0 1.0 |
+| `koerperteile_de.txt`, `befundbegriffe_de.txt`, `laborwerte_de.txt` | curated lists | AnonyMed | AGPL-3.0-or-later |
+| `gemeinden_de.csv.gz` | German municipalities with population | Destatis GV-ISys | Datenlizenz Deutschland – Namensnennung 2.0 |
+| `orphanet_praevalenz_de.csv.gz` | prevalence of rare diseases | Orphanet | CC BY 4.0 |
+| `demografie_dach.csv.gz` | population by sex and single year of age: Germany down to districts (Zensus 2022), Austria and Switzerland down to municipalities | Zensus 2022 table 1000A-2027; Statistik Austria OGD; BFS STATPOP | Datenlizenz Deutschland – Namensnennung 2.0; CC BY 4.0; opendata.swiss terms_by |
+| `kliniken_dach.csv.gz` | hospitals and rehabilitation clinics with municipality code (Germany, Switzerland) | Destatis Krankenhausverzeichnis 2024; BAG Kennzahlen der Schweizer Spitäler 2023 | reuse with attribution, changes marked; opendata.swiss terms_by |
+| `berufe_de.csv.gz` | occupations (KldB 2010) and employment status, with a flag for frequent surnames | Bundesagentur für Arbeit; BFS; Wikidata | BA terms of use (attribution, own calculations marked); opendata.swiss terms_by; CC0 1.0 |
+| `titel_de.csv.gz` | academic, noble, clerical, official and honorary titles with abbreviations | AnonyMed; Wikidata | AGPL-3.0-or-later; CC0 1.0 |
+| `studien_dach.csv.gz` | clinical studies with a site in Germany, Austria or Switzerland: acronym, size, sites | ClinicalTrials.gov; DRKS (registered from 2025) | NLM terms (attribution, date, changes); CC BY 4.0 |
+
 ## Licence
 
 AGPL-3.0-or-later (PyMuPDF is AGPL). See `LICENSE`.
