@@ -93,3 +93,13 @@ def test_statistik_zeigt_lexikon(tmp_path: Path, lexikon_an: None) -> None:
     zeilen = dict(statistik(pfad).zeilen())
     assert int(zeilen["Lexikon (Einträge, noch ohne Wirkung)"]) > 30000
     assert "    Anatomie (Fachbegriff)" in zeilen
+
+
+def test_gemtex_typen() -> None:
+    assert lexikon.gemtex_typ("Klinik") == "LOCATION_HOSPITAL"
+    assert lexikon.gemtex_typ("Studie") == "ID"
+    assert lexikon.gemtex_typ("Beruf") == "PROFESSION"
+    assert lexikon.gemtex_typ("Erwerbsstatus") == ""
+    assert lexikon.gemtex_typ("Titel", '{"art":"akademisch"}') == "NAME_TITLE"
+    assert lexikon.gemtex_typ("Titel", '{"art":"adel"}') == ""
+    assert lexikon.gemtex_typ("Anatomie") == ""

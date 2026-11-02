@@ -442,6 +442,33 @@ def kuratiert() -> list[Zeile]:
         t(a, land, m, abk)
         t(a, land, f, abk)
     t(a, "DE", "Professor h. c.", "Prof. h. c.")
+    # examples of the GeMTeX annotation guideline, version 2 (7 September 2025, section 5.3,
+    # doi:10.5281/zenodo.15747389) that the lists above did not have yet
+    for begriff, abk, land in (
+        ("Doktor der Medizinischen Wissenschaften", "Dr. rer. med.", "DE"),
+        ("Doktor der Medizinischen Wissenschaften", "Dr. med. sci.", "DE"),
+        ("Doktor der Medizinischen Wissenschaften", "Dr. rer. hum.", "DE"),
+        ("Doktor der naturwissenschaftlichen Medizin", "Dr. nat. med.", "DE"),
+        ("Doktor ehrenhalber (Ingenieurwissenschaften)", "Dr. E.h.", "DE"),
+        ("Diplommedizinpädagoge", "Dipl.-Med. Päd.", "DE"),
+        ("Diplommediziner", "Dipl. med.", "DE"),
+        ("Bachelor of Science in Medical Sciences", "BScMed", "AT"),
+        ("Bachelor of Medicine", "BMed", "CH"),
+        ("Master of Medicine", "MMed", "CH"),
+        ("Bachelor of Dental Medicine", "B Dent Med", "CH"),
+        ("Master of Dental Medicine", "M Dent Med", "CH"),
+        ("Master of Chiropractic Medicine", "M Chiro Med", "CH"),
+        ("Doktor der Chiropraktischen Medizin", "Dr. med. chiro.", "CH"),
+        ("Bachelor of Science in Nursing", "BSN", "CH"),
+        ("Bachelor of Science in Nursing", "BScN", "CH"),
+        ("Master of Science in Nursing", "MSN", "CH"),
+        ("Medicinae universae doctor", "MUDr.", "alle"),
+        ("Medicinae dentalis doctor", "MDDr.", "alle"),
+        ("Candidatus scientiarum", "CSc", "alle"),
+        ("Doctor scientiarum", "DrSc", "alle"),
+        ("Doctor scientiarum", "DSc", "alle"),
+    ):
+        t("akademisch", land, begriff, abk)
     return z
 
 
@@ -513,7 +540,9 @@ def main(argv: list[str] | None = None) -> int:
                        key=lambda z: (ARTEN.index(z[1]), z[0].casefold(), z[3], z[2]))
     heute = dt.date.today().isoformat()
     kopf = ("# Quelle: kuratierte Liste AnonyMed (Bezeichnungen und gebräuchliche Abkürzungen"
-            " als Fakten) und Wikidata (akademische Grade, Q189533, mit deutscher"
+            " als Fakten, ergänzt um die Titelbeispiele der GeMTeX-Annotationsleitlinie,"
+            " 2. Version 2025, doi:10.5281/zenodo.15747389) und Wikidata (akademische Grade,"
+            " Q189533, mit deutscher"
             " Kurzbezeichnung P1813); Lizenz: kuratierte Liste AGPL-3.0-or-later wie AnonyMed,"
             " Wikidata CC0 1.0; Stand: " + heute + "\n")
     ziel = Path(args.ziel)

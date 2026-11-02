@@ -51,6 +51,14 @@ CREATE TABLE IF NOT EXISTS lexikon_meta (
 """
 MIN_LAENGE = 2
 
+# Correspondence with the GeMTeX type system for identifying information (annotation
+# guideline, 2nd version, 7 September 2025, doi:10.5281/zenodo.15747389).  Studies are IDs
+# there, only academic titles are NAME_TITLE (functions such as Chefarzt are not annotated),
+# and an employment status is explicitly no PROFESSION: it keeps no GeMTeX type and serves
+# the residual-risk estimate only.
+GEMTEX = {"Beruf": "PROFESSION", "Titel": "NAME_TITLE", "Klinik": "LOCATION_HOSPITAL",
+          "Studie": "ID", "Erwerbsstatus": ""}
+
 Zeile = tuple[str, str, str, str, str]  # begriff, klasse, rolle, kennung, zusatz (JSON)
 
 
@@ -220,6 +228,17 @@ def je_klasse(verbindung: sqlite3.Connection) -> list[tuple[str, str, int]]:
             " ORDER BY rolle DESC, COUNT(*) DESC, klasse")]
     except sqlite3.OperationalError:
         return []
+
+
+def gemtex_typ(klasse: str, zusatz: str = "") -> str:
+    """GeMTeX type of a lexicon row ("" where the guideline annotates nothing)."""
+    if klasse == "Titel":
+        try:
+            art = json.loads(zusatz).get("art", "") if zusatz else ""
+        except ValueError:
+            art = ""
+        return GEMTEX["Titel"] if art in ("", "akademisch") else ""
+    return GEMTEX.get(klasse, "")
 
 
 def klassen_von(verbindung: sqlite3.Connection, begriff: str) -> list[tuple[str, str]]:
