@@ -798,7 +798,7 @@ def fachbegriffe_status() -> None:
     typer.echo(f"{fb.anzahl} geschützte Begriffe")
     for name, n in fb.quellen:
         typer.echo(f"  {n:>7}  {name}")
-    typer.echo(f"Tabelle vokabular in {vokmodul.standardpfad()} (Schritt „2 Vokabular“,"
+    typer.echo(f"Tabelle vokabular in {vokmodul.standardpfad()} (Schritt „2 Fachvokabular“,"
                " 'fachbegriffe hinzufuegen|entfernen|exportieren|importieren')")
 
 

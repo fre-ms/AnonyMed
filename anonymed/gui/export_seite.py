@@ -97,7 +97,7 @@ class ExportSeite(QWidget):
         self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
         self.vokabular = QCheckBox(self.tr(
             "Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile;"
-            " in „2 Vokabular“ importierbar)"))
+            " in „2 Fachvokabular“ importierbar)"))
         self.vokabular.setChecked(True)
         for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vokabular,
                   self.vermerk, self.rastern, self.vorschau):
@@ -204,7 +204,8 @@ class ExportSeite(QWidget):
                 reste = ", ".join(f"Seite {r['seite']}: {r['regel']}" for r in g.resttreffer[:8])
                 zeilen.append(f"{d.pfad.name}: {len(g.resttreffer)} Resttreffer ({reste})")
             meldung = self.tr(
-                "Abbruch: Bei der erneuten Prüfung wurden noch Daten aus „1 Patient“ gefunden."
+                "Abbruch: Bei der erneuten Prüfung wurden noch Daten aus „1 Patientendaten“"
+                " gefunden."
                 " Es wird nichts exportiert. Bitte im Prüfschritt nacharbeiten (Kasten oder"
                 " Maske) und erneut prüfen.") + "\n\n" + "\n".join(zeilen)
             self.status.setText(meldung.split("\n")[0])

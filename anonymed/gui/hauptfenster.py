@@ -40,15 +40,15 @@ class Hauptfenster(QMainWindow):
         self.vokabular = VokabularSeite(self.sitzung)
         self.kontrolle = KontrolleSeite(self.sitzung)
         self._seiten: list = []
-        for seite, titel in ((self.patient, self.tr("1 Patient")),
-                             (self.vokabular, self.tr("2 Vokabular")),
+        for seite, titel in ((self.patient, self.tr("1 Patientendaten")),
+                             (self.vokabular, self.tr("2 Fachvokabular")),
                              (self.dokumente, self.tr("3 Dokumente")),
                              (self.texterkennung, self.tr("4 Texterkennung")),
-                             (self.analysieren, self.tr("5 Analysieren")),
-                             (self.pruefen, self.tr("6 Prüfen")),
+                             (self.analysieren, self.tr("5 Analyse")),
+                             (self.pruefen, self.tr("6 Sichtprüfung")),
                              (self.kontrolle, self.tr("7 Kontrolle")),
-                             (self.export, self.tr("8 Exportieren")),
-                             (self.rueckersetzen, self.tr("9 Rückersetzen")),
+                             (self.export, self.tr("8 Export")),
+                             (self.rueckersetzen, self.tr("9 Reidentifikation")),
                              (self.datenbank, self.tr("10 Datenbank"))):
             # a scroll area per step: the window shrinks below a step's natural size
             # and shows scrollbars instead of refusing to get smaller

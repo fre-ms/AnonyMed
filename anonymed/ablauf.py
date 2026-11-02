@@ -161,7 +161,7 @@ def vokabular_aus(verworfen: Iterable[Fundstelle]) -> list[str]:
 
 
 VOKABULAR_KOPF = ("# AnonyMed: im Prüfschritt verworfene Rate-Treffer (NER, unscharfe Suche),"
-                  " ein Begriff je Zeile.\n# In „2 Vokabular“ als Nutzervokabular importierbar;"
+                  " ein Begriff je Zeile.\n# In „2 Fachvokabular“ als Nutzervokabular importierbar;"
                   " Zeilen mit # werden überlesen.\n")
 
 
@@ -200,7 +200,7 @@ def _vokabular_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
     ziel.write_text(VOKABULAR_KOPF + "\n".join(begriffe) + "\n", encoding="utf-8")
     ergebnis.ziel_vokabular = ziel
     hinweise.append(f"{len(begriffe)} verworfene Rate-Treffer als Vokabular geschrieben"
-                    f" ({ziel.name}); in „2 Vokabular“ importierbar.")
+                    f" ({ziel.name}); in „2 Fachvokabular“ importierbar.")
 
 
 @dataclass

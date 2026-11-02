@@ -139,7 +139,7 @@ class AnalysierenSeite(QWidget):
         quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
         self.vokabular_info.setText(self.tr(
             "{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter"
-            " „2 Vokabular“.").format(gesamt=fb.anzahl, quellen=quellen))
+            " „2 Fachvokabular“.").format(gesamt=fb.anzahl, quellen=quellen))
 
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen

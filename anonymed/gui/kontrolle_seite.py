@@ -45,7 +45,8 @@ class KontrolleSeite(QWidget):
 
         # -- light 1: re-check --------------------------------------------------------------------
         zeile1 = QHBoxLayout()
-        zeile1.addWidget(QLabel(self.tr("Erneute Prüfung: alle Angaben aus „1 Patient“ entfernt?")))
+        zeile1.addWidget(QLabel(self.tr(
+            "Erneute Prüfung: alle Angaben aus „1 Patientendaten“ entfernt?")))
         self.ampel_text = QLabel("")
         self.ampel_text.setWordWrap(True)
         zeile1.addWidget(self.ampel_text, 1)

@@ -124,8 +124,8 @@ def test_fenster_kontrolle(qapp: QApplication, tmp_path: Path, befund: Path,  # 
     fenster = Hauptfenster(sitzung)
     for seite in (fenster.dokumente, fenster.analysieren, fenster.export, fenster.kontrolle):
         seite.synchron = True
-    assert [fenster.tabs.tabText(i) for i in range(6, 10)] == ["7 Kontrolle", "8 Exportieren",
-                                                                "9 Rückersetzen", "10 Datenbank"]
+    assert [fenster.tabs.tabText(i) for i in range(6, 10)] == [
+        "7 Kontrolle", "8 Export", "9 Reidentifikation", "10 Datenbank"]
     fenster.patient.fuelle(patient)
     fenster.patient.uebernehmen()
     fenster.dokumente.hinzufuegen([befund])
