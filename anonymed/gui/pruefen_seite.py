@@ -40,7 +40,7 @@ from anonymed.kern.modell import Fundstelle
 
 # Traffic light: red = will be redacted, yellow = uncertain (read badly, blanked as a
 # precaution), green = stays (medical term, discarded hit).  The source of a hit is in
-# the table; guesses (NER, fuzzy search) get a dashed outline.
+# the table; guesses (NER, fuzzy search, identifiers) get a dashed outline.
 ROT = QColor(200, 30, 30)
 GELB = QColor(230, 165, 0)
 GRUEN = QColor(40, 160, 60)
@@ -55,7 +55,7 @@ def farbe(f: Fundstelle) -> QColor:
 
 def geraten(f: Fundstelle) -> bool:
     """A hit from a heuristic rather than a rule or the user."""
-    return f.regel.startswith(("ner.", "unscharf."))
+    return f.regel.startswith(("ner.", "unscharf.", "identifikator."))
 
 
 def _rect(rect: tuple[float, float, float, float], skala: float) -> QRectF:

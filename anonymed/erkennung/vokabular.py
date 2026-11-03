@@ -100,7 +100,7 @@ class Vokabular:
         if grundbestand and self.anzahl() == 0:
             self.grundbestand()
         if grundbestand:
-            from anonymed.erkennung import lexikon  # reference classes; used by no analysis yet
+            from anonymed.erkennung import lexikon  # classes and the identifiers step
 
             lexikon.sicherstellen(self.verbindung)
 

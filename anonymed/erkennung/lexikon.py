@@ -10,9 +10,11 @@ not be redacted by the guesswork.  The lexicon adds the class of a term and its 
 
 The table ``lexikon`` lives in the pseudonym database next to ``vokabular``.  Bundled sources
 are (re)loaded whenever their file changes (a hash per source in ``lexikon_meta``); rows of
-the source ``Nutzer`` are left alone.  Nothing in the analysis or the control step reads the
-lexicon yet: loading it changes no redaction and no estimate.  ``ANONYMED_LEXIKON=0``
-switches the loading off (the test suite does so, except in the lexicon tests).
+the source ``Nutzer`` are left alone, and bundled rows the user deleted stay deleted
+(``lexikon_geloescht``).  The ``merkmal`` rows are the identifiers of the identifiers step
+(:mod:`anonymed.erkennung.identifikatoren`), which redacts them by default; the ``fach``
+rows and the control step do not use the lexicon yet.  ``ANONYMED_LEXIKON=0`` switches the
+loading off (the test suite does so, except in the lexicon tests).
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +49,16 @@ CREATE TABLE IF NOT EXISTS lexikon_meta (
     stand   TEXT NOT NULL,
     anzahl  INTEGER NOT NULL,
     geladen TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS lexikon_geloescht (
+    begriff TEXT NOT NULL COLLATE NOCASE,
+    klasse  TEXT NOT NULL,
+    kennung TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (begriff, klasse, kennung)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS lexikon_version (
+    id      INTEGER PRIMARY KEY CHECK (id = 1),
+    version INTEGER NOT NULL
 );
 """
 MIN_LAENGE = 2
@@ -188,16 +200,19 @@ def aktiv() -> bool:
     return os.environ.get("ANONYMED_LEXIKON", "1") != "0"
 
 
-def sicherstellen(verbindung: sqlite3.Connection, erzwingen: bool = False) -> dict[str, int]:
-    """Create the tables and (re)load every bundled source whose data changed.
-    Returns the number of rows loaded per reloaded source (empty when all is current)."""
+def sicherstellen(verbindung: sqlite3.Connection, erzwingen: bool = False,
+                  quellen: Iterable[str] | None = None) -> dict[str, int]:
+    """Create the tables and (re)load every bundled source whose data changed (only the
+    sources named in ``quellen``, when given).  Returns the number of rows loaded per
+    reloaded source (empty when all is current)."""
     if not aktiv() and not erzwingen:
         return {}
     verbindung.executescript(SCHEMA)
     alt = dict(verbindung.execute("SELECT quelle, stand FROM lexikon_meta"))
     geladen: dict[str, int] = {}
+    namen = set(quellen) if quellen is not None else None
     for q in QUELLEN:
-        if q.datei is not None and not q.datei.exists():
+        if (q.datei is not None and not q.datei.exists()) or (namen and q.name not in namen):
             continue
         stand = _stand(q)
         if not erzwingen and alt.get(q.name) == stand:
@@ -216,8 +231,29 @@ def sicherstellen(verbindung: sqlite3.Connection, erzwingen: bool = False) -> di
             " VALUES (?, ?, ?, ?)",
             (q.name, stand, n, dt.datetime.now().isoformat(timespec="seconds")))
         geladen[q.name] = n
+    if geladen:
+        verbindung.execute(
+            "DELETE FROM lexikon WHERE quelle != ? AND EXISTS (SELECT 1 FROM lexikon_geloescht g"
+            " WHERE g.begriff = lexikon.begriff AND g.klasse = lexikon.klasse"
+            " AND g.kennung = lexikon.kennung)", (NUTZER,))
+        erhoehe_version(verbindung)
     verbindung.commit()
     return geladen
+
+
+def version(verbindung: sqlite3.Connection) -> int:
+    """Counter that changes with every change of the lexicon (for cached matchers)."""
+    try:
+        r = verbindung.execute("SELECT version FROM lexikon_version WHERE id = 1").fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    return int(r[0]) if r else 0
+
+
+def erhoehe_version(verbindung: sqlite3.Connection) -> None:
+    verbindung.execute(
+        "INSERT INTO lexikon_version (id, version) VALUES (1, 1)"
+        " ON CONFLICT(id) DO UPDATE SET version = version + 1")
 
 
 def je_klasse(verbindung: sqlite3.Connection) -> list[tuple[str, str, int]]:

@@ -33,6 +33,7 @@ class Art(StrEnum):
     AKTENZEICHEN = "aktenzeichen"
     IBAN = "iban"
     BEGRIFF = "begriff"
+    IDENTIFIKATOR = "identifikator"
     MANUELL = "manuell"
 
 

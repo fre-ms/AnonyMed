@@ -365,17 +365,17 @@ def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPat
     try:
         fenster = Hauptfenster(Sitzung(speicherpfad=None))
         tabs = [fenster.tabs.tabText(i) for i in range(fenster.tabs.count())]
-        assert tabs == ["1 Patient data", "2 Medical vocabulary", "3 Documents",
-                    "4 Text recognition", "5 Analysis", "6 Visual review", "7 Control", "8 Export",
-                    "9 Re-identification",
-                    "10 Database"]
+        assert tabs == ["1 Patient data", "2 Identifiers", "3 Medical vocabulary", "4 Documents",
+                    "5 Text recognition", "6 Analysis", "7 Visual review", "8 Control", "9 Export",
+                    "10 Re-identification",
+                    "11 Database"]
         assert fenster.patient.f["nachname"].placeholderText() == ""
         assert fenster.export.knopf.text() == "Export"
         fenster.close()
     finally:
         qapp.removeTranslator(uebersetzer)
     fenster = Hauptfenster(Sitzung(speicherpfad=None))
-    assert fenster.tabs.tabText(2) == "3 Dokumente"
+    assert fenster.tabs.tabText(3) == "4 Dokumente"
     fenster.close()
 
 

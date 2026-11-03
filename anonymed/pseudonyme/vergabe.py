@@ -149,6 +149,16 @@ class Pseudonymvergabe:
     def begriff(self, nummer: int, text: str) -> str:
         return self._merke(f"[Begriff {nummer}]", text, Art.BEGRIFF)
 
+    # -- identifiers from the lexicon: professions, hospitals, studies, titles ---------------------
+    def identifikator(self, praefix: str, text: str) -> str:
+        """An identifier of the identifiers step: "[Klinik <code>]" from the keyed hash of
+        the class and the normalised text, so that the same hospital gets the same code."""
+        text = " ".join(text.split())
+        if self.geheimnis is None:
+            return self._merke(f"[{praefix}]", text, Art.IDENTIFIKATOR)
+        code = hash_kennung(self.geheimnis, f"{praefix.casefold()}:" + normalisiere(text))
+        return self._merke(f"[{praefix} {code}]", text, Art.IDENTIFIKATOR)
+
     # -- people and places found by NER ----------------------------------------------------------
     def person_unbekannt(self, name: str) -> str:
         """A person the rules did not know: "Person <code>" from the keyed hash of the name."""

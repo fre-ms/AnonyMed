@@ -1,4 +1,4 @@
-"""The main window: five steps as tabs, a language menu."""
+"""The main window: eleven steps as tabs, a language menu."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from anonymed.gui.analysieren_seite import AnalysierenSeite
 from anonymed.gui.datenbank_seite import DatenbankSeite
 from anonymed.gui.dokumente_seite import DokumenteSeite
 from anonymed.gui.export_seite import ExportSeite
+from anonymed.gui.identifikatoren_seite import IdentifikatorenSeite
 from anonymed.gui.kontrolle_seite import KontrolleSeite
 from anonymed.gui.patient_seite import PatientSeite
 from anonymed.gui.pruefen_seite import PruefenSeite
@@ -38,18 +39,20 @@ class Hauptfenster(QMainWindow):
         self.rueckersetzen = RueckersetzenSeite(self.sitzung)
         self.datenbank = DatenbankSeite(self.sitzung)
         self.vokabular = VokabularSeite(self.sitzung)
+        self.identifikatoren = IdentifikatorenSeite(self.sitzung)
         self.kontrolle = KontrolleSeite(self.sitzung)
         self._seiten: list = []
         for seite, titel in ((self.patient, self.tr("1 Patientendaten")),
-                             (self.vokabular, self.tr("2 Fachvokabular")),
-                             (self.dokumente, self.tr("3 Dokumente")),
-                             (self.texterkennung, self.tr("4 Texterkennung")),
-                             (self.analysieren, self.tr("5 Analyse")),
-                             (self.pruefen, self.tr("6 Sichtprüfung")),
-                             (self.kontrolle, self.tr("7 Kontrolle")),
-                             (self.export, self.tr("8 Export")),
-                             (self.rueckersetzen, self.tr("9 Reidentifikation")),
-                             (self.datenbank, self.tr("10 Datenbank"))):
+                             (self.identifikatoren, self.tr("2 Identifikatoren")),
+                             (self.vokabular, self.tr("3 Fachvokabular")),
+                             (self.dokumente, self.tr("4 Dokumente")),
+                             (self.texterkennung, self.tr("5 Texterkennung")),
+                             (self.analysieren, self.tr("6 Analyse")),
+                             (self.pruefen, self.tr("7 Sichtprüfung")),
+                             (self.kontrolle, self.tr("8 Kontrolle")),
+                             (self.export, self.tr("9 Export")),
+                             (self.rueckersetzen, self.tr("10 Reidentifikation")),
+                             (self.datenbank, self.tr("11 Datenbank"))):
             # a scroll area per step: the window shrinks below a step's natural size
             # and shows scrollbars instead of refusing to get smaller
             rahmen = QScrollArea()
@@ -108,6 +111,8 @@ class Hauptfenster(QMainWindow):
             self.datenbank.aktualisiere()
         elif seite is self.vokabular:
             self.vokabular.aktualisiere()
+        elif seite is self.identifikatoren:
+            self.identifikatoren.aktualisiere()
         elif seite is self.analysieren:
             self.analysieren.aktualisiere()
         elif seite is self.texterkennung:

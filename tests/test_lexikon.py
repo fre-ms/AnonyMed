@@ -1,4 +1,5 @@
-"""The semantic lexicon: loading, reloading, user rows, statistics, and no effect on redaction."""
+"""The semantic lexicon: loading, reloading, user rows, statistics, and the protection it
+leaves alone."""
 
 from __future__ import annotations
 
@@ -91,8 +92,8 @@ def test_statistik_zeigt_lexikon(tmp_path: Path, lexikon_an: None) -> None:
     pfad = tmp_path / "p.sqlite"
     Vokabular(pfad).close()
     zeilen = dict(statistik(pfad).zeilen())
-    assert int(zeilen["Lexikon (Einträge, noch ohne Wirkung)"]) > 30000
-    assert "    Anatomie (Fachbegriff)" in zeilen
+    assert int(zeilen["Lexikon (Einträge)"]) > 30000
+    assert "    Anatomie (Fachklasse)" in zeilen and "    Klinik (Identifikator)" in zeilen
 
 
 def test_gemtex_typen() -> None:

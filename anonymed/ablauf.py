@@ -22,6 +22,7 @@ from anonymed.dokument.textabgleich import textebene_aus_korrektur
 from anonymed.dokument.textebene import Seitentext, lese_seite
 from anonymed.erkennung import codes as codemodul
 from anonymed.erkennung import fachbegriffe as fachmodul
+from anonymed.erkennung import identifikatoren as identmodul
 from anonymed.erkennung import ner as nermodul
 from anonymed.erkennung import zahlwoerter
 from anonymed.erkennung.deterministisch import (
@@ -74,6 +75,7 @@ class Ablaufoptionen:
     unlesbar: str = "schwaerzen"  # lines OCR could not read: "schwaerzen" or "lassen"
     ner: bool = False  # people and places the rules do not know (extra "ner")
     fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
+    identifikatoren: bool = True  # professions, hospitals, studies, titles (identifiers step)
     unscharf_text: bool = True  # text files: fuzzy search for misspelt identifiers (transcripts)
     aufbereiten: str = "auto"  # image-only pages: "auto" (suggested clean-up) or "aus"
     verworfene_merken: bool = False  # remember discarded hits per patient in the store
@@ -103,6 +105,7 @@ class Ablaufoptionen:
             "codes": self.codes,
             "ner": self.ner,
             "fachbegriffe": self.fachbegriffe,
+            "identifikatoren": self.identifikatoren,
             "unscharf_text": self.unscharf_text,
             "aufbereiten": self.aufbereiten,
             "papierformat": self.papierformat,
@@ -161,7 +164,7 @@ def vokabular_aus(verworfen: Iterable[Fundstelle]) -> list[str]:
 
 
 VOKABULAR_KOPF = ("# AnonyMed: im Prüfschritt verworfene Rate-Treffer (NER, unscharfe Suche),"
-                  " ein Begriff je Zeile.\n# In „2 Fachvokabular“ als Nutzervokabular importierbar;"
+                  " ein Begriff je Zeile.\n# In „3 Fachvokabular“ als Nutzervokabular importierbar;"
                   " Zeilen mit # werden überlesen.\n")
 
 
@@ -200,7 +203,7 @@ def _vokabular_schreiben(v: Vorbereitung | Textvorbereitung, ergebnis: Ergebnis,
     ziel.write_text(VOKABULAR_KOPF + "\n".join(begriffe) + "\n", encoding="utf-8")
     ergebnis.ziel_vokabular = ziel
     hinweise.append(f"{len(begriffe)} verworfene Rate-Treffer als Vokabular geschrieben"
-                    f" ({ziel.name}); in „2 Fachvokabular“ importierbar.")
+                    f" ({ziel.name}); in „3 Fachvokabular“ importierbar.")
 
 
 @dataclass
@@ -328,11 +331,12 @@ def _erkenne_seiten(
     doc: pymupdf.Document, seiten: list[_Seite], regeln: list[Regel], ziele: list[Ziel],
     opt: Ablaufoptionen, vergabe: Pseudonymvergabe | None = None,
     ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
-    verschont: list[str] | None = None,
+    verschont: list[str] | None = None, identifikatoren: identmodul.Erkenner | None = None,
 ) -> None:
     """Run the detection over pages that were read already: rules, vocabulary marks,
-    NER on the text layer; on OCR text additionally the fuzzy search and the unreadable
-    lines; codes on the page image; the user's corrected text as text-only hits."""
+    identifiers, NER and the titles of the people found on the text layer; on OCR text
+    additionally the fuzzy search (before the identifiers) and the unreadable lines;
+    codes on the page image; the user's corrected text as text-only hits."""
     for eintrag in seiten:
         page = doc[eintrag.nummer]
         textebene = eintrag.text
@@ -340,10 +344,16 @@ def _erkenne_seiten(
         eintrag.fachrects, eintrag.fachspannen, eintrag.fachanzahl = [], [], 0
         if fachbegriffe is not None and textebene.hat_textebene:
             _merke_fachbegriffe(eintrag, textebene, fachbegriffe)
+        if identifikatoren is not None and vergabe is not None and textebene.hat_textebene:
+            eintrag.fundstellen += identmodul.finde_identifikatoren(
+                textebene, identifikatoren, vergabe, eintrag.fundstellen, "text")
         if ner is not None and vergabe is not None and textebene.hat_textebene:
             neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
                                       fachbegriffe, verschont)
             eintrag.fundstellen += neue
+        if identifikatoren is not None and vergabe is not None and textebene.hat_textebene:
+            eintrag.fundstellen += identmodul.finde_titel(
+                textebene, identifikatoren, vergabe, eintrag.fundstellen, "text")
         if eintrag.ocr is not None:
             if fachbegriffe is not None:
                 _merke_fachbegriffe(eintrag, eintrag.ocr, fachbegriffe)
@@ -351,12 +361,20 @@ def _erkenne_seiten(
             for f in genau:
                 f.quelle = "ocr"
             eintrag.fundstellen += genau + finde_unscharf(eintrag.ocr, ziele, genau, fachbegriffe)
+            if identifikatoren is not None and vergabe is not None:
+                ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
+                eintrag.fundstellen += identmodul.finde_identifikatoren(
+                    eintrag.ocr, identifikatoren, vergabe, ocr_treffer, "ocr")
             if ner is not None and vergabe is not None:
                 ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
                 neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr",
                                           fachbegriffe, verschont)
                 eintrag.fundstellen = [f for f in eintrag.fundstellen
                                        if f.quelle != "ocr" or f in ocr_treffer] + neue
+            if identifikatoren is not None and vergabe is not None:
+                ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
+                eintrag.fundstellen += identmodul.finde_titel(
+                    eintrag.ocr, identifikatoren, vergabe, ocr_treffer, "ocr")
             if opt.unlesbar == "schwaerzen":
                 belegt = [(f.start, f.ende) for f in eintrag.fundstellen if f.quelle == "ocr"]
                 for u in ocrmodul.unlesbare_regionen(eintrag.ocr):
@@ -364,7 +382,8 @@ def _erkenne_seiten(
                         eintrag.fundstellen.append(u)
             if eintrag.korrektur is not None:
                 eintrag.korrektur_treffer = _korrektur_treffer(eintrag, regeln, ziele, opt,
-                                                               fachbegriffe)
+                                                               fachbegriffe, identifikatoren,
+                                                               vergabe)
         if opt.codes and codemodul.verfuegbar():
             eintrag.fundstellen += codemodul.finde_codes(page, eintrag.nummer)
 
@@ -384,14 +403,19 @@ def _gemerkte_verwerfen(seiten: list[_Seite], gemerkt: set[tuple[str, str]]) -> 
 
 
 def _korrektur_treffer(eintrag: _Seite, regeln: list[Regel], ziele: list[Ziel],
-                       opt: Ablaufoptionen,
-                       fachbegriffe: fachmodul.Fachbegriffe | None) -> list[Fundstelle]:
-    """Rules and fuzzy search over the user's corrected OCR text: text-only hits."""
+                       opt: Ablaufoptionen, fachbegriffe: fachmodul.Fachbegriffe | None,
+                       identifikatoren: identmodul.Erkenner | None = None,
+                       vergabe: Pseudonymvergabe | None = None) -> list[Fundstelle]:
+    """Rules, fuzzy search and identifiers over the user's corrected OCR text: text-only
+    hits."""
     assert eintrag.korrektur is not None
     seite = textmodul.textseite(eintrag.korrektur, eintrag.nummer)
     treffer = finde(seite, regeln)
     if opt.unscharf_text:
         treffer += finde_unscharf(seite, ziele, treffer, fachbegriffe, grossschreibung=True)
+    if identifikatoren is not None and vergabe is not None:
+        treffer += identmodul.finde_identifikatoren(seite, identifikatoren, vergabe, treffer)
+        treffer += identmodul.finde_titel(seite, identifikatoren, vergabe, treffer)
     for f in treffer:
         f.quelle = "korrektur"
         f.rects = []
@@ -608,7 +632,9 @@ class Vorbereitung:
             return []
         s.korrektur = text
         fach = fachmodul.standard() if self.opt.fachbegriffe else None
-        s.korrektur_treffer = _korrektur_treffer(s, self.regeln, self.ziele, self.opt, fach)
+        ident = identmodul.standard() if self.opt.identifikatoren else None
+        s.korrektur_treffer = _korrektur_treffer(s, self.regeln, self.ziele, self.opt, fach,
+                                                 ident, self.vergabe)
         self.version += 1
         return s.korrektur_treffer
 
@@ -678,6 +704,7 @@ class _Ruestzeug:
     warnungen: list[str]
     ner: nermodul.NER | None
     fachbegriffe: fachmodul.Fachbegriffe | None
+    identifikatoren: identmodul.Erkenner | None = None
 
 
 def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher) -> _Ruestzeug:
@@ -704,8 +731,23 @@ def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeiche
             warnungen.append("NER gewünscht, aber spaCy oder das deutsche Modell fehlt"
                              " (Extra 'ner', siehe Anleitung); ohne NER fortgefahren.")
     fachbegriffe = fachmodul.standard() if opt.fachbegriffe else None
+    identifikatoren = identmodul.standard() if opt.identifikatoren else None
     return _Ruestzeug(kennung.kennung, vergabe, regeln_fuer(patient, vergabe),
-                      ziele_fuer(patient, vergabe), warnungen, ner, fachbegriffe)
+                      ziele_fuer(patient, vergabe), warnungen, ner, fachbegriffe,
+                      identifikatoren)
+
+
+def _identifikator_hinweis(fundstellen: list[Fundstelle]) -> str | None:
+    zaehlung: dict[str, int] = {}
+    for f in fundstellen:
+        if f.art == Art.IDENTIFIKATOR:
+            klasse = f.pseudonym.strip("[]").split(" ")[0]
+            zaehlung[klasse] = zaehlung.get(klasse, 0) + 1
+    if not zaehlung:
+        return None
+    teile = ", ".join(f"{k} {n}" for k, n in sorted(zaehlung.items()))
+    return (f"Identifikatoren: {sum(zaehlung.values())} Treffer ({teile}); standardmäßig"
+            " geschwärzt, im Prüfschritt ansehen.")
 
 
 def _ner_warnung(r: _Ruestzeug, fundstellen: list[Fundstelle], verschont: list[str]) -> str | None:
@@ -849,7 +891,7 @@ def analysiere(
         r = _ruestzeug(patient, opt, speicher)
         verschont: list[str] = []
         _erkenne_seiten(lesung.doc, lesung.seiten, r.regeln, r.ziele, opt, r.vergabe, r.ner,
-                        r.fachbegriffe, verschont)
+                        r.fachbegriffe, verschont, r.identifikatoren)
     except Exception:
         if eigener_speicher:
             speicher.close()
@@ -858,9 +900,10 @@ def analysiere(
     seiten = lesung.seiten
     warnungen = list(r.warnungen) + list(lesung.warnungen)
     hinweise = list(lesung.hinweise)
-    hinweis = _ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont)
-    if hinweis:
-        hinweise.append(hinweis)
+    for hinweis in (_ner_warnung(r, [f for s in seiten for f in s.fundstellen], verschont),
+                    _identifikator_hinweis([f for s in seiten for f in s.fundstellen])):
+        if hinweis:
+            hinweise.append(hinweis)
     unlesbar = sum(1 for s in seiten for f in s.fundstellen if f.regel == "ocr.unlesbar")
     if unlesbar:
         hinweise.append(f"{unlesbar} unlesbare OCR-Zeile(n) vorsorglich geschwärzt.")
@@ -1020,8 +1063,8 @@ def _vorbereiten_text(
     quelle: Path, patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher,
     eigener_speicher: bool, r: _Ruestzeug,
 ) -> Textvorbereitung:
-    """Rules, vocabulary, fuzzy search and NER over one text file, in that order: a
-    misspelt known name must get the patient's pseudonym, not a NER code.  Number
+    """Rules, vocabulary, fuzzy search, identifiers, NER and titles over one text file, in
+    that order: a misspelt known name must get the patient's pseudonym, not a NER code.  Number
     words are rewritten as digits first; hits touching them are widened to the words."""
     text, endung = textmodul.lese_quelle(quelle)
     norm = zahlwoerter.normalisiere(textmodul.analysetext(text, endung))
@@ -1033,16 +1076,23 @@ def _vorbereiten_text(
     if opt.unscharf_text:
         eintrag.fundstellen += finde_unscharf(seite, r.ziele, eintrag.fundstellen, r.fachbegriffe,
                                               grossschreibung=True, quelle="unscharf")
+    if r.identifikatoren is not None:
+        eintrag.fundstellen += identmodul.finde_identifikatoren(
+            seite, r.identifikatoren, r.vergabe, eintrag.fundstellen)
     verschont: list[str] = []
     if r.ner is not None:
         eintrag.fundstellen += nermodul.finde_ner(seite, r.ner, r.vergabe, eintrag.fundstellen,
                                                   "text", r.fachbegriffe, verschont)
+    if r.identifikatoren is not None:
+        eintrag.fundstellen += identmodul.finde_titel(seite, r.identifikatoren, r.vergabe,
+                                                      eintrag.fundstellen)
     eintrag.fundstellen = _auf_zahlwoerter_erweitert(eintrag.fundstellen, norm)
     warnungen = list(r.warnungen)
     hinweise: list[str] = []
-    hinweis = _ner_warnung(r, eintrag.fundstellen, verschont)
-    if hinweis:
-        hinweise.append(hinweis)
+    for hinweis in (_ner_warnung(r, eintrag.fundstellen, verschont),
+                    _identifikator_hinweis(eintrag.fundstellen)):
+        if hinweis:
+            hinweise.append(hinweis)
     unscharfe = sum(1 for f in eintrag.fundstellen if f.quelle == "unscharf")
     if unscharfe:
         hinweise.append(f"Unscharfe Suche: {unscharfe} abweichend geschriebene Treffer"

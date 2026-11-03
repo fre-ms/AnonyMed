@@ -104,8 +104,8 @@ def test_vokabular_seite(qapp: QApplication, frisch: Path, tmp_path: Path) -> No
     from anonymed.gui.sitzung import Sitzung
 
     fenster = Hauptfenster(Sitzung())
-    assert [fenster.tabs.tabText(i) for i in range(3)] == ["1 Patientendaten", "2 Fachvokabular",
-                                                            "3 Dokumente"]
+    assert [fenster.tabs.tabText(i) for i in range(4)] == [
+        "1 Patientendaten", "2 Identifikatoren", "3 Fachvokabular", "4 Dokumente"]
     seite = fenster.vokabular
     seite.synchron = True
     fenster.zeige_seite(seite)

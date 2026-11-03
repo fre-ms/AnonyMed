@@ -255,6 +255,10 @@ def anonymisieren(
     fachbegriffe: Annotated[bool, typer.Option(
         "--fachbegriffe/--keine-fachbegriffe",
         help="Medizinische Fachbegriffe vor NER und unscharfer OCR-Suche schützen.")] = True,
+    identifikatoren: Annotated[bool, typer.Option(
+        "--identifikatoren/--keine-identifikatoren",
+        help="Berufe, Kliniken, Studien und Titel schwärzen (Tabelle 'identifikatoren').")]
+    = True,
     unscharf: Annotated[bool, typer.Option(
         "--unscharf/--genau",
         help="Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte).")] = True,
@@ -328,7 +332,8 @@ def anonymisieren(
         datumsform=datum, textdatei=textdatei, markdown=markdown, bericht=bericht,
         ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
-        unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, unscharf_text=unscharf,
+        unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, identifikatoren=identifikatoren,
+        unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
         vokabular=vokabular, gliedern=gliedern,
         referenzpopulation=referenzpopulation or lade_einstellungen().referenzpopulation,
@@ -822,7 +827,7 @@ def fachbegriffe_status() -> None:
     typer.echo(f"{fb.anzahl} geschützte Begriffe")
     for name, n in fb.quellen:
         typer.echo(f"  {n:>7}  {name}")
-    typer.echo(f"Tabelle vokabular in {vokmodul.standardpfad()} (Schritt „2 Fachvokabular“,"
+    typer.echo(f"Tabelle vokabular in {vokmodul.standardpfad()} (Schritt „3 Fachvokabular“,"
                " 'fachbegriffe hinzufuegen|entfernen|exportieren|importieren')")
 
 
@@ -922,6 +927,104 @@ def fachbegriffe_importieren(
         raise typer.Exit(code=1) from e
     typer.echo(f"{n} Begriffe nach {ziel} übernommen (Kategorie {name}); jetzt"
                f" {fachmodul.standard().anzahl} geschützte Begriffe")
+
+
+identifikatoren_app = typer.Typer(
+    help="Identifikatoren außerhalb der Patientendaten: Berufe, Kliniken, Studien, Titel.",
+    no_args_is_help=True,
+)
+app.add_typer(identifikatoren_app, name="identifikatoren")
+
+
+@identifikatoren_app.command("status")
+def identifikatoren_status() -> None:
+    """Umfang je Klasse anzeigen."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    with identmodul.Identifikatoren() as ident:
+        typer.echo(f"{ident.anzahl()} Identifikatoren in {ident.pfad}")
+        for klasse, n in ident.klassen():
+            typer.echo(f"  {n:>7}  {klasse}")
+        if ident.geloescht():
+            typer.echo(f"  {ident.geloescht():>7}  gelöschte mitgelieferte Einträge")
+    typer.echo("Registernummern (NCT, DRKS, ISRCTN, EU CT, EudraCT) werden immer erkannt;"
+               " Schritt „2 Identifikatoren“.")
+
+
+@identifikatoren_app.command("hinzufuegen")
+def identifikatoren_hinzufuegen(
+    begriffe: Annotated[list[str], typer.Argument(help="Begriffe (auch mehrwortig).")],
+    klasse: Annotated[str, typer.Option(
+        "--klasse", help="Klinik, Beruf, Studie, Titel oder Sonstiges (eigene Klassen wie"
+                         " Sonstiges: überall geschwärzt).")] = "Sonstiges",
+) -> None:
+    """Eigene Identifikatoren aufnehmen (Arbeitgeber, Vereine, Einrichtungen …)."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    with identmodul.Identifikatoren() as ident:
+        n = ident.fuege_hinzu(begriffe, klasse)
+    typer.echo(f"{n} neue Identifikatoren ({klasse}).")
+
+
+@identifikatoren_app.command("entfernen")
+def identifikatoren_entfernen(
+    begriffe: Annotated[list[str], typer.Argument(help="Begriffe, wie gespeichert.")],
+    klasse: Annotated[str, typer.Option("--klasse", help="Nur in dieser Klasse.")] = "",
+) -> None:
+    """Identifikatoren löschen (auch mitgelieferte; sie bleiben bei Updates gelöscht)."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    with identmodul.Identifikatoren() as ident:
+        n = ident.entferne(s for b in begriffe for s in ident.schluessel_fuer(b, klasse))
+    typer.echo(f"{n} Identifikatoren gelöscht.")
+
+
+@identifikatoren_app.command("exportieren")
+def identifikatoren_exportieren(
+    datei: Annotated[Path, typer.Argument(help="Zieldatei (.csv).")],
+    klasse: Annotated[str, typer.Option("--klasse", help="Nur diese Klasse.")] = "",
+) -> None:
+    """Die Identifikatoren als CSV (begriff,klasse,quelle,angaben) schreiben."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    with identmodul.Identifikatoren() as ident:
+        n = ident.exportiere_csv(datei, klasse)
+    typer.echo(f"{n} Identifikatoren nach {datei} geschrieben.")
+
+
+@identifikatoren_app.command("importieren")
+def identifikatoren_importieren(
+    datei: Annotated[Path, typer.Argument(exists=True, help="CSV (begriff[,klasse]) oder Liste.")],
+    klasse: Annotated[str, typer.Option("--klasse", help="Klasse ohne Klassenspalte.")]
+    = "Sonstiges",
+) -> None:
+    """Identifikatoren aus einer CSV oder Liste übernehmen."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    try:
+        with identmodul.Identifikatoren() as ident:
+            neu, gelesen = ident.importiere_csv(datei, klasse)
+    except OSError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(f"{neu} neue von {gelesen} Identifikatoren übernommen.")
+
+
+@identifikatoren_app.command("pruefen")
+def identifikatoren_pruefen(
+    texte: Annotated[list[str], typer.Argument(help="Sätze oder eine Textdatei.")],
+) -> None:
+    """Zeigen, was die Analyse in einem Satz als Identifikator schwärzen würde (Titel nur
+    vor erkannten Personen, hier nicht geprüft)."""
+    from anonymed.erkennung import identifikatoren as identmodul
+
+    erkenner = identmodul.standard()
+    for t in texte:
+        if Path(t).is_file():
+            t = Path(t).read_text(encoding="utf-8", errors="replace")
+        treffer = erkenner.kandidaten(t)
+        typer.echo(f"{len(treffer)} Treffer" + "".join(
+            f"\n  {k.klasse}: {t[k.start:k.ende]}" for k in treffer))
 
 
 kontakte_app = typer.Typer(

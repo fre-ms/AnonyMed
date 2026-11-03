@@ -123,7 +123,7 @@ def rauchtest() -> None:
         assert "Selbsttest bestanden" in aus.stdout, aus.stdout + aus.stderr
         aus = lauf([str(gui), "--selbsttest", "--sprache", "en"], capture_output=True,
                    env=umgebung)
-        assert "3 Documents" in aus.stdout, aus.stdout + aus.stderr  # translation shipped
+        assert "4 Documents" in aus.stdout, aus.stdout + aus.stderr  # translation shipped
     print("Rauchtest bestanden.")
 
 

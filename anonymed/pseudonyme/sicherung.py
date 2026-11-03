@@ -50,13 +50,15 @@ KATEGORIEN = [  # pseudonym prefix -> label (first match wins)
     ("[Wohnort]", "Ort"), ("Person ", "Person (NER)"), ("[Telefon", "Telefon"),
     ("[E-Mail", "E-Mail"), ("[Versicherten", "Versichertennummer"), ("[Pat", "Patienten-ID"),
     ("[Aktenzeichen", "Aktenzeichen"), ("[IBAN", "IBAN"), ("[Code]", "Barcode/QR"),
+    ("[Beruf", "Beruf"), ("[Klinik", "Klinik"), ("[Studie", "Studie"), ("[Titel", "Titel"),
+    ("[Identifikator", "Identifikator"),
 ]
 _ART_LABELS = {
     "name": "Name", "vorname": "Name", "nachname": "Name", "geburtsname": "Geburtsname",
     "geburtsdatum": "Geburtsdatum", "adresse": "Adresse", "ort": "Ort", "telefon": "Telefon",
     "email": "E-Mail", "versichertennummer": "Versichertennummer",
     "patienten_id": "Patienten-ID", "aktenzeichen": "Aktenzeichen", "iban": "IBAN",
-    "begriff": "Begriff", "manuell": "Manuell",
+    "begriff": "Begriff", "manuell": "Manuell", "identifikator": "Identifikator",
 }
 
 
@@ -132,9 +134,8 @@ class Statistik:
         ]
         aus += [(f"    {k}", str(n)) for k, n in self.vokabular_kategorien]
         if self.lexikon_klassen:
-            aus.append(("Lexikon (Einträge, noch ohne Wirkung)",
-                        str(sum(n for _k, _r, n in self.lexikon_klassen))))
-            aus += [(f"    {k} ({'Merkmal' if r == 'merkmal' else 'Fachbegriff'})", str(n))
+            aus.append(("Lexikon (Einträge)", str(sum(n for _k, _r, n in self.lexikon_klassen))))
+            aus += [(f"    {k} ({'Identifikator' if r == 'merkmal' else 'Fachklasse'})", str(n))
                     for k, r, n in self.lexikon_klassen]
         aus += [("Zusatzdaten (selbst geladen)", f"{q}: {n} Einträge, {g[:10]}")
                 for q, n, g in self.lexikon_zusatz]

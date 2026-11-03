@@ -58,6 +58,11 @@ class AnalysierenSeite(QWidget):
             self.tr("Fachbegriffe markieren und vor NER und unscharfer OCR-Suche schützen"))
         self.fachbegriffe.setChecked(True)
         form.addRow(self.fachbegriffe)
+        self.identifikatoren = QCheckBox(self.tr(
+            "Identifikatoren schwärzen: Kliniken, Berufe, Studien, Titel"
+            " (siehe „2 Identifikatoren“)"))
+        self.identifikatoren.setChecked(True)
+        form.addRow(self.identifikatoren)
         self.unscharf = QCheckBox(
             self.tr("Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)"))
         self.unscharf.setChecked(True)
@@ -139,7 +144,7 @@ class AnalysierenSeite(QWidget):
         quellen = ", ".join(f"{name} {n}" for name, n in fb.quellen)
         self.vokabular_info.setText(self.tr(
             "{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter"
-            " „2 Fachvokabular“.").format(gesamt=fb.anzahl, quellen=quellen))
+            " „3 Fachvokabular“.").format(gesamt=fb.anzahl, quellen=quellen))
 
     def _optionen_uebernehmen(self) -> None:
         o = self.sitzung.optionen
@@ -148,6 +153,7 @@ class AnalysierenSeite(QWidget):
         o.unlesbar = "schwaerzen" if self.unlesbar.isChecked() else "lassen"
         o.ner = self.ner.isChecked()
         o.fachbegriffe = self.fachbegriffe.isChecked()
+        o.identifikatoren = self.identifikatoren.isChecked()
         o.unscharf_text = self.unscharf.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:

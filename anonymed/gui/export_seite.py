@@ -57,7 +57,7 @@ class ExportSeite(QWidget):
         kopf.addWidget(self.erneut)
         aussen.addLayout(kopf)
         risiko = QHBoxLayout()
-        risiko.addWidget(QLabel(self.tr("Restrisiko (Schätzung aus „7 Kontrolle“):")))
+        risiko.addWidget(QLabel(self.tr("Restrisiko (Schätzung aus „8 Kontrolle“):")))
         self.risiko_text = QLabel("")
         self.risiko_text.setWordWrap(True)
         risiko.addWidget(self.risiko_text, 1)
@@ -97,7 +97,7 @@ class ExportSeite(QWidget):
         self.vorschau = QCheckBox(self.tr("Vorschaubilder immer schreiben"))
         self.vokabular = QCheckBox(self.tr(
             "Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile;"
-            " in „2 Fachvokabular“ importierbar)"))
+            " in „3 Fachvokabular“ importierbar)"))
         self.vokabular.setChecked(True)
         for w in (self.textebene, self.textdatei, self.markdown, self.bericht, self.vokabular,
                   self.vermerk, self.rastern, self.vorschau):
@@ -240,7 +240,7 @@ class ExportSeite(QWidget):
             return
         self._risiko_setzen()
         if self.risiko_farbe == "rot" and not self.risiko_bestaetigt.isChecked():
-            self.status.setText(self.tr("Rotes Restrisiko: bitte in „7 Kontrolle“ nacharbeiten"
+            self.status.setText(self.tr("Rotes Restrisiko: bitte in „8 Kontrolle“ nacharbeiten"
                                         " oder den Export ausdrücklich bestätigen."))
             if self.synchron:
                 raise RuntimeError("Rotes Restrisiko nicht bestätigt; nichts exportiert.")

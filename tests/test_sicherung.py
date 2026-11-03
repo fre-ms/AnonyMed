@@ -186,7 +186,7 @@ def test_fenster_datenbank(qapp: QApplication, tmp_path: Path, befund: Path,  # 
     seite.synchron = True
     fenster.zeige_seite(seite)
     qapp.processEvents()
-    assert fenster.tabs.tabText(fenster.tabs.currentIndex()) == "10 Datenbank"
+    assert fenster.tabs.tabText(fenster.tabs.currentIndex()) == "11 Datenbank"
     st = seite.aktualisiere()
     assert st.patienten == 1 and seite.tabelle.rowCount() == len(st.zeilen())
     with pytest.raises(RuntimeError):

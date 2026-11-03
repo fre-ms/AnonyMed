@@ -159,159 +159,164 @@
     </message>
     <message>
         <location filename="../analysieren_seite.py" line="62"/>
+        <source>Identifikatoren schwärzen: Kliniken, Berufe, Studien, Titel (siehe „2 Identifikatoren“)</source>
+        <translation>Redact identifiers: hospitals, professions, studies, titles (see ‘2 Identifiers’)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="67"/>
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="65"/>
+        <location filename="../analysieren_seite.py" line="70"/>
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="70"/>
+        <location filename="../analysieren_seite.py" line="75"/>
         <source>Extra &apos;ner&apos; und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra &apos;ner&apos; and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="74"/>
+        <location filename="../analysieren_seite.py" line="79"/>
         <source>Fachvokabular (geschützt vor NER und unscharfer Suche)</source>
         <translation>Medical vocabulary (shielded from NER and fuzzy search)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="81"/>
+        <location filename="../analysieren_seite.py" line="86"/>
         <source>Empfänger (Pseudonyme zum Weitergeben)</source>
         <translation>Recipient (pseudonyms to pass on)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="84"/>
+        <location filename="../analysieren_seite.py" line="89"/>
         <source>Für einen Empfänger pseudonymisieren: Einmalschlüssel, die Zuordnung steht nur in einer verschlüsselten Kapsel für den Empfänger; lokal wird nichts gespeichert</source>
         <translation>Pseudonymise for a recipient: one-time key, the mapping lives only in an encrypted capsule for the recipient; nothing is stored locally</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="90"/>
+        <location filename="../analysieren_seite.py" line="95"/>
         <source>Öffentlicher Schlüssel: Datei (.asc) oder https-Adresse</source>
         <translation>Public key: file (.asc) or https address</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="93"/>
+        <location filename="../analysieren_seite.py" line="98"/>
         <source>Schlüssel prüfen</source>
         <translation>Check key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="108"/>
+        <location filename="../analysieren_seite.py" line="113"/>
         <source>Extra &apos;pgp&apos; (pysequoia) oder GnuPG installieren.</source>
         <translation>Install the extra &apos;pgp&apos; (pysequoia) or GnuPG.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="111"/>
+        <location filename="../analysieren_seite.py" line="116"/>
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="122"/>
-        <location filename="../analysieren_seite.py" line="214"/>
-        <location filename="../analysieren_seite.py" line="217"/>
+        <location filename="../analysieren_seite.py" line="127"/>
         <location filename="../analysieren_seite.py" line="220"/>
+        <location filename="../analysieren_seite.py" line="223"/>
+        <location filename="../analysieren_seite.py" line="226"/>
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="141"/>
-        <source>{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter „2 Fachvokabular“.</source>
-        <translation>{gesamt} protected terms ({quellen}). View, add and import under “2 Medical vocabulary”.</translation>
+        <location filename="../analysieren_seite.py" line="146"/>
+        <source>{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter „3 Fachvokabular“.</source>
+        <translation>{gesamt} protected terms ({quellen}). View, add and import under “3 Medical vocabulary”.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="161"/>
+        <location filename="../analysieren_seite.py" line="167"/>
         <source>Öffentlicher Schlüssel des Empfängers</source>
         <translation>Recipient&apos;s public key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="162"/>
+        <location filename="../analysieren_seite.py" line="168"/>
         <source>OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)</source>
         <translation>OpenPGP keys (*.asc *.gpg *.pgp);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="172"/>
+        <location filename="../analysieren_seite.py" line="178"/>
         <source>Bitte Schlüsseldatei oder Adresse angeben.</source>
         <translation>Please give a key file or an address.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="179"/>
+        <location filename="../analysieren_seite.py" line="185"/>
         <source>Schlüssel nicht brauchbar: {fehler}</source>
         <translation>Key not usable: {fehler}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="186"/>
+        <location filename="../analysieren_seite.py" line="192"/>
         <source> ACHTUNG: Der Fingerabdruck weicht vom früher geprüften ab ({alt}). Nur weiterverwenden, wenn der Empfänger den neuen Schlüssel bestätigt hat.</source>
         <translation> WARNING: the fingerprint differs from the one checked before ({alt}). Go on only if the recipient has confirmed the new key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="196"/>
+        <location filename="../analysieren_seite.py" line="202"/>
         <source>Empfänger: {beschreibung}. Fingerabdruck mit dem Empfänger auf einem zweiten Weg abgleichen (Webseite, Briefkopf, Telefon).</source>
         <translation>Recipient: {beschreibung}. Compare the fingerprint with the recipient by a second channel (website, letterhead, telephone).</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="205"/>
+        <location filename="../analysieren_seite.py" line="211"/>
         <source>Empfänger</source>
         <translation>Recipient</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="206"/>
+        <location filename="../analysieren_seite.py" line="212"/>
         <source>Für einen Empfänger braucht es dessen öffentlichen Schlüssel.</source>
         <translation>A recipient needs their public key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="214"/>
+        <location filename="../analysieren_seite.py" line="220"/>
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="217"/>
+        <location filename="../analysieren_seite.py" line="223"/>
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="221"/>
+        <location filename="../analysieren_seite.py" line="227"/>
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="236"/>
+        <location filename="../analysieren_seite.py" line="242"/>
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="244"/>
+        <location filename="../analysieren_seite.py" line="250"/>
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="272"/>
+        <location filename="../analysieren_seite.py" line="278"/>
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="285"/>
+        <location filename="../analysieren_seite.py" line="291"/>
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="289"/>
+        <location filename="../analysieren_seite.py" line="295"/>
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="290"/>
+        <location filename="../analysieren_seite.py" line="296"/>
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="292"/>
+        <location filename="../analysieren_seite.py" line="298"/>
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="294"/>
+        <location filename="../analysieren_seite.py" line="300"/>
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
@@ -1025,8 +1030,8 @@
     </message>
     <message>
         <location filename="../export_seite.py" line="60"/>
-        <source>Restrisiko (Schätzung aus „7 Kontrolle“):</source>
-        <translation>Residual risk (estimate from “7 Control”):</translation>
+        <source>Restrisiko (Schätzung aus „8 Kontrolle“):</source>
+        <translation>Residual risk (estimate from “8 Control”):</translation>
     </message>
     <message>
         <location filename="../export_seite.py" line="69"/>
@@ -1116,8 +1121,8 @@
     </message>
     <message>
         <location filename="../export_seite.py" line="243"/>
-        <source>Rotes Restrisiko: bitte in „7 Kontrolle“ nacharbeiten oder den Export ausdrücklich bestätigen.</source>
-        <translation>Red residual risk: rework in “7 Control” or confirm the export explicitly.</translation>
+        <source>Rotes Restrisiko: bitte in „8 Kontrolle“ nacharbeiten oder den Export ausdrücklich bestätigen.</source>
+        <translation>Red residual risk: rework in “8 Control” or confirm the export explicitly.</translation>
     </message>
     <message>
         <location filename="../export_seite.py" line="257"/>
@@ -1181,8 +1186,8 @@
     </message>
     <message>
         <location filename="../export_seite.py" line="99"/>
-        <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „2 Fachvokabular“ importierbar)</source>
-        <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “2 Medical vocabulary”)</translation>
+        <source>Vokabular der verworfenen Rate-Treffer (.vokabular.txt, ein Begriff je Zeile; in „3 Fachvokabular“ importierbar)</source>
+        <translation>Vocabulary of the discarded guesses (.vokabular.txt, one term per line; can be imported in “3 Medical vocabulary”)</translation>
     </message>
     <message>
         <location filename="../export_seite.py" line="310"/>
@@ -1193,70 +1198,261 @@
 <context>
     <name>Hauptfenster</name>
     <message>
-        <location filename="../hauptfenster.py" line="43"/>
+        <location filename="../hauptfenster.py" line="45"/>
         <source>1 Patientendaten</source>
         <translation>1 Patient data</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="44"/>
-        <source>2 Fachvokabular</source>
-        <translation>2 Medical vocabulary</translation>
-    </message>
-    <message>
-        <location filename="../hauptfenster.py" line="45"/>
-        <source>3 Dokumente</source>
-        <translation>3 Documents</translation>
-    </message>
-    <message>
         <location filename="../hauptfenster.py" line="46"/>
-        <source>4 Texterkennung</source>
-        <translation>4 Text recognition</translation>
+        <source>2 Identifikatoren</source>
+        <translation>2 Identifiers</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="47"/>
-        <source>5 Analyse</source>
-        <translation>5 Analysis</translation>
+        <source>3 Fachvokabular</source>
+        <translation>3 Medical vocabulary</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="48"/>
-        <source>6 Sichtprüfung</source>
-        <translation>6 Visual review</translation>
+        <source>4 Dokumente</source>
+        <translation>4 Documents</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="49"/>
-        <source>7 Kontrolle</source>
-        <translation>7 Control</translation>
+        <source>5 Texterkennung</source>
+        <translation>5 Text recognition</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="50"/>
-        <source>8 Export</source>
-        <translation>8 Export</translation>
+        <source>6 Analyse</source>
+        <translation>6 Analysis</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="51"/>
-        <source>9 Reidentifikation</source>
-        <translation>9 Re-identification</translation>
+        <source>7 Sichtprüfung</source>
+        <translation>7 Visual review</translation>
     </message>
     <message>
         <location filename="../hauptfenster.py" line="52"/>
-        <source>10 Datenbank</source>
-        <translation>10 Database</translation>
+        <source>8 Kontrolle</source>
+        <translation>8 Control</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="71"/>
+        <location filename="../hauptfenster.py" line="53"/>
+        <source>9 Export</source>
+        <translation>9 Export</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="54"/>
+        <source>10 Reidentifikation</source>
+        <translation>10 Re-identification</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="55"/>
+        <source>11 Datenbank</source>
+        <translation>11 Database</translation>
+    </message>
+    <message>
+        <location filename="../hauptfenster.py" line="74"/>
         <source>Alles bleibt auf diesem Rechner; nur das Adressbuch wird über das Netz gelesen.</source>
         <translation>Everything stays on this computer; only the address book is read over the network.</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="75"/>
-        <location filename="../hauptfenster.py" line="85"/>
+        <location filename="../hauptfenster.py" line="78"/>
+        <location filename="../hauptfenster.py" line="88"/>
         <source>Sprache</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../hauptfenster.py" line="86"/>
+        <location filename="../hauptfenster.py" line="89"/>
         <source>Die Sprache gilt ab dem nächsten Start von AnonyMed.</source>
         <translation>The language applies from the next start of AnonyMed.</translation>
+    </message>
+</context>
+<context>
+    <name>IdentifikatorenModell</name>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="38"/>
+        <source>Begriff</source>
+        <translation>Term</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="38"/>
+        <source>Klasse</source>
+        <translation>Class</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="38"/>
+        <source>Angaben</source>
+        <translation>Details</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="39"/>
+        <source>Quelle</source>
+        <translation>Source</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="58"/>
+        <source>eigene</source>
+        <translation>own</translation>
+    </message>
+</context>
+<context>
+    <name>IdentifikatorenSeite</name>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="94"/>
+        <source>Identifikatoren außerhalb der Patientendaten: Kliniken, Berufe, Studien, Titel und Ihre eigenen (Arbeitgeber, Vereine, Einrichtungen). Wie die Patientendaten werden sie standardmäßig geschwärzt; in der Sichtprüfung lässt sich jeder Treffer verwerfen. Kliniken und eigene Einträge zählen überall, Berufe nur mit Hinweis wie „arbeitet als“ oder „von Beruf“, Studienkürzel nur neben „Studie“ (Registernummern wie NCT immer), Titel nur vor oder nach einem erkannten Namen. Der Erwerbsstatus (berentet, arbeitslos) bleibt nach der GeMTeX-Leitlinie stehen.</source>
+        <translation>Identifiers beyond the patient data: hospitals, professions, studies, titles and your own (employers, clubs, institutions). Like the patient data they are redacted by default; the visual review can discard any hit. Hospitals and your own entries count wherever they stand, professions only with a cue such as ‘arbeitet als’ or ‘von Beruf’, study acronyms only next to ‘Studie’ (registry numbers such as NCT always), titles only before or after a name that was found. Employment status (retired, unemployed) stays, following the GeMTeX guideline.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="106"/>
+        <source>Suchen …</source>
+        <translation>Search …</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="112"/>
+        <source>Klasse</source>
+        <translation>Class</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="138"/>
+        <source>Neuer Identifikator (auch mehrere Wörter)</source>
+        <translation>New identifier (several words allowed)</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="144"/>
+        <source>Hinzufügen</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="152"/>
+        <source>Ausgewählte löschen</source>
+        <translation>Delete selected</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="154"/>
+        <source>CSV exportieren …</source>
+        <translation>Export CSV …</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="156"/>
+        <source>CSV oder Liste importieren …</source>
+        <translation>Import CSV or list …</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="158"/>
+        <source>CSV (begriff,klasse; Kopfzeile optional; Komma, Semikolon oder Tabulator) oder eine Liste mit einem Identifikator je Zeile</source>
+        <translation>CSV (begriff,klasse; header line optional; comma, semicolon or tab) or a list with one identifier per line</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="161"/>
+        <source>Gelöschte wiederherstellen</source>
+        <translation>Restore deleted</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="163"/>
+        <source>Gelöschte mitgelieferte Einträge zurückholen; selbst geladene Zusatzdaten (Kliniken Österreich) bitte in „11 Datenbank“ neu laden</source>
+        <translation>Bring back deleted bundled entries; please load additional data you fetched yourself (Austrian hospitals) again in ‘11 Database’</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="166"/>
+        <source>Aktualisieren</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="201"/>
+        <source>alle</source>
+        <translation>all</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="215"/>
+        <source>{n} von {gesamt} Einträgen</source>
+        <translation>{n} of {gesamt} entries</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="243"/>
+        <source>Geändert: {begriff}</source>
+        <translation>Changed: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="246"/>
+        <source>Nicht geändert: {begriff} (zu kurz oder schon vorhanden)</source>
+        <translation>Not changed: {begriff} (too short or already present)</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="253"/>
+        <source>Identifikatoren haben mindestens drei Zeichen.</source>
+        <translation>Identifiers have at least three characters.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="258"/>
+        <source>Hinzugefügt: {begriff}</source>
+        <translation>Added: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="259"/>
+        <source>Schon vorhanden: {begriff}</source>
+        <translation>Already present: {begriff}</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="267"/>
+        <source>Nichts ausgewählt.</source>
+        <translation>Nothing selected.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="270"/>
+        <source>Löschen</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="271"/>
+        <source>{n} Identifikator(en) löschen? Mitgelieferte Einträge bleiben auch nach Updates gelöscht, bis Sie sie wiederherstellen.</source>
+        <translation>Delete {n} identifier(s)? Bundled entries stay deleted across updates until you restore them.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="278"/>
+        <source>{n} Identifikator(en) gelöscht.</source>
+        <translation>{n} identifier(s) deleted.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="286"/>
+        <source>{n} gelöschte Einträge wiederhergestellt.</source>
+        <translation>{n} deleted entries restored.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="292"/>
+        <source>Identifikatoren als CSV</source>
+        <translation>Identifiers as CSV</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="293"/>
+        <source>CSV (*.csv)</source>
+        <translation>CSV (*.csv)</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="301"/>
+        <source>{n} Einträge nach {pfad} geschrieben.</source>
+        <translation>{n} entries written to {pfad}.</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="307"/>
+        <source>Identifikatoren importieren</source>
+        <translation>Import identifiers</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="308"/>
+        <source>CSV und Listen (*.csv *.txt);;Alle Dateien (*)</source>
+        <translation>CSV and lists (*.csv *.txt);;All files (*)</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="319"/>
+        <source>Identifikatoren</source>
+        <translation>Identifiers</translation>
+    </message>
+    <message>
+        <location filename="../identifikatoren_seite.py" line="323"/>
+        <source>{neu} neue von {gelesen} Identifikatoren aus {name} übernommen.</source>
+        <translation>{neu} new of {gelesen} identifiers taken over from {name}.</translation>
     </message>
 </context>
 <context>
