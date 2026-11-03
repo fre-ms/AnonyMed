@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -99,7 +100,22 @@ def test_schluesselbund_mit_altem_dienst(monkeypatch: pytest.MonkeyPatch) -> Non
     assert konfig.passwort_laden(k) == "app-passwort"
 
 
+def _ohne_farben(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)  # the CI forces coloured help
+
+
 def test_alter_befehl_bleibt(tmp_path: Path) -> None:
     r = CliRunner().invoke(app, ["anonymisieren", "--help"])
-    assert r.exit_code == 0 and "--patient" in r.output
-    assert "anonymisieren" not in CliRunner().invoke(app, ["--help"]).output
+    assert r.exit_code == 0 and "--patient" in _ohne_farben(r.output), r.output
+    hilfe = _ohne_farben(CliRunner().invoke(app, ["--help"]).output)
+    assert "pseudonymisieren" in hilfe and "anonymisieren " not in hilfe
+
+
+def test_tests_laufen_im_eigenen_datenordner() -> None:
+    """The isolation is in place from collection on (see conftest.pytest_configure)."""
+    from platformdirs import user_data_path
+
+    ordner = umgebung.datenordner()
+    assert ordner.name.startswith("pseudonymed-daten-")
+    assert ordner != user_data_path(umgebung.NAME, appauthor=False)
+    assert umgebung.konfigordner() == ordner

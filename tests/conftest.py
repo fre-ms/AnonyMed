@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -12,26 +13,42 @@ from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 from tests.carddav_fake import FakeCardDAV
 from tests.synthetisch import erzeuge_befund, synthetischer_patient, vcard_aus_patient
 
+_GESICHERT: dict[str, str | None] = {}
 
-@pytest.fixture(autouse=True, scope="session")
-def datenordner_isoliert(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+
+def pytest_configure(config: pytest.Config) -> None:
     """No test touches the user's real data folder: database, key, vocabulary and
-    configuration go to a folder of the session (tests may override per test)."""
-    import os
+    configuration go to a folder of the run (tests may override per test).  Set here and
+    not in a fixture, because collection already asks for the OCR programs, and that
+    reads the configuration (and would move a folder of the former name)."""
+    import tempfile
 
-    ordner = tmp_path_factory.mktemp("pseudonymed-daten")
-    alt = os.environ.get("PSEUDONYMED_DATENORDNER")
-    alt_lexikon = os.environ.get("PSEUDONYMED_LEXIKON")
-    os.environ["PSEUDONYMED_DATENORDNER"] = str(ordner)
-    os.environ["PSEUDONYMED_LEXIKON"] = "0"  # the lexicon tests switch it on for themselves
-    try:
-        yield ordner
-    finally:
-        for name, wert in (("PSEUDONYMED_DATENORDNER", alt), ("PSEUDONYMED_LEXIKON", alt_lexikon)):
-            if wert is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = wert
+    ordner = tempfile.mkdtemp(prefix="pseudonymed-daten-")
+    werte = {"PSEUDONYMED_DATENORDNER": ordner,
+             "PSEUDONYMED_LEXIKON": "0"}  # the lexicon tests switch it on for themselves
+    for name, wert in werte.items():
+        _GESICHERT[name] = os.environ.get(name)
+        os.environ[name] = wert
+    for name in ("ANONYMED_DATENORDNER", "ANONYMED_LEXIKON"):
+        _GESICHERT[name] = os.environ.pop(name, None)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    import shutil
+
+    ordner = os.environ.get("PSEUDONYMED_DATENORDNER", "")
+    if Path(ordner).name.startswith("pseudonymed-daten-"):
+        shutil.rmtree(ordner, ignore_errors=True)
+    for name, wert in _GESICHERT.items():
+        if wert is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = wert
+
+
+@pytest.fixture(scope="session")
+def datenordner_isoliert() -> Path:
+    return Path(os.environ["PSEUDONYMED_DATENORDNER"])
 
 
 @pytest.fixture
