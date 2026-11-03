@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/gemeinden_de.csv.gz`` from the Destatis municipality directory.
+"""Build ``pseudonymed/daten/gemeinden_de.csv.gz`` from the Destatis municipality directory.
 
 Source: Statistisches Bundesamt (Destatis), Gemeindeverzeichnis-Informationssystem GV-ISys,
 quarterly extract "Alle politisch selbständigen Gemeinden mit ausgewählten Merkmalen"
@@ -23,7 +23,7 @@ from pathlib import Path
 
 URL = ("https://www.destatis.de/DE/Themen/Laender-Regionen/Regionales/Gemeindeverzeichnis/"
        "Administrativ/Archiv/GVAuszugQ/AuszugGV3QAktuell.xlsx?__blob=publicationFile")
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "gemeinden_de.csv.gz"
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "gemeinden_de.csv.gz"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 _ZUSATZ = re.compile(r",\s*(?:Stadt|St\.?|M\.?|Markt|GKSt|Hansestadt|Landeshauptstadt|"
                      r"Kreisfreie Stadt|Universitätsstadt|Große Kreisstadt|Wissenschaftsstadt|"
@@ -75,8 +75,8 @@ def main(argv: list[str]) -> int:
     if len(argv) > 1:
         roh = Path(argv[1]).read_bytes()
     else:
-        with urllib.request.urlopen(urllib.request.Request(URL, headers={"User-Agent": "AnonyMed"}),
-                                    timeout=120) as antwort:
+        anfrage = urllib.request.Request(URL, headers={"User-Agent": "PseudonyMed"})
+        with urllib.request.urlopen(anfrage, timeout=120) as antwort:
             roh = antwort.read()
     stand, gemeinden = lies(roh)
     ZIEL.parent.mkdir(parents=True, exist_ok=True)

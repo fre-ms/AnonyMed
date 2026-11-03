@@ -7,15 +7,15 @@ import datetime as dt
 
 import pytest
 
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.abgleich import (
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.abgleich import (
     SCHWELLE_GLEICH,
     SCHWELLE_UNSICHER,
     dice,
     namensaehnlichkeit,
     vergleiche,
 )
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher, UnsichererAbgleich
 
 
 def _p(nachname: str = "Flantz", vorname: str = "Gotthard", geb: str = "1959-07-21",

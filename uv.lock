@@ -30,80 +30,6 @@ wheels = [
 ]
 
 [[package]]
-name = "anonymed"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "platformdirs" },
-    { name = "pymupdf" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-carddav = [
-    { name = "keyring" },
-]
-codes = [
-    { name = "pillow" },
-    { name = "zxing-cpp" },
-]
-gui = [
-    { name = "pyside6" },
-]
-ner = [
-    { name = "de-core-news-md" },
-    { name = "spacy" },
-]
-ocr = [
-    { name = "onnxruntime" },
-    { name = "pillow" },
-    { name = "pillow-heif" },
-    { name = "rapidocr" },
-]
-pgp = [
-    { name = "pysequoia" },
-]
-
-[package.dev-dependencies]
-build = [
-    { name = "pyinstaller" },
-]
-dev = [
-    { name = "faker" },
-    { name = "pytest" },
-    { name = "pytest-timeout" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "de-core-news-md", marker = "extra == 'ner'", url = "https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.8.0/de_core_news_md-3.8.0-py3-none-any.whl" },
-    { name = "keyring", marker = "extra == 'carddav'", specifier = ">=25" },
-    { name = "onnxruntime", marker = "extra == 'ocr'", specifier = ">=1.18" },
-    { name = "pillow", marker = "extra == 'codes'", specifier = ">=10" },
-    { name = "pillow", marker = "extra == 'ocr'", specifier = ">=10" },
-    { name = "pillow-heif", marker = "extra == 'ocr'", specifier = ">=0.18" },
-    { name = "platformdirs", specifier = ">=4" },
-    { name = "pymupdf", specifier = ">=1.25,<2" },
-    { name = "pysequoia", marker = "extra == 'pgp'", specifier = ">=0.1.30" },
-    { name = "pyside6", marker = "extra == 'gui'", specifier = ">=6.7" },
-    { name = "rapidocr", marker = "extra == 'ocr'", specifier = ">=3" },
-    { name = "spacy", marker = "extra == 'ner'", specifier = ">=3.8" },
-    { name = "typer", specifier = ">=0.12" },
-    { name = "zxing-cpp", marker = "extra == 'codes'", specifier = ">=2.2" },
-]
-provides-extras = ["ocr", "codes", "carddav", "gui", "pgp", "ner"]
-
-[package.metadata.requires-dev]
-build = [{ name = "pyinstaller", specifier = ">=6.11" }]
-dev = [
-    { name = "faker", specifier = ">=30" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "pytest-timeout", specifier = ">=2.3" },
-    { name = "ruff", specifier = ">=0.6" },
-]
-
-[[package]]
 name = "anyio"
 version = "4.15.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1283,6 +1209,80 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/1b/dcc64f358fcb51811b58ae40b3d28f820725f116d86487cc20bd4b130701/protobuf-7.36.2-cp310-abi3-win32.whl", hash = "sha256:912c1221170e16c08d1f086762f563dd61ff83c18b5fa6652952dfaded66f728", size = 442998, upload-time = "2026-09-17T20:07:55.826Z" },
     { url = "https://files.pythonhosted.org/packages/8a/55/b77bda4e5e5f5971fb51b07663694690e9afdb9402136c16a522bd621cad/protobuf-7.36.2-cp310-abi3-win_amd64.whl", hash = "sha256:a300819d441e078a5608c0d3c709796bb548136058fda017ae51d425b44fd353", size = 456514, upload-time = "2026-09-17T20:07:57.188Z" },
     { url = "https://files.pythonhosted.org/packages/e4/04/d52c7016b04b6c5108f26691f9d33ec82a9b65d041f1a9c771137693d618/protobuf-7.36.2-py3-none-any.whl", hash = "sha256:bdb3a345d48db958e6ce1f18e508beb0cc981d64f24088427549c866cd039f1e", size = 179806, upload-time = "2026-09-17T20:07:58.211Z" },
+]
+
+[[package]]
+name = "pseudonymed"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "platformdirs" },
+    { name = "pymupdf" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+carddav = [
+    { name = "keyring" },
+]
+codes = [
+    { name = "pillow" },
+    { name = "zxing-cpp" },
+]
+gui = [
+    { name = "pyside6" },
+]
+ner = [
+    { name = "de-core-news-md" },
+    { name = "spacy" },
+]
+ocr = [
+    { name = "onnxruntime" },
+    { name = "pillow" },
+    { name = "pillow-heif" },
+    { name = "rapidocr" },
+]
+pgp = [
+    { name = "pysequoia" },
+]
+
+[package.dev-dependencies]
+build = [
+    { name = "pyinstaller" },
+]
+dev = [
+    { name = "faker" },
+    { name = "pytest" },
+    { name = "pytest-timeout" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "de-core-news-md", marker = "extra == 'ner'", url = "https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.8.0/de_core_news_md-3.8.0-py3-none-any.whl" },
+    { name = "keyring", marker = "extra == 'carddav'", specifier = ">=25" },
+    { name = "onnxruntime", marker = "extra == 'ocr'", specifier = ">=1.18" },
+    { name = "pillow", marker = "extra == 'codes'", specifier = ">=10" },
+    { name = "pillow", marker = "extra == 'ocr'", specifier = ">=10" },
+    { name = "pillow-heif", marker = "extra == 'ocr'", specifier = ">=0.18" },
+    { name = "platformdirs", specifier = ">=4" },
+    { name = "pymupdf", specifier = ">=1.25,<2" },
+    { name = "pysequoia", marker = "extra == 'pgp'", specifier = ">=0.1.30" },
+    { name = "pyside6", marker = "extra == 'gui'", specifier = ">=6.7" },
+    { name = "rapidocr", marker = "extra == 'ocr'", specifier = ">=3" },
+    { name = "spacy", marker = "extra == 'ner'", specifier = ">=3.8" },
+    { name = "typer", specifier = ">=0.12" },
+    { name = "zxing-cpp", marker = "extra == 'codes'", specifier = ">=2.2" },
+]
+provides-extras = ["ocr", "codes", "carddav", "gui", "pgp", "ner"]
+
+[package.metadata.requires-dev]
+build = [{ name = "pyinstaller", specifier = ">=6.11" }]
+dev = [
+    { name = "faker", specifier = ">=30" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-timeout", specifier = ">=2.3" },
+    { name = "ruff", specifier = ">=0.6" },
 ]
 
 [[package]]

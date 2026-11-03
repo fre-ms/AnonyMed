@@ -14,11 +14,11 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            artefakt: AnonyMed-macOS
+            artefakt: PseudonyMed-macOS
           - os: windows-latest
-            artefakt: AnonyMed-Windows
+            artefakt: PseudonyMed-Windows
           - os: ubuntu-latest
-            artefakt: AnonyMed-Linux
+            artefakt: PseudonyMed-Linux
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -35,13 +35,13 @@ jobs:
           QT_QPA_PLATFORM: offscreen
       - name: Pack (macOS)
         if: runner.os == 'macOS'
-        run: cd dist && ditto -c -k --keepParent AnonyMed.app ${{ matrix.artefakt }}.zip
+        run: cd dist && ditto -c -k --keepParent PseudonyMed.app ${{ matrix.artefakt }}.zip
       - name: Pack (Windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path dist/AnonyMed -DestinationPath dist/${{ matrix.artefakt }}.zip
+        run: Compress-Archive -Path dist/PseudonyMed -DestinationPath dist/${{ matrix.artefakt }}.zip
       - name: Pack (Linux)
         if: runner.os == 'Linux'
-        run: cd dist && tar czf ${{ matrix.artefakt }}.tar.gz AnonyMed
+        run: cd dist && tar czf ${{ matrix.artefakt }}.tar.gz PseudonyMed
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artefakt }}

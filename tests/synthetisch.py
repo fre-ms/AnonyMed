@@ -9,7 +9,7 @@ from pathlib import Path
 import pymupdf
 from faker import Faker
 
-from anonymed.kern.modell import Patient, Person
+from pseudonymed.kern.modell import Patient, Person
 
 MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September",
           "Oktober", "November", "Dezember"]

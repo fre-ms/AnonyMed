@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from anonymed.erkennung import varianten as v
+from pseudonymed.erkennung import varianten as v
 
 
 def _passt(muster: str | None, text: str) -> bool:

@@ -12,13 +12,13 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from typer.testing import CliRunner
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.cli import app
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme import kapsel as kapselmodul
-from anonymed.pseudonyme import pgp as pgpmodul
-from anonymed.pseudonyme.rueckersetzung import rueckersetzen
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, einmalspeicher
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.cli import app
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme import kapsel as kapselmodul
+from pseudonymed.pseudonyme import pgp as pgpmodul
+from pseudonymed.pseudonyme.rueckersetzung import rueckersetzen
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher, einmalspeicher
 from tests.test_cli import _kennung, _patientendatei
 from tests.test_gui import qapp  # noqa: F401
 
@@ -74,11 +74,11 @@ def test_kapsel_rundlauf_pipeline(tmp_path: Path, befund: Path, patient: Patient
     opt = Ablaufoptionen(empfaenger=z.armor, empfaenger_fingerabdruck=z.fingerabdruck)
     with Pseudonymspeicher(tmp_path / "lokal.sqlite") as lokal, \
             pytest.raises(ValueError, match="Einmalspeicher"):
-        anonymisiere(befund, patient, opt, speicher=lokal)  # never with the local store
+        pseudonymisiere(befund, patient, opt, speicher=lokal)  # never with the local store
     with einmalspeicher() as sp:
-        erg = anonymisiere(befund, patient, opt, speicher=sp)
+        erg = pseudonymisiere(befund, patient, opt, speicher=sp)
     assert erg.freigegeben and erg.ziel_kapsel is not None
-    assert erg.ziel_kapsel.name == "befund_anonym.kapsel.asc"
+    assert erg.ziel_kapsel.name == "befund_pseudonym.kapsel.asc"
     assert erg.bericht.optionen["empfaenger"] == z.fingerabdruck
     assert any("Schlüsselkapsel" in h for h in erg.bericht.hinweise)
     roh = erg.ziel_kapsel.read_bytes()
@@ -107,17 +107,18 @@ def test_kapsel_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> Non
     r = runner.invoke(app, ["schluessel", "erzeugen", "--name", "Test", "--email",
                             "t@example.org", "--ziel", str(tmp_path / "k")])
     assert r.exit_code == 0 and "Fingerabdruck" in r.output, r.output
-    pub, sec = tmp_path / "k" / "anonymed_oeffentlich.asc", tmp_path / "k" / "anonymed_privat.asc"
+    pub = tmp_path / "k" / "pseudonymed_oeffentlich.asc"
+    sec = tmp_path / "k" / "pseudonymed_privat.asc"
     r = runner.invoke(app, ["schluessel", "zeigen", str(pub)])
     assert r.exit_code == 0 and "t@example.org" in r.output
     pdatei = _patientendatei(tmp_path, patient)
     speicher = tmp_path / "s.sqlite"
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei), "--speicher",
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(pdatei), "--speicher",
                             str(speicher), "--empfaenger", str(pub)])
     assert r.exit_code == 0 and "Kapsel:" in r.output and "Empfänger:" in r.output, r.output
     assert not speicher.exists()  # nothing local in recipient mode
     k = _kennung(r.output)
-    kapsel = tmp_path / "befund_anonym.kapsel.asc"
+    kapsel = tmp_path / "befund_pseudonym.kapsel.asc"
     brief = tmp_path / "brief.txt"
     brief.write_text(f"Patient {k}, [geb. {patient.geburtsdatum.year}], von Dr. Z1 vorgestellt.",
                      encoding="utf-8")
@@ -127,7 +128,7 @@ def test_kapsel_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> Non
     assert r.exit_code == 0, r.output
     assert f"Herr {patient.nachname}" in r.output and patient.zuweiser[0].nachname in r.output
     assert "Kapsel: " in r.output and k in r.output
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei),
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(pdatei),
                             "--empfaenger", str(tmp_path / "fehlt.asc")])
     assert r.exit_code == 1 and "nicht gefunden" in r.output
     r = runner.invoke(app, ["rueckersetzen", str(brief), "--kapsel", str(pub),
@@ -140,11 +141,11 @@ def test_fenster_kapsel(qapp: QApplication, tmp_path: Path, befund: Path, patien
                         monkeypatch: pytest.MonkeyPatch,
                         schluesselpaar: tuple[Path, Path]) -> None:
     """Sender side in the analysis and export steps, recipient side in step 7."""
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
-    from anonymed.konfig import lade_einstellungen
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
+    from pseudonymed.konfig import lade_einstellungen
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     pub, sec = schluesselpaar
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
@@ -167,7 +168,7 @@ def test_fenster_kapsel(qapp: QApplication, tmp_path: Path, befund: Path, patien
     assert fenster.export.farbe in ("gruen", "gelb"), fenster.export.ampel_text.text()
     fenster.export.exportieren()
     qapp.processEvents()
-    kapsel = tmp_path / "aus" / "befund_anonym.kapsel.asc"
+    kapsel = tmp_path / "aus" / "befund_pseudonym.kapsel.asc"
     assert kapsel.exists() and "Schlüsselkapsel" in fenster.export.ausgabe.toPlainText()
     with Pseudonymspeicher(tmp_path / "s.sqlite") as sp:
         assert sp.finde() == []  # the local database saw nothing

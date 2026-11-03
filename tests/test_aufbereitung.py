@@ -7,7 +7,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from anonymed.dokument import aufbereitung as auf
+from pseudonymed.dokument import aufbereitung as auf
 
 pytestmark = pytest.mark.skipif(not auf.verfuegbar(), reason="OpenCV/NumPy fehlen (Extra ocr)")
 
@@ -180,7 +180,7 @@ def test_ausrichtung(befund: Path) -> None:
     assert auf.schaetze_ausrichtung(quer) == 90
     aufrecht = auf.wende_an(quer, auf.Aufbereitung(drehung=90))
     assert aufrecht.shape[:2] == bild.shape[:2]
-    from anonymed.dokument import ocr as ocrmodul
+    from pseudonymed.dokument import ocr as ocrmodul
 
     if ocrmodul.verfuegbare_backends():
         backend = ocrmodul.backend("auto")

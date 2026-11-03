@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.kennung import kennung_gueltig
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, buchstabe, schluesselpfad_zu
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.kennung import kennung_gueltig
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher, buchstabe, schluesselpfad_zu
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 
 KENNUNG = re.compile(r"^[A-Z2-9]{6}$")
 

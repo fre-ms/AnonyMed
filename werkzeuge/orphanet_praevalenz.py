@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/orphanet_praevalenz_de.csv.gz`` from Orphanet's German files.
+"""Build ``pseudonymed/daten/orphanet_praevalenz_de.csv.gz`` from Orphanet's German files.
 
 Sources (Orphanet, licence CC BY 4.0, https://www.orphadata.com/):
 ``de_product9_prev.xml`` (epidemiology: prevalence classes and mean values per 100,000)
@@ -25,7 +25,7 @@ from pathlib import Path
 
 URL_PREV = "https://www.orphadata.com/data/xml/de_product9_prev.xml"
 URL_NOM = "https://www.orphadata.com/data/xml/de_product1.xml"
-ZIEL = (Path(__file__).resolve().parent.parent / "anonymed" / "daten"
+ZIEL = (Path(__file__).resolve().parent.parent / "pseudonymed" / "daten"
         / "orphanet_praevalenz_de.csv.gz")
 KLASSEN = {
     ">1 / 1000": 2e-3, "6-9 / 10 000": 7.5e-4, "1-5 / 10 000": 3e-4, "1-9 / 100 000": 5e-5,
@@ -41,7 +41,7 @@ AUSGESCHLOSSENE_TYPEN = {"Kategorie", "Phenom-Gruppe"}
 def _lade(url: str, pfad: str | None) -> bytes:
     if pfad:
         return Path(pfad).read_bytes()
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "AnonyMed"}),
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "PseudonyMed"}),
                                 timeout=300) as antwort:
         return antwort.read()
 

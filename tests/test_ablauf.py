@@ -1,4 +1,4 @@
-"""End-to-end: synthetic report in, anonymised PDF plus text and report out, check passes."""
+"""End-to-end: synthetic report in, pseudonymised PDF plus text and report out, check passes."""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from anonymed import ablauf
-from anonymed.ablauf import Ablaufoptionen, abschliessen, anonymisiere, vorbereiten
-from anonymed.kern.modell import Patient
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.kennung import kennung_gueltig
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
-from anonymed.schwaerzen.pdf import Schwaerzoptionen, Seitenergebnis, rastere
+from pseudonymed import ablauf
+from pseudonymed.ablauf import Ablaufoptionen, abschliessen, pseudonymisiere, vorbereiten
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.kennung import kennung_gueltig
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.schwaerzen.pdf import Schwaerzoptionen, Seitenergebnis, rastere
 from tests.conftest import TESTSCHLUESSEL
 from tests.synthetisch import datum_lang, erzeuge_befund
 
@@ -39,7 +39,7 @@ def gefundene_klardaten(text: str, p: Patient) -> list[str]:
 
 
 def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
-    erg = anonymisiere(befund, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(befund, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert erg.bericht.bestanden
     k = erg.kennung
@@ -51,7 +51,7 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
     with pymupdf.open(erg.ziel_pdf) as d:
         pdf_text = "\n".join(p.get_text("text") for p in d)
         assert d.metadata["title"] == "" and d.metadata["author"] == ""
-        assert d.metadata["subject"].startswith("anonymisiert mit AnonyMed")
+        assert d.metadata["subject"].startswith("pseudonymisiert mit PseudonyMed")
         assert d.get_toc() == []
         assert d.embfile_count() == 0
         assert all(len(list(p.annots())) == 0 for p in d)
@@ -84,16 +84,16 @@ def test_rundlauf(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -
 
 def test_kennungen_je_person(tmp_path: Path, patient: Patient, patientin: Patient,
                              speicher: Pseudonymspeicher) -> None:
-    a = anonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
-    b = anonymisiere(erzeuge_befund(tmp_path / "b.pdf", patientin), patientin, speicher=speicher)
-    a2 = anonymisiere(erzeuge_befund(tmp_path / "a2.pdf", patient), patient, speicher=speicher)
+    a = pseudonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
+    b = pseudonymisiere(erzeuge_befund(tmp_path / "b.pdf", patientin), patientin, speicher=speicher)
+    a2 = pseudonymisiere(erzeuge_befund(tmp_path / "a2.pdf", patient), patient, speicher=speicher)
     assert a.kennung == a2.kennung != b.kennung
     assert f"Patientin {b.kennung}" in b.text and f"Patient {a.kennung}" in a2.text
 
 
 def test_buchstabenschema_im_ablauf(befund: Path, patient: Patient,
                                     buchstabenspeicher: Pseudonymspeicher) -> None:
-    erg = anonymisiere(befund, patient, speicher=buchstabenspeicher)
+    erg = pseudonymisiere(befund, patient, speicher=buchstabenspeicher)
     assert erg.kennung == "A" and "Patient A" in erg.text and "Angehörige A-1" in erg.text
     assert "[Straße " in erg.text  # address codes do not depend on the identifier scheme
 
@@ -102,16 +102,17 @@ def test_schreibvariante_bekommt_gleiche_kennung(tmp_path: Path, patient: Patien
                                                  speicher: Pseudonymspeicher) -> None:
     import dataclasses
 
-    erg = anonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
+    erg = pseudonymisiere(erzeuge_befund(tmp_path / "a.pdf", patient), patient, speicher=speicher)
     variante = dataclasses.replace(patient, nachname=patient.nachname + "z",
                                    vorname=patient.vorname.upper())
-    erg2 = anonymisiere(erzeuge_befund(tmp_path / "b.pdf", variante), variante, speicher=speicher)
+    erg2 = pseudonymisiere(erzeuge_befund(tmp_path / "b.pdf", variante), variante,
+                           speicher=speicher)
     assert erg2.kennung == erg.kennung
     assert any("zugeordnet" in w for w in erg2.bericht.warnungen)
 
 
 def test_alter_statt_jahr(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
-    erg = anonymisiere(befund, patient, Ablaufoptionen(datumsform="alter"), speicher=speicher)
+    erg = pseudonymisiere(befund, patient, Ablaufoptionen(datumsform="alter"), speicher=speicher)
     assert erg.freigegeben
     heute = dt.date.today()
     alter = heute.year - patient.geburtsdatum.year - (
@@ -121,7 +122,7 @@ def test_alter_statt_jahr(befund: Path, patient: Patient, speicher: Pseudonymspe
 
 def test_rastern(befund: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
     opt = Ablaufoptionen(schwaerzen=Schwaerzoptionen(rastern=True, dpi=72))
-    erg = anonymisiere(befund, patient, opt, speicher=speicher)
+    erg = pseudonymisiere(befund, patient, opt, speicher=speicher)
     assert erg.freigegeben
     with pymupdf.open(erg.ziel_pdf) as d:
         # rasterised, but with an invisible text layer: words and pseudonyms, no clear data
@@ -134,10 +135,10 @@ def test_rastern(befund: Path, patient: Patient, speicher: Pseudonymspeicher) ->
 def test_gegenprobe_blockiert(befund: Path, patient: Patient, speicher: Pseudonymspeicher,
                               monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ablauf, "schwaerze_seite", lambda *a, **k: Seitenergebnis(0, True))
-    erg = anonymisiere(befund, patient, speicher=speicher)
+    erg = pseudonymisiere(befund, patient, speicher=speicher)
     assert not erg.freigegeben
     assert erg.ziel_pdf is None and erg.ziel_txt is None
-    assert not (befund.parent / "befund_anonym.pdf").exists()
+    assert not (befund.parent / "befund_pseudonym.pdf").exists()
     assert erg.bericht.gegenprobe is not None and erg.bericht.gegenprobe.resttreffer
     assert any("Nicht freigegeben" in w for w in erg.bericht.warnungen)
     assert "NICHT bestanden" in als_text(erg.bericht)
@@ -150,7 +151,7 @@ def test_scan_ohne_ocr_wird_nicht_freigegeben(tmp_path: Path, befund: Path, pati
         scan_pfad = tmp_path / "scan.pdf"
         scan.save(scan_pfad)
         scan.close()
-    erg = anonymisiere(scan_pfad, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    erg = pseudonymisiere(scan_pfad, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert not erg.freigegeben
     assert not erg.bericht.textebene
     assert any("ohne Textebene" in w for w in erg.bericht.warnungen)
@@ -161,7 +162,7 @@ def test_bild_ohne_ocr_wird_nicht_freigegeben(tmp_path: Path, befund: Path, pati
     with pymupdf.open(befund) as d:
         bild = tmp_path / "foto.png"
         d[0].get_pixmap(dpi=72).save(bild)
-    erg = anonymisiere(bild, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    erg = pseudonymisiere(bild, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert not erg.freigegeben
     assert erg.bericht.seiten == 1
 
@@ -211,7 +212,7 @@ def test_kasten_auf_bildseite(tmp_path: Path, befund: Path, patient: Patient,
 def test_gegenprobe_schuetzt_pseudonyme(befund: Path, patient: Patient,
                                         speicher: Pseudonymspeicher) -> None:
     """Even a street code that reads like a label ("AZ2Q4W") passes the re-check."""
-    from anonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen
+    from pseudonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen
 
     text = "wohnt in [Straße AZ2Q4WX], Patient KAZ2Q4W"
     spannen = pseudonymspannen(text, ["[Straße AZ2Q4WX]", "Patient KAZ2Q4W"])
@@ -272,7 +273,7 @@ def test_verwerfen_und_wiederherstellen(befund: Path, patient: Patient,
 def test_rastern_mit_textebene_und_markdown(befund: Path, patient: Patient,
                                             speicher: Pseudonymspeicher) -> None:
     opt = Ablaufoptionen(markdown=True, schwaerzen=Schwaerzoptionen(rastern=True, dpi=100))
-    erg = anonymisiere(befund, patient, opt, speicher=speicher)
+    erg = pseudonymisiere(befund, patient, opt, speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     with pymupdf.open(erg.ziel_pdf) as d:
         assert all(p.get_images() for p in d)  # rasterised: an image per page
@@ -281,7 +282,7 @@ def test_rastern_mit_textebene_und_markdown(befund: Path, patient: Patient,
     assert gefundene_klardaten(text, patient) == []
     assert erg.ziel_md and erg.ziel_md.exists()
     md = erg.ziel_md.read_text(encoding="utf-8")
-    assert md.startswith("# Anonymisierter Text") and "## Seite 1" in md and "## Seite 2" in md
+    assert md.startswith("# Pseudonymisierter Text") and "## Seite 1" in md and "## Seite 2" in md
     assert gefundene_klardaten(md, patient) == [] and "Ramipril" in md
     assert erg.bericht.optionen["textebene"] is True and erg.bericht.optionen["markdown"]
 
@@ -301,7 +302,7 @@ def test_versteckter_text_bleibt_textebene(tmp_path: Path, patient: Patient,
         page.insert_text((60, 130), "Diagnose: arterielle Hypertonie, Ramipril 5 mg",
                          fontsize=11, render_mode=3)
         d.save(quelle)
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     with pymupdf.open(erg.ziel_pdf) as d:
         text = d[0].get_text("text")
@@ -373,8 +374,8 @@ def test_kasten_knapp_unter_der_zeile(befund: Path, patient: Patient,
 def test_vokabular_nur_aus_rate_treffern() -> None:
     """Discarded guesses (NER, fuzzy) become vocabulary; discarded rule hits carry the
     patient's own identifiers and stay out."""
-    from anonymed.ablauf import vokabular_aus
-    from anonymed.kern.modell import Art, Fundstelle
+    from pseudonymed.ablauf import vokabular_aus
+    from pseudonymed.kern.modell import Art, Fundstelle
 
     def f(regel: str, text: str, quelle: str = "text") -> Fundstelle:
         return Fundstelle(seite=0, start=0, ende=len(text), text=text, art=Art.NAME,
@@ -389,9 +390,9 @@ def test_vokabular_nur_aus_rate_treffern() -> None:
 
 
 def test_bericht_trennt_hinweise_von_warnungen(tmp_path: Path) -> None:
-    from anonymed.pruefung.bericht import erstelle_bericht
+    from pseudonymed.pruefung.bericht import erstelle_bericht
 
-    b = erstelle_bericht(tmp_path / "q.pdf", tmp_path / "q_anonym.pdf", 1, False, [], None,
+    b = erstelle_bericht(tmp_path / "q.pdf", tmp_path / "q_pseudonym.pdf", 1, False, [], None,
                          warnungen=["OCR-Seiten: Handschrift wird nicht erkannt."],
                          hinweise=["Seite 1 vor der OCR aufbereitet: begradigt (1,5°)."])
     text = als_text(b)

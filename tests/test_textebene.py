@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pymupdf
 
-from anonymed.dokument.textebene import lese_seite
+from pseudonymed.dokument.textebene import lese_seite
 
 
 def _seite() -> pymupdf.Page:

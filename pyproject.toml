@@ -1,12 +1,12 @@
 [project]
-name = "anonymed"
+name = "pseudonymed"
 version = "0.1.0"
 description = "Local de-identification of patient documents (PDF, scans, photos) with stable pseudonyms and local re-identification."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 authors = [{ name = "fre.ms", email = "fre.ms@fre.ms" }]
-keywords = ["anonymisation", "de-identification", "pdf", "redaction", "medical", "pseudonym"]
+keywords = ["pseudonymisation", "de-identification", "pdf", "redaction", "medical", "pseudonym"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Environment :: Console",
@@ -36,8 +36,8 @@ ner = [
 ]
 
 [project.scripts]
-anonymed = "anonymed.cli:app"
-anonymed-gui = "anonymed.gui.app:main"
+pseudonymed = "pseudonymed.cli:app"
+pseudonymed-gui = "pseudonymed.gui.app:main"
 
 [dependency-groups]
 dev = [
@@ -58,7 +58,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true  # the spaCy model wheel of the "ner" extra comes from a URL
 
 [tool.hatch.build.targets.wheel]
-packages = ["anonymed"]
+packages = ["pseudonymed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

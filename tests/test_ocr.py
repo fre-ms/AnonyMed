@@ -9,16 +9,16 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.dokument import aufbereitung as aufmodul
-from anonymed.dokument import ocr as ocrmodul
-from anonymed.dokument.laden import oeffne
-from anonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
-from anonymed.erkennung import codes as codemodul
-from anonymed.kern.modell import Art, Patient
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
-from anonymed.schwaerzen.pdf import Schwaerzoptionen, rastere
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.dokument import aufbereitung as aufmodul
+from pseudonymed.dokument import ocr as ocrmodul
+from pseudonymed.dokument.laden import oeffne
+from pseudonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
+from pseudonymed.erkennung import codes as codemodul
+from pseudonymed.kern.modell import Art, Patient
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.schwaerzen.pdf import Schwaerzoptionen, rastere
 from tests.synthetisch import datum_lang
 from tests.test_ablauf import gefundene_klardaten
 
@@ -74,7 +74,7 @@ def test_woerter_zu_seitentext() -> None:
 def test_scan_wird_gelesen_und_geschwaerzt(tmp_path: Path, befund: Path, patient: Patient,
                                            speicher: Pseudonymspeicher, backend: str) -> None:
     scan = _scan(befund, tmp_path / "scan.pdf")
-    erg = anonymisiere(scan, patient, Ablaufoptionen(ocr=backend), speicher=speicher)
+    erg = pseudonymisiere(scan, patient, Ablaufoptionen(ocr=backend), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert not erg.bericht.textebene
     assert any("per OCR gelesen" in w for w in erg.bericht.hinweise)
@@ -95,7 +95,7 @@ def test_scan_wird_gelesen_und_geschwaerzt(tmp_path: Path, befund: Path, patient
 def test_verrauschter_schiefer_scan(tmp_path: Path, befund: Path, patient: Patient,
                                     speicher: Pseudonymspeicher) -> None:
     scan = _scan(befund, tmp_path / "scan.pdf", dpi=150, rauschen=0.01, drehung=0.7)
-    erg = anonymisiere(scan, patient, speicher=speicher)
+    erg = pseudonymisiere(scan, patient, speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert gefundene_klardaten(erg.text, patient) == []
     assert sum(1 for f in erg.fundstellen if f.quelle == "ocr") >= 6
@@ -107,7 +107,7 @@ def test_foto_als_png(tmp_path: Path, befund: Path, patient: Patient,
     with pymupdf.open(befund) as d:
         bild = tmp_path / "foto.png"
         d[0].get_pixmap(dpi=150).save(bild)
-    erg = anonymisiere(bild, patient, speicher=speicher)
+    erg = pseudonymisiere(bild, patient, speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert erg.bericht.seiten == 1 and gefundene_klardaten(erg.text, patient) == []
 
@@ -115,7 +115,7 @@ def test_foto_als_png(tmp_path: Path, befund: Path, patient: Patient,
 def test_ohne_backend_keine_freigabe(tmp_path: Path, befund: Path, patient: Patient,
                                      speicher: Pseudonymspeicher) -> None:
     scan = _scan(befund, tmp_path / "scan.pdf")
-    erg = anonymisiere(scan, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
+    erg = pseudonymisiere(scan, patient, Ablaufoptionen(ocr="aus"), speicher=speicher)
     assert not erg.freigegeben
     assert any("ohne OCR" in w for w in erg.bericht.warnungen)
 
@@ -141,12 +141,12 @@ def test_barcode_wird_geschwaerzt(tmp_path: Path, befund: Path, patient: Patient
         d.save(mit_code)
     with pymupdf.open(mit_code) as d:
         assert len(codemodul.finde_codes(d[0])) == 1
-    erg = anonymisiere(mit_code, patient, speicher=speicher)
+    erg = pseudonymisiere(mit_code, patient, speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert any(f.quelle == "code" and f.pseudonym == "[Code]" for f in erg.fundstellen)
     with pymupdf.open(erg.ziel_pdf) as d:
         assert codemodul.finde_codes(d[0]) == []
-    erg2 = anonymisiere(mit_code, patient, Ablaufoptionen(codes=False), speicher=speicher)
+    erg2 = pseudonymisiere(mit_code, patient, Ablaufoptionen(codes=False), speicher=speicher)
     assert not any(f.quelle == "code" for f in erg2.fundstellen)
 
 
@@ -202,7 +202,7 @@ def test_keine_tinte_unter_den_treffern(tmp_path: Path, befund: Path, patient: P
     kw = dict(dpi=150, rauschen=0.01, drehung=0.0) if stoerung == "verrauscht" else {}
     scan = _scan(befund, tmp_path / "scan.pdf", **kw)
     opt = Ablaufoptionen(ocr=backend, schwaerzen=Schwaerzoptionen(textfarbe=(0.88, 0.88, 0.88)))
-    erg = anonymisiere(scan, patient, opt, speicher=speicher)
+    erg = pseudonymisiere(scan, patient, opt, speicher=speicher)
     if not erg.freigegeben:
         # a block is a legitimate outcome on a noisy scan, as long as it is a block for cause
         assert stoerung == "verrauscht", als_text(erg.bericht)
@@ -221,8 +221,8 @@ def test_keine_tinte_unter_den_treffern(tmp_path: Path, befund: Path, patient: P
 
 
 def test_unscharfe_suche() -> None:
-    from anonymed.erkennung.unscharf import distanz, finde_unscharf, ziele_fuer
-    from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+    from pseudonymed.erkennung.unscharf import distanz, finde_unscharf, ziele_fuer
+    from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
     from tests.synthetisch import synthetischer_patient
 
     assert distanz("Juli", "Jull", 1) == 1 and distanz("Flantz", "Fiantz", 1) == 1
@@ -250,7 +250,7 @@ def test_unscharfe_suche() -> None:
 
 
 def test_unlesbare_zeile_wird_geschwaerzt() -> None:
-    from anonymed.dokument.ocr import unlesbare_regionen
+    from pseudonymed.dokument.ocr import unlesbare_regionen
 
     fragmente = ["G6ot", "n", "e", "n", "e", "i", "l", "e", "5g"]
     woerter = [OCRWort(w, 50 + 30 * i, 100, 70 + 30 * i, 112, k)
@@ -270,10 +270,10 @@ def test_unlesbare_zeile_wird_geschwaerzt() -> None:
 @braucht_backend
 def test_scan_bekommt_textebene(tmp_path: Path, befund: Path, patient: Patient,
                                 speicher: Pseudonymspeicher) -> None:
-    """The anonymised scan carries an invisible text layer with the OCR words minus
+    """The pseudonymised scan carries an invisible text layer with the OCR words minus
     the hits; without the option only the drawn pseudonyms are text."""
     scan = _scan(befund, tmp_path / "scan.pdf")
-    erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     with pymupdf.open(erg.ziel_pdf) as d:
         text = "\n".join(p.get_text("text") for p in d)
@@ -281,7 +281,7 @@ def test_scan_bekommt_textebene(tmp_path: Path, befund: Path, patient: Patient,
     assert f"Patient {erg.kennung}" in text  # the visible pseudonyms are text too
     assert gefundene_klardaten(text, patient) == []
     assert not any(k in text for k in (patient.nachname, patient.vorname))
-    ohne = anonymisiere(scan, patient, Ablaufoptionen(
+    ohne = pseudonymisiere(scan, patient, Ablaufoptionen(
         suffix="_ohne", schwaerzen=Schwaerzoptionen(textebene=False)), speicher=speicher)
     with pymupdf.open(ohne.ziel_pdf) as d:
         text2 = "\n".join(p.get_text("text") for p in d)
@@ -293,7 +293,7 @@ def test_ocr_text_korrigieren(tmp_path: Path, befund: Path, patient: Patient,
                               speicher: Pseudonymspeicher) -> None:
     """The user corrects the recognised text; the correction feeds the text file and
     the text layer and is searched again, the image redaction keeps the OCR boxes."""
-    from anonymed.ablauf import abschliessen, vorbereiten
+    from pseudonymed.ablauf import abschliessen, vorbereiten
 
     scan = _scan(befund, tmp_path / "scan.pdf")
     v = vorbereiten(scan, patient, Ablaufoptionen(), speicher=speicher)
@@ -331,7 +331,7 @@ def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient
                                   speicher: Pseudonymspeicher) -> None:
     """A tilted, shadowed scan: the loading phase suggests straightening and background
     clean-up, the pipeline applies it before OCR and records it; the hits are found."""
-    from anonymed.ablauf import lade
+    from pseudonymed.ablauf import lade
 
     scan = _scan(befund, tmp_path / "scan.pdf", drehung=2.5)
     vorlage = lade(scan)
@@ -341,18 +341,18 @@ def test_aufbereitung_vor_der_ocr(tmp_path: Path, befund: Path, patient: Patient
     assert vorlage.vorschau(0, a)[0].startswith(b"\x89PNG")
     vorlage.schliessen()
     assert lade(befund).kandidaten == []  # a text layer needs no clean-up
-    erg = anonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(scan, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert any("aufbereitet" in w and "begradigt" in w for w in erg.bericht.hinweise)
     assert erg.bericht.optionen["aufbereitung"]["1"]["begradigen"] is True
     assert gefundene_klardaten(erg.text, patient) == [] and "Ramipril" in erg.text
-    ohne = anonymisiere(scan, patient, Ablaufoptionen(aufbereiten="aus", suffix="_roh"),
+    ohne = pseudonymisiere(scan, patient, Ablaufoptionen(aufbereiten="aus", suffix="_roh"),
                         speicher=speicher)
     assert not any("aufbereitet" in w for w in ohne.bericht.hinweise)
     assert "aufbereitung" not in ohne.bericht.optionen
     # an explicit choice wins over the suggestion
-    from anonymed.ablauf import abschliessen, vorbereiten
-    from anonymed.dokument.aufbereitung import Aufbereitung
+    from pseudonymed.ablauf import abschliessen, vorbereiten
+    from pseudonymed.dokument.aufbereitung import Aufbereitung
 
     v = vorbereiten(scan, patient, Ablaufoptionen(suffix="_eigen"), speicher=speicher,
                     aufbereitung={0: Aufbereitung(masken=[(56, 60, 400, 95)])})
@@ -366,7 +366,7 @@ def test_lesen_dann_analysieren(tmp_path: Path, befund: Path, patient: Patient,
                                 speicher: Pseudonymspeicher) -> None:
     """Reading and detection as two phases: the text can be corrected in between, the
     detection then runs over the corrected text as well."""
-    from anonymed.ablauf import abschliessen, analysiere, lese
+    from pseudonymed.ablauf import abschliessen, analysiere, lese
 
     scan = _scan(befund, tmp_path / "scan.pdf")
     lesung = lese(scan, Ablaufoptionen())
@@ -395,7 +395,7 @@ def test_vorschlag_schadet_der_ocr_nicht(tmp_path: Path, befund: Path) -> None:
     after the suggested steps must be about as close to the truth as without them."""
     import difflib
 
-    from anonymed.ablauf import lade, lese
+    from pseudonymed.ablauf import lade, lese
     from tests.synthetisch import befund_text
 
     wahr = " ".join("\n".join(befund_text(_patient_aus(befund))[0]).split())
@@ -496,7 +496,7 @@ def test_gegliederter_ocr_text(tmp_path: Path, befund: Path, patient: Patient,
                                speicher: Pseudonymspeicher) -> None:
     """The OCR text goes out as Markdown with paragraphs joined; ``gliedern=False`` keeps
     the raw lines; the structured text is what the text-recognition step shows."""
-    from anonymed.ablauf import abschliessen, vorbereiten
+    from pseudonymed.ablauf import abschliessen, vorbereiten
 
     scan = _scan(befund, tmp_path / "scan.pdf")
     v = vorbereiten(scan, patient, Ablaufoptionen(), speicher=speicher)
@@ -513,7 +513,7 @@ def test_gegliederter_ocr_text(tmp_path: Path, befund: Path, patient: Patient,
     assert erg.freigegeben, als_text(erg.bericht)
     assert "Diagnosen" in erg.text and gefundene_klardaten(erg.text, patient) == []
     assert erg.bericht.optionen["gliedern"] is True
-    roh_erg = anonymisiere(scan, patient, Ablaufoptionen(gliedern=False, suffix="_roh"),
+    roh_erg = pseudonymisiere(scan, patient, Ablaufoptionen(gliedern=False, suffix="_roh"),
                            speicher=speicher)
     assert roh_erg.freigegeben and roh_erg.bericht.optionen["gliedern"] is False
     # without structuring the continuation line still starts a line of its own

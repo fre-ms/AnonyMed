@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # End-to-end check of the CardDAV source against a throwaway Nextcloud
 # (nextcloud:35-apache on SQLite): address books, search by name and date,
-# show, export, anonymise straight from the address book, set-up command.
+# show, export, pseudonymise straight from the address book, set-up command.
 # Everything is synthetic. Requirements: docker, curl, uv. Usage: tests/e2e/nextcloud.sh [--keep]
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-NAME=anonymed-e2e
+NAME=pseudonymed-e2e
 PORT=${PORT:-8097}
 B="http://localhost:$PORT"
 PASS='Sprechstunde-2026!'
@@ -15,7 +15,7 @@ KEEP=${1:-}
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 occ() { docker exec -e OC_PASS="${OC_PASS:-}" -u www-data "$NAME" php occ "$@"; }
-cli() { (cd "$ROOT" && uv run --quiet anonymed "$@"); }
+cli() { (cd "$ROOT" && uv run --quiet pseudonymed "$@"); }
 # Capture first, grep afterwards: grep -q would close the pipe early and make the CLI fail with SIGPIPE.
 run() { cli "$@" > "$OUT/last.txt" 2>&1 || { cat "$OUT/last.txt" >&2; return 1; }; cat "$OUT/last.txt"; }
 last() { grep -q -- "$1" "$OUT/last.txt"; }
@@ -57,8 +57,8 @@ for f in uid-a uid-b uid-c; do
 	[ "$code" = 201 ] || fail "PUT $f returned $code"
 done
 A=$(cat "$OUT/uid-a.name"); C=$(cat "$OUT/uid-c.name")
-export ANONYMED_CARDDAV_URL="$B" ANONYMED_CARDDAV_BENUTZER=dr
-export ANONYMED_CARDDAV_ADRESSBUCH=patienten ANONYMED_CARDDAV_PASSWORT="$PASS"
+export PSEUDONYMED_CARDDAV_URL="$B" PSEUDONYMED_CARDDAV_BENUTZER=dr
+export PSEUDONYMED_CARDDAV_ADRESSBUCH=patienten PSEUDONYMED_CARDDAV_PASSWORT="$PASS"
 
 echo "# address books"
 run kontakte adressbuecher
@@ -80,11 +80,11 @@ last "Versichertennummer" || fail "KVNR from NOTE missing"
 run kontakte export "$A" -o "$OUT/patient.json"
 grep -q '"nachname"' "$OUT/patient.json" || fail "export incomplete"
 
-echo "# anonymise straight from the address book"
-run anonymisieren "$OUT/befund.pdf" --kontakt "$A" --speicher "$OUT/s.sqlite"
+echo "# pseudonymise straight from the address book"
+run pseudonymisieren "$OUT/befund.pdf" --kontakt "$A" --speicher "$OUT/s.sqlite"
 last "Gegenprobe: bestanden" || fail "check did not pass"
-[ -f "$OUT/befund_anonym.pdf" ] || fail "no output PDF"
-if grep -qi "$A" "$OUT/befund_anonym.txt"; then fail "surname survived in the text file"; fi
+[ -f "$OUT/befund_pseudonym.pdf" ] || fail "no output PDF"
+if grep -qi "$A" "$OUT/befund_pseudonym.txt"; then fail "surname survived in the text file"; fi
 run kontakte suchen "$A" --speicher "$OUT/s.sqlite"
 last "Patient A" || fail "letter not shown"
 
@@ -93,7 +93,7 @@ run kontakte einrichten --url "$B" --benutzer dr --adressbuch patienten \
 	--konfig "$OUT/konfig.toml" --kein-schluesselbund
 last "gespeichert" || fail "einrichten failed"
 if grep -q "$PASS" "$OUT/konfig.toml"; then fail "password written to config"; fi
-unset ANONYMED_CARDDAV_URL ANONYMED_CARDDAV_BENUTZER ANONYMED_CARDDAV_ADRESSBUCH
+unset PSEUDONYMED_CARDDAV_URL PSEUDONYMED_CARDDAV_BENUTZER PSEUDONYMED_CARDDAV_ADRESSBUCH
 run kontakte adressbuecher --konfig "$OUT/konfig.toml" >/dev/null
 last patienten || fail "config file not used"
 

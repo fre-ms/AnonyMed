@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/plz_dach.csv.gz``: postcode -> municipality -> district, DACH.
+"""Build ``pseudonymed/daten/plz_dach.csv.gz``: postcode -> municipality -> district, DACH.
 
 The residual-risk check estimates the catchment area of the practice (the districts its
 patients come from) locally from the postcodes in the address book.  This file maps every
@@ -97,12 +97,12 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DATEN = Path(__file__).resolve().parent.parent / "anonymed" / "daten"
+DATEN = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten"
 ZIEL = DATEN / "plz_dach.csv.gz"
 GEMEINDEN_DE = DATEN / "gemeinden_de.csv.gz"
 DEMOGRAFIE = DATEN / "demografie_dach.csv.gz"
 KOPF = ["land", "plz", "ort", "gemeinde_kennung", "gemeinde_name", "kreis_kennung", "anteil"]
-AGENT = {"User-Agent": "AnonyMed build script (https://github.com/fre-ms/AnonyMed)"}
+AGENT = {"User-Agent": "PseudonyMed build script (https://github.com/fre-ms/PseudonyMed)"}
 STELLEN = 10_000  # shares are written in units of 1/10,000
 
 DE_REPO = "openpotato/openplzapi.data"
@@ -603,7 +603,7 @@ def kopfzeile(laender: dict[str, Land]) -> str:
         " Amtliches Gebäudeadressverzeichnis und Amtliches Ortschaftenverzeichnis; Bundesamt"
         " für Statistik (BFS), Amtliches Gemeindeverzeichnis der Schweiz"
         " (https://www.agvchapp.bfs.admin.ch) und STATPOP"
-        " | zusammengeführt, umgeformt und Anteile geschätzt von AnonyMed;"
+        " | zusammengeführt, umgeformt und Anteile geschätzt von PseudonyMed;"
         " Lizenz: Datei: Open Database License (ODbL) 1.0"
         " (https://opendatacommons.org/licenses/odbl/1-0/), weil die DE-Zeilen aus"
         " OpenStreetMap abgeleitet sind; Einzelquellen: DE: OSM/OpenPLZ ODbL 1.0, Destatis"

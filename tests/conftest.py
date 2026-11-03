@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 from tests.carddav_fake import FakeCardDAV
 from tests.synthetisch import erzeuge_befund, synthetischer_patient, vcard_aus_patient
 
@@ -19,15 +19,15 @@ def datenordner_isoliert(tmp_path_factory: pytest.TempPathFactory) -> Iterator[P
     configuration go to a folder of the session (tests may override per test)."""
     import os
 
-    ordner = tmp_path_factory.mktemp("anonymed-daten")
-    alt = os.environ.get("ANONYMED_DATENORDNER")
-    alt_lexikon = os.environ.get("ANONYMED_LEXIKON")
-    os.environ["ANONYMED_DATENORDNER"] = str(ordner)
-    os.environ["ANONYMED_LEXIKON"] = "0"  # the lexicon tests switch it on for themselves
+    ordner = tmp_path_factory.mktemp("pseudonymed-daten")
+    alt = os.environ.get("PSEUDONYMED_DATENORDNER")
+    alt_lexikon = os.environ.get("PSEUDONYMED_LEXIKON")
+    os.environ["PSEUDONYMED_DATENORDNER"] = str(ordner)
+    os.environ["PSEUDONYMED_LEXIKON"] = "0"  # the lexicon tests switch it on for themselves
     try:
         yield ordner
     finally:
-        for name, wert in (("ANONYMED_DATENORDNER", alt), ("ANONYMED_LEXIKON", alt_lexikon)):
+        for name, wert in (("PSEUDONYMED_DATENORDNER", alt), ("PSEUDONYMED_LEXIKON", alt_lexikon)):
             if wert is None:
                 os.environ.pop(name, None)
             else:
@@ -83,8 +83,8 @@ def fake_carddav(patient: Patient, patientin: Patient) -> Iterator[FakeCardDAV]:
 @pytest.fixture
 def carddav_umgebung(fake_carddav: FakeCardDAV, monkeypatch: pytest.MonkeyPatch) -> FakeCardDAV:
     """Point the CLI at the fake server through environment variables."""
-    monkeypatch.setenv("ANONYMED_CARDDAV_URL", fake_carddav.url)
-    monkeypatch.setenv("ANONYMED_CARDDAV_BENUTZER", fake_carddav.benutzer)
-    monkeypatch.setenv("ANONYMED_CARDDAV_ADRESSBUCH", "medifed-patients")
-    monkeypatch.setenv("ANONYMED_CARDDAV_PASSWORT", fake_carddav.passwort)
+    monkeypatch.setenv("PSEUDONYMED_CARDDAV_URL", fake_carddav.url)
+    monkeypatch.setenv("PSEUDONYMED_CARDDAV_BENUTZER", fake_carddav.benutzer)
+    monkeypatch.setenv("PSEUDONYMED_CARDDAV_ADRESSBUCH", "medifed-patients")
+    monkeypatch.setenv("PSEUDONYMED_CARDDAV_PASSWORT", fake_carddav.passwort)
     return fake_carddav

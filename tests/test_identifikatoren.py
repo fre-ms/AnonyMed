@@ -10,22 +10,22 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from typer.testing import CliRunner
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.cli import app
-from anonymed.dokument.textdatei import textseite
-from anonymed.erkennung import identifikatoren as identmodul
-from anonymed.erkennung import lexikon
-from anonymed.kern.modell import Art, Fundstelle, Patient
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.rueckersetzung import rueckersetzen
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.cli import app
+from pseudonymed.dokument.textdatei import textseite
+from pseudonymed.erkennung import identifikatoren as identmodul
+from pseudonymed.erkennung import lexikon
+from pseudonymed.kern.modell import Art, Fundstelle, Patient
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.rueckersetzung import rueckersetzen
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 from tests.test_gui import qapp  # noqa: F401
 
 
 @pytest.fixture
 def frisch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     identmodul.standard.cache_clear()
     yield tmp_path / "daten"
     identmodul.standard.cache_clear()
@@ -182,7 +182,7 @@ def test_textdatei_schwaerzt_identifikatoren(frisch: Path, tmp_path: Path, patie
         " Musterdorf aktiv. Aufnahme aus der Musterklinik Nord am Vortag. Teilnahme an der"
         " Studie unter NCT01234567. Der Tischler aus dem Nachbarort hat geholfen.\n",
         encoding="utf-8")
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     text = erg.ziel_txt.read_text(encoding="utf-8")
     for klartext in ("arbeitet als Tischler", "Sportverein Musterdorf", "Musterklinik Nord",
@@ -196,7 +196,7 @@ def test_textdatei_schwaerzt_identifikatoren(frisch: Path, tmp_path: Path, patie
     z = speicher.zuordnung(patient.schluessel())
     zurueck = rueckersetzen(text, z, bekannte_kennungen=speicher.kennungen())
     assert "arbeitet als Tischler" in zurueck.text and "Musterklinik Nord" in zurueck.text
-    aus = anonymisiere(quelle, patient, Ablaufoptionen(identifikatoren=False, suffix="_aus"),
+    aus = pseudonymisiere(quelle, patient, Ablaufoptionen(identifikatoren=False, suffix="_aus"),
                        speicher=speicher)
     assert "Musterklinik Nord" in aus.ziel_txt.read_text(encoding="utf-8")
 
@@ -214,7 +214,7 @@ def test_pdf_mit_kasten_und_titel(frisch: Path, tmp_path: Path, patient: Patient
     seite.insert_text((72, 120), "Verlegt aus der Musterklinik Nord.", fontsize=11)
     doc.save(pdf)
     doc.close()
-    erg = anonymisiere(pdf, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(pdf, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     treffer = [f for f in erg.fundstellen if f.art == Art.IDENTIFIKATOR]
     assert {f.regel for f in treffer} == {"identifikator.klinik", "identifikator.titel"}
@@ -226,8 +226,8 @@ def test_pdf_mit_kasten_und_titel(frisch: Path, tmp_path: Path, patient: Patient
 
 # -- GUI and command line --------------------------------------------------------------------------
 def test_seite(qapp: QApplication, frisch: Path, tmp_path: Path) -> None:  # noqa: F811
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
     fenster = Hauptfenster(Sitzung())
     seite = fenster.identifikatoren

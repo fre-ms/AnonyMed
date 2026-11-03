@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pymupdf
 
-from anonymed.dokument import gliederung as gl
-from anonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
-from anonymed.dokument.textebene import lese_seite
+from pseudonymed.dokument import gliederung as gl
+from pseudonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
+from pseudonymed.dokument.textebene import lese_seite
 
 
 def _zeile(text: str, x: float, y: float, h: float = 10.0, zeichen: float = 5.0,
@@ -62,7 +62,7 @@ def test_gliederung_als_markdown() -> None:
     assert "- Kopfschmerz seit drei Wochen\n- Schwindel beim Aufstehen\n\n" in md
     assert "| Medikament | Dosis | morgens |\n| --- | --- | --- |\n| Ramipril | 5 mg | 1 |" in md
     assert g.tabellen == 1 and g.ueberschriften == 2
-    # the same structure over the anonymised text (same lines, other words)
+    # the same structure over the pseudonymised text (same lines, other words)
     anonym = s.text.replace("Die Patientin", "Patient K7Q4MX")
     md2 = g.rendere(anonym)
     assert md2.startswith("### Arztbrief Neurologie") and "Patient K7Q4MX berichtet" in md2

@@ -8,14 +8,14 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.dokument.textebene import lese_seite
-from anonymed.erkennung import ner as nermodul
-from anonymed.kern.modell import Patient
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.rueckersetzung import rueckersetzen
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.dokument.textebene import lese_seite
+from pseudonymed.erkennung import ner as nermodul
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.rueckersetzung import rueckersetzen
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 from tests.synthetisch import erzeuge_befund
 
 braucht_ner = pytest.mark.skipif(not nermodul.verfuegbar(), reason="spaCy oder Modell fehlt")
@@ -59,10 +59,11 @@ def test_finde_ner_auf_seite(patient: Patient) -> None:
 def test_ner_im_ablauf(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
     allein = dataclasses.replace(patient, angehoerige=[], zuweiser=[])
     befund = erzeuge_befund(tmp_path / "befund.pdf", patient)
-    ohne = anonymisiere(befund, allein, Ablaufoptionen(ner=False, suffix="_ohne"),
+    ohne = pseudonymisiere(befund, allein, Ablaufoptionen(ner=False, suffix="_ohne"),
                         speicher=speicher)
     assert patient.angehoerige[0].vorname in ohne.text  # the rules do not know the wife
-    mit = anonymisiere(befund, allein, Ablaufoptionen(ner=True, suffix="_mit"), speicher=speicher)
+    mit = pseudonymisiere(befund, allein, Ablaufoptionen(ner=True, suffix="_mit"),
+                          speicher=speicher)
     assert mit.freigegeben, als_text(mit.bericht)
     assert patient.angehoerige[0].vorname not in mit.text
     assert any(f.regel == "ner.person" for f in mit.fundstellen)
@@ -77,7 +78,7 @@ def test_ner_im_ablauf(tmp_path: Path, patient: Patient, speicher: Pseudonymspei
 def test_ohne_modell_warnung(tmp_path: Path, befund: Path, patient: Patient,
                              speicher: Pseudonymspeicher, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(nermodul, "verfuegbar", lambda: False)
-    erg = anonymisiere(befund, patient, Ablaufoptionen(ner=True), speicher=speicher)
+    erg = pseudonymisiere(befund, patient, Ablaufoptionen(ner=True), speicher=speicher)
     assert erg.freigegeben and any("NER gewünscht" in w for w in erg.bericht.warnungen)
 
 
@@ -86,7 +87,7 @@ def test_alltagssubstantive_sind_keine_namen() -> None:
     salutations and prepositions still make unknown words count."""
     import pytest
 
-    from anonymed.erkennung import ner as nermodul
+    from pseudonymed.erkennung import ner as nermodul
 
     if not nermodul.verfuegbar():
         pytest.skip("Extra 'ner' nicht installiert")

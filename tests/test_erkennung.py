@@ -6,10 +6,10 @@ import datetime as dt
 
 import pymupdf
 
-from anonymed.dokument.textebene import lese_seite
-from anonymed.erkennung.deterministisch import Regel, finde, finde_im_text, regeln_fuer
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.dokument.textebene import lese_seite
+from pseudonymed.erkennung.deterministisch import Regel, finde, finde_im_text, regeln_fuer
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 
 
 def _patient() -> Patient:
@@ -99,8 +99,8 @@ def test_etikett_nicht_in_codes() -> None:
 def test_gegenprobe_schuetzt_verlesene_pseudonyme() -> None:
     """OCR reads "[Ort AZT63Z]" back as "(Ort AZT63Z)" or "Ort AZT632": the code inside
     must still count as a pseudonym, never as a file number."""
-    from anonymed.erkennung.muster import GLOBALE_MUSTER
-    from anonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen_tolerant
+    from pseudonymed.erkennung.muster import GLOBALE_MUSTER
+    from pseudonymed.pruefung.gegenprobe import in_pseudonym, pseudonymspannen_tolerant
 
     regeln = [Regel(id_, m, art, "[x]", 5, None) for id_, m, art in GLOBALE_MUSTER]
     text = "Wohnhaft in (Ort AZT63Z), früher Ort AZT632, Akte AZ 2023/171."

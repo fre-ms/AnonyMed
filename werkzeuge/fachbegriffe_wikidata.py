@@ -22,9 +22,9 @@ import urllib.request
 from pathlib import Path
 
 ENDPUNKT = "https://query.wikidata.org/sparql"
-AGENT = ("AnonyMed/0.1 (open-source medical de-identification;"
-         " https://github.com/fre-ms/AnonyMed)")
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "fachbegriffe_de.txt.gz"
+AGENT = ("PseudonyMed/0.1 (open-source medical de-identification;"
+         " https://github.com/fre-ms/PseudonyMed)")
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "fachbegriffe_de.txt.gz"
 
 
 def abfrage(sparql: str, versuche: int = 4) -> list[str]:
@@ -75,7 +75,7 @@ def main(ziel: Path) -> None:
     brauchbar = {b.strip() for b in gesamt if len(b.strip()) >= 3 and not b.strip().isdigit()}
     bereinigt = sorted(brauchbar, key=str.casefold)
     kopf = [
-        "# AnonyMed Fachvokabular (Basis), erzeugt am "
+        "# PseudonyMed Fachvokabular (Basis), erzeugt am "
         + dt.date.today().isoformat() + " aus Wikidata (CC0 1.0).",
         "# Deutsche Bezeichnungen und Aliasse aller Einträge mit ICD-10 (P494), ATC (P267), INN"
         " (P2275) oder MeSH-Deskriptor (P486) in den Bäumen A–G (P672).",

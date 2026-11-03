@@ -7,16 +7,16 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from anonymed.erkennung import fachbegriffe as fachmodul
-from anonymed.erkennung import vokabular as vokmodul
-from anonymed.pseudonyme import sicherung as sichmodul
-from anonymed.pseudonyme.speicher import Pseudonymspeicher, standardpfad
+from pseudonymed.erkennung import fachbegriffe as fachmodul
+from pseudonymed.erkennung import vokabular as vokmodul
+from pseudonymed.pseudonyme import sicherung as sichmodul
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher, standardpfad
 from tests.test_gui import qapp  # noqa: F401
 
 
 @pytest.fixture
 def frisch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     fachmodul.standard.cache_clear()
     yield tmp_path / "daten"
     fachmodul.standard.cache_clear()
@@ -100,8 +100,8 @@ def test_sicherung_mit_vokabular(frisch: Path, tmp_path: Path) -> None:
 
 
 def test_vokabular_seite(qapp: QApplication, frisch: Path, tmp_path: Path) -> None:  # noqa: F811
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
     fenster = Hauptfenster(Sitzung())
     assert [fenster.tabs.tabText(i) for i in range(4)] == [

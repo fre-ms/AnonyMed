@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from anonymed.erkennung.zahlwoerter import kardinal, normalisiere, ordinal
+from pseudonymed.erkennung.zahlwoerter import kardinal, normalisiere, ordinal
 
 
 @pytest.mark.parametrize("wort, wert", [

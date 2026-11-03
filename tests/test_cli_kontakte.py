@@ -1,4 +1,4 @@
-"""CLI with CardDAV: search, show, export, anonymise straight from the address book."""
+"""CLI with CardDAV: search, show, export, pseudonymise straight from the address book."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from anonymed.cli import app
-from anonymed.kern.modell import Patient
+from pseudonymed.cli import app
+from pseudonymed.kern.modell import Patient
 from tests.carddav_fake import FakeCardDAV
 from tests.synthetisch import vcard_aus_patient
 
@@ -46,45 +46,45 @@ def test_zeigen_und_export(carddav_umgebung: FakeCardDAV, patient: Patient, tmp_
     assert r.exit_code == 1 and "existiert" in r.output
 
 
-def test_anonymisieren_aus_adressbuch(carddav_umgebung: FakeCardDAV, befund: Path,
+def test_pseudonymisieren_aus_adressbuch(carddav_umgebung: FakeCardDAV, befund: Path,
                                       patient: Patient, tmp_path: Path) -> None:
     speicher = tmp_path / "s.sqlite"
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--kontakt", patient.nachname,
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--kontakt", patient.nachname,
                             "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
     assert "Gegenprobe: bestanden" in r.output
-    txt = (befund.parent / "befund_anonym.txt").read_text(encoding="utf-8")
+    txt = (befund.parent / "befund_pseudonym.txt").read_text(encoding="utf-8")
     assert patient.nachname not in txt and re.search(r"Patient [A-Z2-9]{6}", txt)
     # the identifier is now visible in the search
     r = runner.invoke(app, ["kontakte", "suchen", patient.nachname, "--speicher", str(speicher)])
     assert re.search(r"→ Patient [A-Z2-9]{6}", r.output)
-    r = runner.invoke(app, ["pruefen", str(befund.parent / "befund_anonym.pdf"), "--kontakt",
+    r = runner.invoke(app, ["pruefen", str(befund.parent / "befund_pseudonym.pdf"), "--kontakt",
                             patient.nachname, "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
 
 
 def test_mehrdeutig_und_nr(carddav_umgebung: FakeCardDAV, befund: Path, patient: Patient,
                            patientin: Patient, tmp_path: Path) -> None:
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--kontakt", "Zyxwv"])
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--kontakt", "Zyxwv"])
     assert r.exit_code == 1 and "Kein Kontakt" in r.output
     vcf = tmp_path / "beide.vcf"
     vcf.write_text(vcard_aus_patient(patient) + vcard_aus_patient(patientin), encoding="utf-8")
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--vcf", str(vcf)])
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--vcf", str(vcf)])
     assert r.exit_code == 1 and "Mehrere Treffer" in r.output and patientin.nachname in r.output
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--vcf", str(vcf), "--nr", "1",
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--vcf", str(vcf), "--nr", "1",
                             "--speicher", str(tmp_path / "s.sqlite")])
     assert r.exit_code == 0, r.output
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--vcf", str(vcf), "--kontakt",
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--vcf", str(vcf), "--kontakt",
                             patientin.nachname, "--speicher", str(tmp_path / "s.sqlite")])
     assert r.exit_code == 0, r.output
     assert re.search(r"Patientin [A-Z2-9]{6}", r.output)
-    r = runner.invoke(app, ["anonymisieren", str(befund)])
+    r = runner.invoke(app, ["pseudonymisieren", str(befund)])
     assert r.exit_code == 1 and "--patient, --vcf oder --kontakt" in r.output
 
 
 def test_einrichten_und_konfig(fake_carddav: FakeCardDAV, tmp_path: Path,
                                monkeypatch) -> None:
-    monkeypatch.delenv("ANONYMED_CARDDAV_URL", raising=False)
+    monkeypatch.delenv("PSEUDONYMED_CARDDAV_URL", raising=False)
     konfig = tmp_path / "konfig.toml"
     r = runner.invoke(app, ["kontakte", "einrichten", "--url", fake_carddav.url, "--benutzer",
                             fake_carddav.benutzer, "--adressbuch", "medifed-patients", "--konfig",
@@ -97,7 +97,7 @@ def test_einrichten_und_konfig(fake_carddav: FakeCardDAV, tmp_path: Path,
                             fake_carddav.benutzer, "--konfig", str(konfig),
                             "--kein-schluesselbund"], input="falsch\n")
     assert r.exit_code == 1 and "Anmeldung abgelehnt" in r.output
-    monkeypatch.setenv("ANONYMED_CARDDAV_PASSWORT", fake_carddav.passwort)
+    monkeypatch.setenv("PSEUDONYMED_CARDDAV_PASSWORT", fake_carddav.passwort)
     r = runner.invoke(app, ["kontakte", "adressbuecher", "--konfig", str(konfig)])
     assert r.exit_code == 0 and "Patienten" in r.output
     r = runner.invoke(app, ["kontakte", "adressbuecher", "--konfig", str(tmp_path / "fehlt.toml")])

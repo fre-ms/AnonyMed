@@ -9,16 +9,16 @@ from PySide6.QtCore import QMimeData, QUrl
 from PySide6.QtWidgets import QApplication
 from typer.testing import CliRunner
 
-from anonymed import konfig as konfigmodul
-from anonymed.cli import app
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme import sicherung as sichmodul
-from anonymed.pseudonyme.speicher import (
+from pseudonymed import konfig as konfigmodul
+from pseudonymed.cli import app
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme import sicherung as sichmodul
+from pseudonymed.pseudonyme.speicher import (
     Pseudonymspeicher,
     standard_schluesselpfad,
     standardpfad,
 )
-from anonymed.quellen import adressbuch
+from pseudonymed.quellen import adressbuch
 from tests.carddav_fake import FakeCardDAV
 from tests.synthetisch import synthetischer_patient, vcard_aus_patient
 from tests.test_gui import qapp  # noqa: F401
@@ -27,9 +27,9 @@ from tests.test_gui import qapp  # noqa: F401
 @pytest.fixture
 def datenordner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ordner = tmp_path / "daten"
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(ordner))
-    monkeypatch.delenv("ANONYMED_CARDDAV_URL", raising=False)
-    monkeypatch.delenv("ANONYMED_CARDDAV_PASSWORT", raising=False)
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(ordner))
+    monkeypatch.delenv("PSEUDONYMED_CARDDAV_URL", raising=False)
+    monkeypatch.delenv("PSEUDONYMED_CARDDAV_PASSWORT", raising=False)
     return ordner
 
 
@@ -106,16 +106,16 @@ def test_beide_quellen_und_passwort_in_datei(datenordner: Path, tmp_path: Path, 
 
 def test_speicherort_konfigurierbar(datenordner: Path, tmp_path: Path, befund: Path,
                                     patient: Patient) -> None:
-    from anonymed.ablauf import Ablaufoptionen, anonymisiere
+    from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
 
     assert standardpfad() == datenordner / "pseudonyme.sqlite"
     with Pseudonymspeicher() as sp:
-        erg = anonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
+        erg = pseudonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
                                                            ziel_ordner=tmp_path / "aus"),
                            speicher=sp)
         kennung = erg.kennung
     assert (datenordner / "pseudonymschluessel.txt").exists()
-    neu_db, neu_key = tmp_path / "tresor" / "anonymed.sqlite", tmp_path / "keys" / "k.txt"
+    neu_db, neu_key = tmp_path / "tresor" / "pseudonymed.sqlite", tmp_path / "keys" / "k.txt"
     with pytest.raises(sichmodul.SicherungFehler):
         sichmodul.verlege(Path("relativ.sqlite"), neu_key)
     v = sichmodul.verlege(neu_db, neu_key)
@@ -143,9 +143,9 @@ def test_speicherort_konfigurierbar(datenordner: Path, tmp_path: Path, befund: P
 
 def test_patient_seite(qapp: QApplication, datenordner: Path, tmp_path: Path,  # noqa: F811
                        patient: Patient, patientin: Patient) -> None:
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.patient_seite import Listenfeld, zeilen_aus_datei
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.patient_seite import Listenfeld, zeilen_aus_datei
+    from pseudonymed.gui.sitzung import Sitzung
 
     fenster = Hauptfenster(Sitzung(speicherpfad=tmp_path / "s.sqlite"))
     seite = fenster.patient
@@ -180,13 +180,13 @@ def test_patient_seite(qapp: QApplication, datenordner: Path, tmp_path: Path,  #
 
 def test_adressbuch_dialog(qapp: QApplication, datenordner: Path, tmp_path: Path,  # noqa: F811
                            patient: Patient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from anonymed.gui.adressbuch_dialog import AdressbuchDialog
+    from pseudonymed.gui.adressbuch_dialog import AdressbuchDialog
 
     server = FakeCardDAV(buecher={"patienten": ("Patienten", [vcard_aus_patient(patient,
                                                                                   "u1")])}).start()
     try:
         monkeypatch.setattr(konfigmodul, "passwort_speichern", lambda *_a, **_k: False)
-        import anonymed.gui.adressbuch_dialog as dialogmodul
+        import pseudonymed.gui.adressbuch_dialog as dialogmodul
 
         monkeypatch.setattr(dialogmodul, "passwort_speichern", lambda *_a, **_k: False)
         dialog = AdressbuchDialog()
@@ -211,8 +211,8 @@ def test_adressbuch_dialog(qapp: QApplication, datenordner: Path, tmp_path: Path
 
 def test_datenbank_seite_speicherort(qapp: QApplication, datenordner: Path,  # noqa: F811
                                      tmp_path: Path) -> None:
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
     with Pseudonymspeicher() as sp:
         sp.kennung_fuer(synthetischer_patient(5, "m"))

@@ -5,8 +5,8 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
-from anonymed.kern.modell import Patient
-from anonymed.quellen.vcf import parse_bday, parse_vcards, patient_aus_vcard, patienten_aus_vcf
+from pseudonymed.kern.modell import Patient
+from pseudonymed.quellen.vcf import parse_bday, parse_vcards, patient_aus_vcard, patienten_aus_vcf
 from tests.synthetisch import vcard_aus_patient
 
 HANDGEMACHT = """BEGIN:VCARD

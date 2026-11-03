@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/titel_de.csv.gz``: academic, noble, ecclesiastical and official titles.
+"""Build ``pseudonymed/daten/titel_de.csv.gz``: academic, noble, ecclesiastical and official titles.
 
 Sources
 -------
@@ -43,9 +43,9 @@ import urllib.request
 from pathlib import Path
 
 ENDPUNKT = "https://query.wikidata.org/sparql"
-AGENT = ("AnonyMed/0.1 (open-source medical de-identification;"
-         " https://github.com/fre-ms/AnonyMed)")
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "titel_de.csv.gz"
+AGENT = ("PseudonyMed/0.1 (open-source medical de-identification;"
+         " https://github.com/fre-ms/PseudonyMed)")
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "titel_de.csv.gz"
 LAENDER = {"Q183": "DE", "Q40": "AT", "Q39": "CH"}
 # Wrong or misleading short names on Wikidata (checked 2026-11-02): Abitur is no title;
 # "Ph.D." carries the short name "Dr. phil."; "Dipl.-Ing." carries "M.Sc."; "Candidata
@@ -539,11 +539,11 @@ def main(argv: list[str] | None = None) -> int:
     eindeutig = sorted(set(zeilen) | set(wd),
                        key=lambda z: (ARTEN.index(z[1]), z[0].casefold(), z[3], z[2]))
     heute = dt.date.today().isoformat()
-    kopf = ("# Quelle: kuratierte Liste AnonyMed (Bezeichnungen und gebräuchliche Abkürzungen"
+    kopf = ("# Quelle: kuratierte Liste PseudonyMed (Bezeichnungen und gebräuchliche Abkürzungen"
             " als Fakten, ergänzt um die Titelbeispiele der GeMTeX-Annotationsleitlinie,"
             " 2. Version 2025, doi:10.5281/zenodo.15747389) und Wikidata (akademische Grade,"
             " Q189533, mit deutscher"
-            " Kurzbezeichnung P1813); Lizenz: kuratierte Liste AGPL-3.0-or-later wie AnonyMed,"
+            " Kurzbezeichnung P1813); Lizenz: kuratierte Liste AGPL-3.0-or-later wie PseudonyMed,"
             " Wikidata CC0 1.0; Stand: " + heute + "\n")
     ziel = Path(args.ziel)
     ziel.parent.mkdir(parents=True, exist_ok=True)

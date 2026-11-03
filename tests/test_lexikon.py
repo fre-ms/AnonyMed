@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from anonymed.erkennung import lexikon
-from anonymed.erkennung.vokabular import Vokabular
+from pseudonymed.erkennung import lexikon
+from pseudonymed.erkennung.vokabular import Vokabular
 
 
 @pytest.fixture
 def lexikon_an(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_LEXIKON", "1")
+    monkeypatch.setenv("PSEUDONYMED_LEXIKON", "1")
 
 
 def test_laedt_gebuendelte_klassen(tmp_path: Path, lexikon_an: None) -> None:
@@ -69,9 +69,9 @@ def test_abgeschaltet_ohne_tabelle(tmp_path: Path) -> None:
 def test_aendert_den_schutz_nicht(tmp_path: Path, lexikon_an: None,
                                  monkeypatch: pytest.MonkeyPatch) -> None:
     """Professions, titles, hospitals and studies must never become protected terms."""
-    from anonymed.erkennung import fachbegriffe
+    from pseudonymed.erkennung import fachbegriffe
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path))
     fachbegriffe.standard.cache_clear()
     with Vokabular() as v:
         v.verbindung.execute("INSERT INTO lexikon VALUES ('Bauer', 'Beruf', 'merkmal', 'Nutzer',"
@@ -87,7 +87,7 @@ def test_aendert_den_schutz_nicht(tmp_path: Path, lexikon_an: None,
 
 
 def test_statistik_zeigt_lexikon(tmp_path: Path, lexikon_an: None) -> None:
-    from anonymed.pseudonyme.sicherung import statistik
+    from pseudonymed.pseudonyme.sicherung import statistik
 
     pfad = tmp_path / "p.sqlite"
     Vokabular(pfad).close()

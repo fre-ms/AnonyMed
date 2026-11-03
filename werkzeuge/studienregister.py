@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/studien_dach.csv.gz``: clinical studies with sites in DE, AT or CH.
+"""Build ``pseudonymed/daten/studien_dach.csv.gz``: clinical studies with sites in DE, AT or CH.
 
 A named study ("Teilnahme an der XY-Studie") narrows down who a patient can be, the more so
 the smaller the study and the fewer its centres in the DACH region.  This script collects
@@ -69,9 +69,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 WURZEL = Path(__file__).resolve().parent.parent
-ZIEL = WURZEL / "anonymed" / "daten" / "studien_dach.csv.gz"
-GEMEINDEN = WURZEL / "anonymed" / "daten" / "gemeinden_de.csv.gz"
-AGENT = "AnonyMed-studienregister/1.0 (+https://github.com/fre-ms/AnonyMed)"
+ZIEL = WURZEL / "pseudonymed" / "daten" / "studien_dach.csv.gz"
+GEMEINDEN = WURZEL / "pseudonymed" / "daten" / "gemeinden_de.csv.gz"
+AGENT = "PseudonyMed-studienregister/1.0 (+https://github.com/fre-ms/PseudonyMed)"
 
 CTG_STUDIEN = "https://clinicaltrials.gov/api/v2/studies"
 CTG_VERSION = "https://clinicaltrials.gov/api/v2/version"
@@ -385,7 +385,7 @@ def kennzahlen(zeilen: list[list]) -> str:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--zwischenspeicher", type=Path,
-                    default=Path(tempfile.gettempdir()) / "anonymed-studienregister")
+                    default=Path(tempfile.gettempdir()) / "pseudonymed-studienregister")
     ap.add_argument("--drks-json", help="local DRKS export (zip or json) instead of downloading")
     ap.add_argument("--ohne-drks", action="store_true")
     ap.add_argument("--drks-umfang", choices=["registriert-ab-2025", "aktualisiert-ab-2025"],

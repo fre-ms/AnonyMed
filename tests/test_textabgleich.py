@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pymupdf
 
-from anonymed.dokument.ocr import seitentext_aus_woerter
-from anonymed.dokument.textabgleich import textebene_aus_korrektur
+from pseudonymed.dokument.ocr import seitentext_aus_woerter
+from pseudonymed.dokument.textabgleich import textebene_aus_korrektur
 from tests.test_gliederung import _zeile
 
 

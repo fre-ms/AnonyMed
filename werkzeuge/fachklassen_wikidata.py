@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/fachklassen_de.csv.gz``: a semantic class for every Wikidata term.
+"""Build ``pseudonymed/daten/fachklassen_de.csv.gz``: a semantic class for every Wikidata term.
 
 The bundled vocabulary (``fachbegriffe_de.txt.gz``) only says *that* a word is medical.  This
 script records *what* it is, from the same Wikidata items (CC0 1.0): ATC code (P267) or WHO
@@ -23,9 +23,9 @@ import urllib.request
 from pathlib import Path
 
 ENDPUNKT = "https://query.wikidata.org/sparql"
-AGENT = ("AnonyMed/0.1 (open-source medical de-identification;"
-         " https://github.com/fre-ms/AnonyMed)")
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "fachklassen_de.csv.gz"
+AGENT = ("PseudonyMed/0.1 (open-source medical de-identification;"
+         " https://github.com/fre-ms/PseudonyMed)")
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "fachklassen_de.csv.gz"
 MESH_KLASSEN = {"A": "Anatomie", "B": "Organismus", "C": "Erkrankung", "D": "Substanz",
                 "E": "Verfahren", "F": "Psyche", "G": "Physiologie", "S": "Symptom"}
 MESH_PRAEFIXE = ("D000", "D001", "D002", "D003", "D004", "D005", "D006", "D007", "D008",

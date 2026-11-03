@@ -35,7 +35,7 @@ contains the neighbours, so a text-only check does not notice.
 ## Decision
 
 * `pyproject.toml` pins `pymupdf>=1.25,<2`.
-* `anonymed.schwaerzen.pdf.lage_intakt()` compares the position of every
+* `pseudonymed.schwaerzen.pdf.lage_intakt()` compares the position of every
   character outside the hits before and after the redaction. If anything moved,
   `rastere_seite()` replaces the page by an image of the original page with the
   hits painted over, and the report warns. This keeps the output safe even if a

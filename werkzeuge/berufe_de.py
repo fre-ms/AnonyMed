@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/berufe_de.csv.gz``: German occupations and employment status.
+"""Build ``pseudonymed/daten/berufe_de.csv.gz``: German occupations and employment status.
 
 Sources
 -------
@@ -81,9 +81,9 @@ URL_KLDB = ("https://statistik.arbeitsagentur.de/DE/Statischer-Content/Grundlage
             "Alphabetisches-Verzeichnis-Berufsbenennungen.xlsx?__blob=publicationFile&v=1")
 URL_BFS = "https://dam-api.bfs.admin.ch/hub/api/dam/assets/36752522/master"
 ENDPUNKT = "https://query.wikidata.org/sparql"
-AGENT = ("AnonyMed/0.1 (open-source medical de-identification;"
-         " https://github.com/fre-ms/AnonyMed)")
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "berufe_de.csv.gz"
+AGENT = ("PseudonyMed/0.1 (open-source medical de-identification;"
+         " https://github.com/fre-ms/PseudonyMed)")
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "berufe_de.csv.gz"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 SCHWELLE_BFS = 100       # bearers in German-speaking Switzerland (population about 6 million)
@@ -758,7 +758,7 @@ def main(argv: list[str] | None = None) -> int:
             " überarbeitete Fassung 2020, Alphabetisches Verzeichnis der Berufsbenennungen"
             f" (Stand {stand_kldb}), https://statistik.arbeitsagentur.de, eigene Berechnungen"
             " (Geschlechterformen aufgelöst, Zusätze gekürzt, ein Code je Begriff);"
-            " Alltagsberufe und Erwerbsstatus: kuratierte Listen AnonyMed mit Wikidata-QIDs"
+            " Alltagsberufe und Erwerbsstatus: kuratierte Listen PseudonyMed mit Wikidata-QIDs"
             " bzw. zugeordneten KldB-Codes; Spalte nachname:"
             f" BFS STATPOP {jahr_bfs}, Nachnamen der ständigen Wohnbevölkerung nach"
             " Sprachregion (Deutschschweiz ≥ "

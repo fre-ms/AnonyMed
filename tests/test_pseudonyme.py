@@ -6,7 +6,7 @@ from __future__ import annotations
 def test_kennung_beginnt_nie_mit_az() -> None:
     """A code that starts with "AZ" would be taken for a file number by the label rule
     (and by the re-check on a scan); the derivation skips such codes deterministically."""
-    from anonymed.pseudonyme.kennung import hash_kennung, kennung_gueltig
+    from pseudonymed.pseudonyme.kennung import hash_kennung, kennung_gueltig
 
     schluessel = bytes(range(32))
     codes = [hash_kennung(schluessel, f"ort:test{i}") for i in range(3000)]

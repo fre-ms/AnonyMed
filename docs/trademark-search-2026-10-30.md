@@ -1,5 +1,7 @@
 # Name check for "AnonyMed" (30 October 2026)
 
+*Superseded on 3 November 2026: the project was renamed PseudonyMed (see `trademark-search-2026-11-03.md`); AnonyMed is now the working title of a planned downstream program.*
+
 Sources: TMview (tmdn.org, all participating offices, queried on 30 October 2026 through the web interface), RDAP and WHOIS lookups, and the web page of the only product found under this name. This is a factual record and a non-binding assessment, not legal advice.
 
 ## Trade marks (TMview)

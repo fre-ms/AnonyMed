@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from anonymed.kern.modell import Patient
-from anonymed.quellen.carddav import CardDAVClient, CardDAVFehler, passt
+from pseudonymed.kern.modell import Patient
+from pseudonymed.quellen.carddav import CardDAVClient, CardDAVFehler, passt
 from tests.carddav_fake import FakeCardDAV
 
 

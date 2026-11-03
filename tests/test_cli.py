@@ -1,4 +1,4 @@
-"""The command line drives the same pipeline: anonymise, check, re-identify."""
+"""The command line drives the same pipeline: pseudonymise, check, re-identify."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from anonymed.cli import app
-from anonymed.kern.modell import Patient
+from pseudonymed.cli import app
+from pseudonymed.kern.modell import Patient
 
 runner = CliRunner()
 
@@ -40,17 +40,17 @@ def _patientendatei(tmp_path: Path, p: Patient) -> Path:
 def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> None:
     pdatei = _patientendatei(tmp_path, patient)
     speicher = tmp_path / "store.sqlite"
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei),
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(pdatei),
                             "--speicher", str(speicher), "--markdown"])
     assert r.exit_code == 0, r.output
     assert "Gegenprobe: bestanden" in r.output and "Markdown:" in r.output
     k = _kennung(r.output)
-    assert (tmp_path / "befund_anonym.pdf").exists()
-    assert "## Seite 1" in (tmp_path / "befund_anonym.md").read_text(encoding="utf-8")
-    txt = (tmp_path / "befund_anonym.txt").read_text(encoding="utf-8")
+    assert (tmp_path / "befund_pseudonym.pdf").exists()
+    assert "## Seite 1" in (tmp_path / "befund_pseudonym.md").read_text(encoding="utf-8")
+    txt = (tmp_path / "befund_pseudonym.txt").read_text(encoding="utf-8")
     assert patient.nachname not in txt and f"Patient {k}" in txt
 
-    r = runner.invoke(app, ["pruefen", str(tmp_path / "befund_anonym.pdf"), "--patient",
+    r = runner.invoke(app, ["pruefen", str(tmp_path / "befund_pseudonym.pdf"), "--patient",
                             str(pdatei), "--speicher", str(speicher)])
     assert r.exit_code == 0, r.output
     r = runner.invoke(app, ["pruefen", str(befund), "--patient", str(pdatei),
@@ -78,7 +78,7 @@ def test_rundlauf_ueber_cli(tmp_path: Path, befund: Path, patient: Patient) -> N
     r = runner.invoke(app, ["rueckersetzen", "--kennung", k, "--speicher", str(speicher)],
                       input=f"Patient {falsch} kam.")
     assert r.exit_code == 3 and "Prüfzeichen falsch" in r.output and k in r.output
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei),
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(pdatei),
                             "--speicher", str(speicher), "--schema", "buchstabe"])
     assert r.exit_code == 0 and _kennung(r.output) == k  # existing entry wins over the scheme
 
@@ -87,24 +87,25 @@ def test_vorlage_und_konfig(tmp_path: Path) -> None:
     r = runner.invoke(app, ["vorlage"])
     assert r.exit_code == 0 and json.loads(r.output)["nachname"] == ""
     r = runner.invoke(app, ["konfig", "--speicher", str(tmp_path / "x.sqlite")])
-    assert r.exit_code == 0 and "AnonyMed" in r.output and "x.sqlite" in r.output
+    assert r.exit_code == 0 and "PseudonyMed" in r.output and "x.sqlite" in r.output
     r = runner.invoke(app, ["kontakte"])
     assert r.exit_code == 2 and "einrichten" in r.output
 
 
 def test_fehlerhafte_eingaben(tmp_path: Path, befund: Path, patient: Patient) -> None:
     pdatei = _patientendatei(tmp_path, patient)
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(pdatei), "--datum", "x"])
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(pdatei),
+                            "--datum", "x"])
     assert r.exit_code == 1
     leer = tmp_path / "leer.json"
     leer.write_text("{}", encoding="utf-8")
-    r = runner.invoke(app, ["anonymisieren", str(befund), "--patient", str(leer)])
+    r = runner.invoke(app, ["pseudonymisieren", str(befund), "--patient", str(leer)])
     assert r.exit_code == 1
     r = runner.invoke(app, ["rueckersetzen", "--speicher", str(tmp_path / "s.sqlite")], input="x")
     assert r.exit_code == 1
 
 
 def test_datenordner_uebersteuerung(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     r = runner.invoke(app, ["konfig"])
     assert r.exit_code == 0 and str(tmp_path / "daten") in r.output

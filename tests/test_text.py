@@ -9,19 +9,19 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from anonymed.ablauf import (
+from pseudonymed.ablauf import (
     Ablaufoptionen,
     Textvorbereitung,
     abschliessen,
-    anonymisiere,
+    pseudonymisiere,
     vorbereiten,
 )
-from anonymed.cli import app
-from anonymed.dokument.textdatei import analysetext, ist_textdatei, lese_textdatei
-from anonymed.erkennung import ner as nermodul
-from anonymed.kern.modell import Patient
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.cli import app
+from pseudonymed.dokument.textdatei import analysetext, ist_textdatei, lese_textdatei
+from pseudonymed.erkennung import ner as nermodul
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 from tests.synthetisch import erzeuge_transkript, verschrieben
 from tests.test_ablauf import gefundene_klardaten
 
@@ -35,9 +35,9 @@ def transkript(tmp_path: Path, patient: Patient) -> Path:
 
 def test_textdatei_rundlauf(transkript: Path, patient: Patient,
                             speicher: Pseudonymspeicher) -> None:
-    erg = anonymisiere(transkript, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(transkript, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben and erg.ist_text and erg.ziel_pdf is None, als_text(erg.bericht)
-    assert erg.ziel == erg.ziel_txt == transkript.with_name("gespraech_anonym.txt")
+    assert erg.ziel == erg.ziel_txt == transkript.with_name("gespraech_pseudonym.txt")
     aus = erg.ziel.read_text(encoding="utf-8")
     assert gefundene_klardaten(aus, patient) == []
     assert verschrieben(patient.nachname) not in aus  # the misspelt surname: fuzzy search
@@ -57,7 +57,7 @@ def test_textdatei_rundlauf(transkript: Path, patient: Patient,
 def test_untertitel_und_markdown_bleiben_intakt(tmp_path: Path, patient: Patient,
                                                 speicher: Pseudonymspeicher, format_: str) -> None:
     quelle = erzeuge_transkript(tmp_path / f"gespraech.{format_}", patient, format_)
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     assert erg.ziel.suffix == f".{format_}"
     vorher = quelle.read_text(encoding="utf-8")
@@ -86,7 +86,8 @@ def test_analysetext_blendet_nur_zeitmarken_aus() -> None:
 
 def test_genau_laesst_verschriebenes_stehen(transkript: Path, patient: Patient,
                                             speicher: Pseudonymspeicher) -> None:
-    erg = anonymisiere(transkript, patient, Ablaufoptionen(unscharf_text=False), speicher=speicher)
+    erg = pseudonymisiere(transkript, patient, Ablaufoptionen(unscharf_text=False),
+                          speicher=speicher)
     assert erg.freigegeben
     aus = erg.ziel.read_text(encoding="utf-8")
     assert verschrieben(patient.nachname) in aus and patient.nachname not in aus
@@ -99,7 +100,7 @@ def test_grossschreibung_schuetzt_kleine_woerter(tmp_path: Path,
     quelle = tmp_path / "n.txt"
     quelle.write_text("Herr Lanq wartet schon lang. Land und Leute. Herr Lang kommt.\n",
                       encoding="utf-8")
-    erg = anonymisiere(quelle, p, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, p, Ablaufoptionen(), speicher=speicher)
     aus = erg.ziel.read_text(encoding="utf-8")
     assert "lang." in aus and "Lanq" not in aus and "Herr Lang" not in aus
     # "Land" is capitalised and within tolerance: a guess the review step shows in orange
@@ -142,7 +143,7 @@ def test_kodierung_windows(tmp_path: Path, patient: Patient, speicher: Pseudonym
     quelle = tmp_path / "notiz.txt"
     quelle.write_bytes(f"Herr {patient.nachname} klagt über Schwäche.\r\n".encode("cp1252"))
     assert lese_textdatei(quelle) == f"Herr {patient.nachname} klagt über Schwäche.\n"
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben and "Schwäche" in erg.ziel.read_text(encoding="utf-8")
 
 
@@ -151,14 +152,14 @@ def test_ner_in_textdatei(tmp_path: Path, patient: Patient, speicher: Pseudonyms
     quelle = tmp_path / "n.txt"
     quelle.write_text("Die Nachbarin Erika Hoffmann brachte ihn. Verdacht auf Morbus Parkinson,"
                       " Babinski negativ. Er lebt in Dresden.\n", encoding="utf-8")
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(ner=True), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(ner=True), speicher=speicher)
     aus = erg.ziel.read_text(encoding="utf-8")
     assert "Erika Hoffmann" not in aus and "Dresden" not in aus
     assert "Morbus Parkinson" in aus and "Babinski" in aus
     assert any(f.regel == "ner.person" for f in erg.fundstellen)
     quelle.write_text("Überwiesen hat Sie die Hausärztin. Geboren ist er in Dresden.\n",
                       encoding="utf-8")
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(ner=True), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(ner=True), speicher=speicher)
     aus = erg.ziel.read_text(encoding="utf-8")
     assert aus.startswith("Überwiesen hat") and "Dresden" not in aus  # a verb is not a place
 
@@ -170,17 +171,17 @@ def test_cli_textdatei(tmp_path: Path, patient: Patient) -> None:
     pdatei = _patientendatei(tmp_path, patient)
     quelle = erzeuge_transkript(tmp_path / "gespraech.txt", patient)
     sp = str(tmp_path / "p.sqlite")
-    r = runner.invoke(app, ["anonymisieren", str(quelle), "--patient", str(pdatei),
+    r = runner.invoke(app, ["pseudonymisieren", str(quelle), "--patient", str(pdatei),
                             "--speicher", sp])
     assert r.exit_code == 0, r.output
-    ziel = tmp_path / "gespraech_anonym.txt"
+    ziel = tmp_path / "gespraech_pseudonym.txt"
     assert ziel.exists() and "Freigegeben" in r.output and "Text:" not in r.output
     assert gefundene_klardaten(r.output, patient) == []
     r = runner.invoke(app, ["pruefen", str(ziel), "--patient", str(pdatei), "--speicher", sp])
     assert r.exit_code == 0 and "bestanden" in r.output, r.output
     r = runner.invoke(app, ["pruefen", str(quelle), "--patient", str(pdatei), "--speicher", sp])
     assert r.exit_code == 2 and "NICHT" in r.output
-    r = runner.invoke(app, ["anonymisieren", str(quelle), "--patient", str(pdatei),
+    r = runner.invoke(app, ["pseudonymisieren", str(quelle), "--patient", str(pdatei),
                             "--speicher", sp, "--genau"])
     assert r.exit_code == 0 and verschrieben(patient.nachname) in ziel.read_text(encoding="utf-8")
 
@@ -224,9 +225,9 @@ def test_whisper_json(tmp_path: Path, patient: Patient, speicher: Pseudonymspeic
     quelle.write_text(json.dumps(_whisper_json(zeilen, dialekt), ensure_ascii=False),
                       encoding="utf-8")
     assert ist_textdatei(quelle)
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
-    assert erg.ziel == tmp_path / "gespraech_anonym.txt"
+    assert erg.ziel == tmp_path / "gespraech_pseudonym.txt"
     aus = erg.ziel.read_text(encoding="utf-8")
     assert gefundene_klardaten(aus, patient) == []
     assert verschrieben(patient.nachname) not in aus
@@ -241,7 +242,7 @@ def test_whisper_json(tmp_path: Path, patient: Patient, speicher: Pseudonymspeic
 
 def test_json_ohne_transkript(tmp_path: Path, patient: Patient,
                               speicher: Pseudonymspeicher) -> None:
-    from anonymed.dokument.textdatei import rendere_whisper
+    from pseudonymed.dokument.textdatei import rendere_whisper
 
     assert rendere_whisper({"text": " Nur Text. "}) == "Nur Text.\n"
     assert rendere_whisper([{"text": "a"}, {"text": "b"}]) == "a\nb\n"
@@ -283,7 +284,7 @@ def _mail(patient: Patient, html_nur: bool = False) -> bytes:
 
 
 def test_eml(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
-    from anonymed.dokument.textdatei import rendere_mail
+    from pseudonymed.dokument.textdatei import rendere_mail
 
     roh = _mail(patient)
     assert "quoted-printable" in roh.decode("ascii", "replace")
@@ -294,9 +295,9 @@ def test_eml(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> N
     assert f"[Anhänge, nicht enthalten: Befund {patient.nachname} 2026 (pdf)]" in text
     quelle = tmp_path / "anfrage.eml"
     quelle.write_bytes(roh)
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
-    assert erg.ziel == tmp_path / "anfrage_anonym.txt"
+    assert erg.ziel == tmp_path / "anfrage_pseudonym.txt"
     aus = erg.ziel.read_text(encoding="utf-8")
     assert gefundene_klardaten(aus, patient) == []
     assert "partner@example.net" not in aus and "sprechstunde@example.org" not in aus
@@ -306,7 +307,7 @@ def test_eml(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> N
 
 
 def test_eml_nur_html(tmp_path: Path, patient: Patient, speicher: Pseudonymspeicher) -> None:
-    from anonymed.dokument.textdatei import html_zu_text, rendere_mail
+    from pseudonymed.dokument.textdatei import html_zu_text, rendere_mail
 
     text = rendere_mail(_mail(patient, html_nur=True))
     assert "Sehr geehrte Frau Doktor,\n" in text and "Übermittelt per Portal" in text
@@ -314,14 +315,14 @@ def test_eml_nur_html(tmp_path: Path, patient: Patient, speicher: Pseudonymspeic
     assert html_zu_text("<ul><li>a</li><li>b &amp; c</li></ul><script>x()</script>") == "a\nb & c"
     quelle = tmp_path / "html.eml"
     quelle.write_bytes(_mail(patient, html_nur=True))
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben and gefundene_klardaten(erg.text, patient) == []
 
 
 def test_zahlwoerter_im_transkript(tmp_path: Path, patient: Patient,
                                    speicher: Pseudonymspeicher) -> None:
     """Spoken numbers: date of birth, house number, postcode as words."""
-    from anonymed.erkennung.zahlwoerter import kardinal
+    from pseudonymed.erkennung.zahlwoerter import kardinal
     from tests.synthetisch import MONATE
 
     geb = patient.geburtsdatum
@@ -338,7 +339,7 @@ def test_zahlwoerter_im_transkript(tmp_path: Path, patient: Patient,
     assert kardinal(jahr) == geb.year
     quelle = tmp_path / "zahlen.txt"
     quelle.write_text(text, encoding="utf-8")
-    erg = anonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     assert erg.freigegeben, als_text(erg.bericht)
     aus = erg.ziel.read_text(encoding="utf-8")
     assert f"Patient: Am [geb. {geb.year}].\n" in aus, aus

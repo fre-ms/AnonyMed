@@ -7,7 +7,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from anonymed.dokument.laden import PAPIERFORMATE, oeffne, papierformat
+from pseudonymed.dokument.laden import PAPIERFORMATE, oeffne, papierformat
 
 
 def _bild(pfad: Path, breite: int, hoehe: int) -> Path:
@@ -44,9 +44,9 @@ def test_bild_auf_papier(tmp_path: Path) -> None:
 def test_papier_in_der_pipeline(tmp_path: Path, befund: Path, patient) -> None:
     """A photo of the report keeps A4 through the whole run and the redaction reaches
     the image inside the sheet (otherwise the re-check would fail)."""
-    from anonymed.ablauf import Ablaufoptionen, anonymisiere, lade
-    from anonymed.dokument import ocr as ocrmodul
-    from anonymed.pseudonyme.speicher import Pseudonymspeicher
+    from pseudonymed.ablauf import Ablaufoptionen, lade, pseudonymisiere
+    from pseudonymed.dokument import ocr as ocrmodul
+    from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 
     foto = tmp_path / "foto.png"
     with pymupdf.open(befund) as d:
@@ -57,7 +57,7 @@ def test_papier_in_der_pipeline(tmp_path: Path, befund: Path, patient) -> None:
     if not ocrmodul.verfuegbare_backends():
         pytest.skip("kein OCR-Backend installiert")
     with Pseudonymspeicher(":memory:", geheimnis=bytes(range(32))) as sp:
-        erg = anonymisiere(foto, patient, Ablaufoptionen(papierformat="letter"), speicher=sp)
+        erg = pseudonymisiere(foto, patient, Ablaufoptionen(papierformat="letter"), speicher=sp)
     assert erg.freigegeben and erg.bericht.optionen["papierformat"] == "letter"
     with pymupdf.open(erg.ziel_pdf) as d:
         assert (round(d[0].rect.width), round(d[0].rect.height)) == (612, 792)

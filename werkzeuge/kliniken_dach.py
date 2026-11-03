@@ -1,4 +1,5 @@
-"""Build ``anonymed/daten/kliniken_dach.csv.gz``: hospitals and rehabilitation clinics in DE and CH.
+"""Build ``pseudonymed/daten/kliniken_dach.csv.gz``: hospitals and rehabilitation clinics in DE
+and CH.
 
 One row per site with name, type, address, official municipality code, operator and beds, so
 that a clinic name found in a document can later be tied to a municipality and its population.
@@ -14,7 +15,7 @@ Verbreitung, auch auszugsweise, mit Quellenangabe gestattet" (imprint of the wor
 general terms at https://www.destatis.de/DE/Service/Impressum/copyright-allgemein.html allow
 commercial reuse and ask that changes be marked).  The workbook gives the municipality key
 (Land, Kreis incl. Regierungsbezirk, Gemeinde) as of 31.12.2024; it is turned into the 12-digit
-ARS of ``anonymed/daten/gemeinden_de.csv.gz`` (GV-ISys), with a fallback over place name and
+ARS of ``pseudonymed/daten/gemeinden_de.csv.gz`` (GV-ISys), with a fallback over place name and
 postcode for municipalities that changed since.  Berlin and Hamburg carry district codes in
 the source and map to the city as a whole.
 
@@ -71,7 +72,7 @@ URL_BAG = ("https://opendata.bagnet.ch/?r=/download&path="
            "L0taUC9renAyMy9renAyM19kYXRhLnhsc3g%3D")  # /KZP/kzp23/kzp23_data.xlsx
 URL_ORTSCHAFTEN = ("https://data.geo.admin.ch/ch.swisstopo-vd.ortschaftenverzeichnis_plz/"
                    "ortschaftenverzeichnis_plz/ortschaftenverzeichnis_plz_2056.csv.zip")
-DATEN = Path(__file__).resolve().parent.parent / "anonymed" / "daten"
+DATEN = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten"
 ZIEL = DATEN / "kliniken_dach.csv.gz"
 GEMEINDEN = DATEN / "gemeinden_de.csv.gz"
 SPALTEN = ["land", "kennung", "name", "typ", "strasse", "plz", "ort", "gemeinde_kennung",
@@ -100,7 +101,7 @@ def lade(quelle: str | None, url: str) -> bytes:
     """Read a local file, or download ``url`` into memory when no file is given."""
     if quelle:
         return Path(quelle).read_bytes()
-    anfrage = urllib.request.Request(url, headers={"User-Agent": "AnonyMed"})
+    anfrage = urllib.request.Request(url, headers={"User-Agent": "PseudonyMed"})
     with urllib.request.urlopen(anfrage, timeout=180) as antwort:
         return antwort.read()
 

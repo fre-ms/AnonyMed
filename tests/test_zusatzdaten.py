@@ -16,8 +16,8 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from typer.testing import CliRunner
 
-from anonymed.erkennung import lexikon
-from anonymed.erkennung import zusatzdaten as zd
+from pseudonymed.erkennung import lexikon
+from pseudonymed.erkennung import zusatzdaten as zd
 from tests.test_gui import qapp  # noqa: F401
 
 KOPF = ["Bundesland", "KA-Nr.", "Bezeichnung", "Kurzbezeichnung", "Versorgungssektor",
@@ -101,7 +101,7 @@ def test_mappe_finden_auf_der_seite() -> None:
 
 def test_bleibt_beim_neuladen_der_mitgelieferten_daten(tmp_path: Path,
                                                       monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_LEXIKON", "1")
+    monkeypatch.setenv("PSEUDONYMED_LEXIKON", "1")
     con = sqlite3.connect(tmp_path / "p.sqlite")
     zd.lade_kliniken_at(con, datei=mappe(tmp_path / "m.xlsx"))
     monkeypatch.setattr(lexikon, "QUELLEN", (lexikon.QUELLEN[2],))  # a small bundled source
@@ -111,10 +111,10 @@ def test_bleibt_beim_neuladen_der_mitgelieferten_daten(tmp_path: Path,
 
 def test_fenster_laedt_beim_ministerium(qapp: QApplication, tmp_path: Path,  # noqa: F811
                                         monkeypatch: pytest.MonkeyPatch) -> None:
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     daten = mappe(tmp_path / "m.xlsx").read_bytes()
     abrufe: list[str] = []
 
@@ -135,9 +135,9 @@ def test_fenster_laedt_beim_ministerium(qapp: QApplication, tmp_path: Path,  # n
 
 
 def test_kommandozeile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from anonymed.cli import app
+    from pseudonymed.cli import app
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     ergebnis = CliRunner().invoke(app, ["datenbank", "zusatzdaten", "kliniken-at", "--datei",
                                         str(mappe(tmp_path / "m.xlsx")), "--speicher",
                                         str(tmp_path / "p.sqlite")])

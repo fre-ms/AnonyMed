@@ -1,6 +1,6 @@
 # Pseudonyms: reproducible identifiers and error-tolerant matching
 
-AnonyMed replaces the main person of a document by `Patient <KENNUNG>` (or
+PseudonyMed replaces the main person of a document by `Patient <KENNUNG>` (or
 `Patientin …`), relatives by `Angehörige <KENNUNG>-1`, `-2` … and referring
 physicians by `Dr. Z1`, `Dr. Z2` … The identifier (*Kennung*) must stay the
 same for the same person across documents, sessions and machines, and it must
@@ -11,7 +11,7 @@ The design borrows from the **Mainzelliste**, the open-source pseudonymisation
 service of the Universitätsmedizin Mainz (Lablans, Borg & Ückert 2015), which
 combines two independent mechanisms: an error-tolerant record linkage decides
 whether a person is already known, and a generator mints an identifier for
-new people. AnonyMed keeps that separation and adapts both halves to a local,
+new people. PseudonyMed keeps that separation and adapts both halves to a local,
 single-practice setting.
 
 ## 1 Who is already known: record linkage
@@ -47,7 +47,7 @@ Decision rules, in this order:
   so (`Patient dem vorhandenen Eintrag … zugeordnet`).
 * 0.80 ≤ score < 0.95: uncertain. The command line lists the candidates and
   stops; decide with `--gleich KENNUNG` or `--neu`. (The Mainzelliste's lower
-  threshold is 0.6; AnonyMed uses 0.8 so that a mere namesake with a
+  threshold is 0.6; PseudonyMed uses 0.8 so that a mere namesake with a
   different date of birth does not ask every time.)
 * score < 0.80: a different person.
 
@@ -74,7 +74,7 @@ phonetic codes alone would merge different people.
 
 The identity is hashed with **HMAC-SHA256 under a secret key** that is
 created on first use and stored next to the pseudonym database
-(`pseudonymschluessel.txt`, mode 0600; `anonymed konfig` shows the path).
+(`pseudonymschluessel.txt`, mode 0600; `pseudonymed konfig` shows the path).
 The first 25 bits of the digest become five characters of a 32-symbol
 alphabet without look-alikes (`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`), and a
 sixth character is a **Luhn mod 32 check character**. Example: `Patient K7Q4MX`.
@@ -91,7 +91,7 @@ Consequences:
   database, because the phonetic canonical form absorbs them.
 * The check character catches every single-character error and almost every
   transposition of neighbouring characters, so a code the language model
-  mangled is noticed by `anonymed rueckersetzen`, which also suggests the
+  mangled is noticed by `pseudonymed rueckersetzen`, which also suggests the
   stored code one edit away.
 * Two different people with the same canonical identity (same date of birth,
   phonetically identical names, declared different with `--neu`) get a
@@ -101,8 +101,8 @@ The Mainzelliste's own identifier, the PID of Faldum & Pommerening (2005), is
 constructed differently: an 8-character code over a 32-symbol alphabet that
 encrypts a running counter with three secret keys and carries enough
 redundancy to detect two errors and correct one error or one transposition.
-It depends on the service's counter, which is exactly what AnonyMed wants to
-avoid, so AnonyMed keeps the alphabet and the idea of a check character but
+It depends on the service's counter, which is exactly what PseudonyMed wants to
+avoid, so PseudonyMed keeps the alphabet and the idea of a check character but
 derives the code from the identity instead. The Mainzelliste can also link
 records on Bloom-filter encodings of the names (Schnell, Bachteler & Reiher
 2009) so that several sites can match without exchanging clear names; this is

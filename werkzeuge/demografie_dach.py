@@ -1,4 +1,4 @@
-"""Build ``anonymed/daten/demografie_dach.csv.gz``: population by sex and single year of age.
+"""Build ``pseudonymed/daten/demografie_dach.csv.gz``: population by sex and single year of age.
 
 Germany, Austria and Switzerland, at national, state (Land, Bundesland, Kanton) and district
 level (Kreis, politischer Bezirk, Bezirk); Austria and Switzerland also by municipality.  The
@@ -18,7 +18,7 @@ national total also contains Germans living abroad on official duty.  Persons re
 "divers" or "unbekannt" were redistributed to male and female by the census offices.
 Hanau became a kreisfreie Stadt (independent city) on 1 January 2026 (Kreis 06415): its
 row is taken from the municipality figures and subtracted from the Main-Kinzig-Kreis
-(06435), so the districts match the current directory ``anonymed/daten/gemeinden_de.csv.gz``.
+(06435), so the districts match the current directory ``pseudonymed/daten/gemeinden_de.csv.gz``.
 
 Austria (AT): Statistik Austria, open data set ``OGD_bevstandjbab2002_BevStand_2026``
 "Bevölkerungsstand zu Jahresbeginn 2026" (municipalities, Vienna by district, single years
@@ -63,11 +63,11 @@ from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
-ZIEL = Path(__file__).resolve().parent.parent / "anonymed" / "daten" / "demografie_dach.csv.gz"
+ZIEL = Path(__file__).resolve().parent.parent / "pseudonymed" / "daten" / "demografie_dach.csv.gz"
 GEMEINDEN_DE = ZIEL.parent / "gemeinden_de.csv.gz"
 KOPF = ["land", "ebene", "kennung", "name", "geschlecht", "alter_von", "alter_bis", "anzahl",
         "stichtag"]
-AGENT = {"User-Agent": "AnonyMed build script (https://github.com/fre-ms/AnonyMed)"}
+AGENT = {"User-Agent": "PseudonyMed build script (https://github.com/fre-ms/PseudonyMed)"}
 OFFEN = 100  # first age of the open-ended class in all three sources
 
 ZENSUS = "https://ergebnisse.zensus2022.de/proxy/api/rest/tables/1000A-2027"
@@ -410,7 +410,7 @@ def kopfzeile(stichtage: dict[str, str]) -> str:
         f" OGD_bevstandjbab2002_BevStand_{AT_JAHR} und polbezirke.csv | CH: Bundesamt für"
         " Statistik (BFS), STATPOP, Ständige Wohnbevölkerung, STAT-TAB px-x-0102010000_101,"
         " https://www.bfs.admin.ch/asset/de/px-x-0102010000_101 | ausgewählt, umgeformt und"
-        " für AT summiert von AnonyMed, Zeilen mit 0 Personen ausgelassen;"
+        " für AT summiert von PseudonyMed, Zeilen mit 0 Personen ausgelassen;"
         " Lizenz: DE: Datenlizenz Deutschland - Namensnennung - Version 2.0"
         " (https://www.govdata.de/dl-de/by-2-0) | AT: CC BY 4.0"
         " (https://creativecommons.org/licenses/by/4.0/) | CH: OPEN BY, Quellenangabe Pflicht"

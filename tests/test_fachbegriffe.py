@@ -10,12 +10,12 @@ import pymupdf
 import pytest
 from typer.testing import CliRunner
 
-from anonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
-from anonymed.erkennung import fachbegriffe as fachmodul
-from anonymed.erkennung import ner as nermodul
-from anonymed.erkennung.unscharf import finde_unscharf, ziele_fuer
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.dokument.ocr import OCRWort, seitentext_aus_woerter
+from pseudonymed.erkennung import fachbegriffe as fachmodul
+from pseudonymed.erkennung import ner as nermodul
+from pseudonymed.erkennung.unscharf import finde_unscharf, ziele_fuer
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 
 
 def _klein() -> fachmodul.Fachbegriffe:
@@ -73,7 +73,7 @@ def test_unscharfe_suche_verschont_fachbegriffe() -> None:
 
 @pytest.mark.skipif(not nermodul.verfuegbar(), reason="spaCy oder Modell fehlt")
 def test_ner_verschont_fachbegriffe(patient: Patient) -> None:
-    from anonymed.dokument.textebene import lese_seite
+    from pseudonymed.dokument.textebene import lese_seite
 
     doc = pymupdf.open()
     page = doc.new_page()
@@ -94,7 +94,7 @@ def test_ner_verschont_fachbegriffe(patient: Patient) -> None:
 
 
 def test_import_und_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path))
     fachmodul.standard.cache_clear()
     liste = tmp_path / "eigene.txt"
     liste.write_text("Flantzitis\nMusterkrankheit\n", encoding="utf-8")
@@ -113,7 +113,7 @@ def test_import_und_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
         assert fb.geschuetzt(w, 0, len(w), ganz=True), w
     assert any(name == "eigene" for name, _n in fb.quellen)
 
-    from anonymed.cli import app
+    from pseudonymed.cli import app
 
     r = CliRunner().invoke(app, ["fachbegriffe", "status"])
     assert r.exit_code == 0 and "eigene" in r.output and "vokabular" in r.output

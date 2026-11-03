@@ -9,21 +9,21 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from typer.testing import CliRunner
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.cli import app
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme import pgp as pgpmodul
-from anonymed.pseudonyme import sicherung as sichmodul
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.cli import app
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme import pgp as pgpmodul
+from pseudonymed.pseudonyme import sicherung as sichmodul
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 from tests.synthetisch import synthetischer_patient
 from tests.test_gui import qapp  # noqa: F401
 
 
 def _gefuellt(ordner: Path, befund: Path, patient: Patient) -> Path:
-    """A database with one anonymised report; returns the database path."""
+    """A database with one pseudonymised report; returns the database path."""
     db = ordner / "pseudonyme.sqlite"
     with Pseudonymspeicher(db) as sp:
-        erg = anonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
+        erg = pseudonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
                                                            ziel_ordner=ordner / "aus"),
                            speicher=sp)
         assert erg.freigegeben
@@ -32,7 +32,7 @@ def _gefuellt(ordner: Path, befund: Path, patient: Patient) -> Path:
 
 def test_statistik_und_kategorien(tmp_path: Path, befund: Path, patient: Patient,
                                   monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     leer = sichmodul.statistik(tmp_path / "nix.sqlite")
     assert not leer.existiert and leer.patienten == 0 and "nein" in dict(leer.zeilen())["Vorhanden"]
     db = _gefuellt(tmp_path, befund, patient)
@@ -50,7 +50,7 @@ def test_statistik_und_kategorien(tmp_path: Path, befund: Path, patient: Patient
 
 def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Patient,
                                       monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     (tmp_path / "daten" / "fachbegriffe").mkdir(parents=True)
     (tmp_path / "daten" / "fachbegriffe" / "nutzervokabular.txt").write_text("Flantzlegacy\n")
     (tmp_path / "daten" / "konfig.toml").write_text('[gui]\nsprache = "de"\n')
@@ -72,7 +72,7 @@ def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Pat
     assert m.schluessel_kennung == sichmodul.statistik(db).schluessel_kennung
     # restore into an empty place: same identifiers, same mapping, same key
     neu = tmp_path / "neu" / "pseudonyme.sqlite"
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "neu"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "neu"))
     b = sichmodul.importiere(archiv, neu)
     assert b.modus == "ersetzen" and b.patienten_neu == 1 and b.schluessel_ersetzt
     assert b.konfig_ersetzt and b.vokabular_dateien == 0 and b.sicherung_vorher == []
@@ -81,7 +81,7 @@ def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Pat
         assert sp2.zuordnung(patient.schluessel()) == zuordnung
         assert sp2.kennung_fuer(patient).kennung == kennung  # the key came along
     assert (tmp_path / "neu" / "konfig.toml").exists()
-    from anonymed.erkennung import vokabular as vokmodul
+    from pseudonymed.erkennung import vokabular as vokmodul
 
     # the old per-file list went into the default database of the original data folder
     with vokmodul.Vokabular(tmp_path / "daten" / "pseudonyme.sqlite", grundbestand=False) as v:
@@ -94,7 +94,7 @@ def test_export_und_wiederherstellung(tmp_path: Path, befund: Path, patient: Pat
 
 def test_zusammenfuehren(tmp_path: Path, befund: Path, patient: Patient,
                          monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     db = _gefuellt(tmp_path / "a", befund, patient)
     archiv_a = sichmodul.exportiere(tmp_path / "a.zip", db)
     # a second database with the same key and another patient
@@ -107,7 +107,7 @@ def test_zusammenfuehren(tmp_path: Path, befund: Path, patient: Patient,
 
     befund_b = erzeuge_befund(tmp_path / "b" / "befund.pdf", andere)
     with Pseudonymspeicher(zweite) as sp:
-        assert anonymisiere(befund_b, andere, Ablaufoptionen(bericht=False, textdatei=False),
+        assert pseudonymisiere(befund_b, andere, Ablaufoptionen(bericht=False, textdatei=False),
                             speicher=sp).freigegeben
     b = sichmodul.importiere(archiv_a, zweite, modus="zusammenfuehren")
     assert b.patienten_neu == 1 and b.zuordnungen_neu >= 8 and not b.schluessel_ersetzt
@@ -119,7 +119,7 @@ def test_zusammenfuehren(tmp_path: Path, befund: Path, patient: Patient,
     dritte = tmp_path / "c" / "pseudonyme.sqlite"
     dritte.parent.mkdir()
     with Pseudonymspeicher(dritte) as sp:
-        assert anonymisiere(befund_b, andere, Ablaufoptionen(bericht=False, textdatei=False),
+        assert pseudonymisiere(befund_b, andere, Ablaufoptionen(bericht=False, textdatei=False),
                             speicher=sp).freigegeben
     with pytest.raises(sichmodul.SicherungFehler, match="gleichem Pseudonymschlüssel"):
         sichmodul.importiere(archiv_a, dritte, modus="zusammenfuehren")
@@ -130,7 +130,7 @@ def test_zusammenfuehren(tmp_path: Path, befund: Path, patient: Patient,
 @pytest.mark.skipif(not pgpmodul.verfuegbar(), reason="weder pysequoia noch GnuPG")
 def test_verschluesselte_sicherung(tmp_path: Path, befund: Path, patient: Patient,
                                    monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     db = _gefuellt(tmp_path, befund, patient)
     archiv = sichmodul.exportiere(tmp_path / "s", db, passphrase="sehr-geheim-1")
     assert archiv.name.endswith(".zip.gpg") and not archiv.read_bytes().startswith(b"PK")
@@ -146,7 +146,7 @@ def test_verschluesselte_sicherung(tmp_path: Path, befund: Path, patient: Patien
 
 def test_datenbank_ueber_cli(tmp_path: Path, befund: Path, patient: Patient,
                              monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     db = _gefuellt(tmp_path, befund, patient)
     runner = CliRunner()
     r = runner.invoke(app, ["datenbank", "status", "--speicher", str(db)])
@@ -175,10 +175,10 @@ def test_datenbank_ueber_cli(tmp_path: Path, befund: Path, patient: Patient,
 
 def test_fenster_datenbank(qapp: QApplication, tmp_path: Path, befund: Path,  # noqa: F811
                            patient: Patient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     db = _gefuellt(tmp_path, befund, patient)
     sitzung = Sitzung(speicherpfad=db)
     fenster = Hauptfenster(sitzung)

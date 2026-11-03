@@ -12,12 +12,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QGraphicsView  # noqa: E402
 
-from anonymed.dokument import aufbereitung as aufmodul
-from anonymed.dokument import ocr as ocrmodul
-from anonymed.gui.hauptfenster import Hauptfenster  # noqa: E402
-from anonymed.gui.patient_seite import _personen  # noqa: E402
-from anonymed.gui.sitzung import Sitzung  # noqa: E402
-from anonymed.kern.modell import Patient  # noqa: E402
+from pseudonymed.dokument import aufbereitung as aufmodul
+from pseudonymed.dokument import ocr as ocrmodul
+from pseudonymed.gui.hauptfenster import Hauptfenster  # noqa: E402
+from pseudonymed.gui.patient_seite import _personen  # noqa: E402
+from pseudonymed.gui.sitzung import Sitzung  # noqa: E402
+from pseudonymed.kern.modell import Patient  # noqa: E402
 from tests.test_ablauf import gefundene_klardaten  # noqa: E402
 
 
@@ -145,7 +145,7 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     assert pr.fach_anzeigen.isChecked() and "Fachbegriffe markiert" in pr.hinweis.text()
     pr.fach_anzeigen.setChecked(False)
     pr.fach_anzeigen.setChecked(True)
-    from anonymed.erkennung import ner as nermodul
+    from pseudonymed.erkennung import ner as nermodul
 
     assert fenster.analysieren.ner.isChecked() == nermodul.verfuegbar()
     vorher = len(pr.fundstellen())
@@ -209,15 +209,15 @@ def test_fenster_rundlauf(qapp: QApplication, tmp_path: Path, befund: Path,
     text = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in text, text
     assert d.ergebnis is not None and d.ergebnis.freigegeben and d.vorbereitung.abgeschlossen
-    assert (tmp_path / "aus" / "befund_anonym.pdf").exists()
-    sidecar = (tmp_path / "aus" / "befund_anonym.txt").read_text(encoding="utf-8")
+    assert (tmp_path / "aus" / "befund_pseudonym.pdf").exists()
+    sidecar = (tmp_path / "aus" / "befund_pseudonym.txt").read_text(encoding="utf-8")
     assert "[Kasten]" in sidecar and "[Feld]" in sidecar
-    assert (tmp_path / "aus" / "befund_anonym.bericht.json").exists()
+    assert (tmp_path / "aus" / "befund_pseudonym.bericht.json").exists()
     assert patient.nachname not in sidecar
     assert patient.zuweiser[0].nachname in sidecar  # deliberately kept
 
     # the decision to keep the referrer was stored for this patient
-    from anonymed.pseudonyme.speicher import Pseudonymspeicher
+    from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 
     with Pseudonymspeicher(tmp_path / "s.sqlite") as sp:
         assert any(r == "zuweiser1.name" for r, _t in sp.verworfene(patient))
@@ -243,10 +243,10 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient,
     imports into the user's own list."""
     from PySide6.QtGui import QTextCursor
 
-    from anonymed.erkennung import fachbegriffe as fachmodul
+    from pseudonymed.erkennung import fachbegriffe as fachmodul
     from tests.synthetisch import erzeuge_transkript, verschrieben
 
-    monkeypatch.setenv("ANONYMED_DATENORDNER", str(tmp_path / "daten"))
+    monkeypatch.setenv("PSEUDONYMED_DATENORDNER", str(tmp_path / "daten"))
     fachmodul.standard.cache_clear()
     quelle = erzeuge_transkript(tmp_path / "gespraech.txt", patient)
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
@@ -304,12 +304,12 @@ def test_fenster_textdatei(qapp: QApplication, tmp_path: Path, patient: Patient,
     qapp.processEvents()
     protokoll = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in protokoll and "Freigegeben" in protokoll, protokoll
-    ziel = tmp_path / "aus" / "gespraech_anonym.txt"
+    ziel = tmp_path / "aus" / "gespraech_pseudonym.txt"
     aus = ziel.read_text(encoding="utf-8")
     assert "[Symptom]" in aus and verschrieben(patient.nachname) in aus  # discarded = kept
     assert patient.nachname not in aus and gefundene_klardaten(protokoll, patient) == []
     # the discarded fuzzy hit is a guess, so it went into the vocabulary file …
-    vokabular = tmp_path / "aus" / "gespraech_anonym.vokabular.txt"
+    vokabular = tmp_path / "aus" / "gespraech_pseudonym.vokabular.txt"
     assert d.ergebnis.ziel_vokabular == vokabular and "Vokabular:" in protokoll
     zeilen = [z for z in vokabular.read_text(encoding="utf-8").splitlines()
               if z and not z.startswith("#")]
@@ -346,19 +346,19 @@ def test_fenster_laesst_sich_verkleinern(qapp: QApplication, tmp_path: Path) -> 
 
 
 def test_selbsttest(qapp: QApplication, capsys: pytest.CaptureFixture[str]) -> None:
-    from anonymed.gui.app import main
+    from pseudonymed.gui.app import main
 
     assert main(["--selbsttest"]) == 0
     assert "Selbsttest bestanden" in capsys.readouterr().out
 
 
 def test_englische_oberflaeche(qapp: QApplication, monkeypatch: pytest.MonkeyPatch) -> None:
-    from anonymed.gui import uebersetzung
+    from pseudonymed.gui import uebersetzung
 
     assert uebersetzung.sprache_bestimmen(["--sprache", "en"]) == "en"
     assert uebersetzung.sprache_bestimmen(["--language=EN-GB"]) == "en-gb"
     assert uebersetzung.ohne_sprachargumente(["x", "--sprache", "en", "y"]) == ["x", "y"]
-    monkeypatch.setenv("ANONYMED_SPRACHE", "en")
+    monkeypatch.setenv("PSEUDONYMED_SPRACHE", "en")
     assert uebersetzung.sprache_bestimmen([]) == "en"
     uebersetzer = uebersetzung.installiere(qapp, "en_gb")
     assert uebersetzer is not None
@@ -468,7 +468,7 @@ def test_fenster_aufbereiten(qapp: QApplication, tmp_path: Path, befund: Path,
     protokoll = fenster.export.ausgabe.toPlainText()
     assert "Gegenprobe: bestanden" in protokoll, protokoll
     assert gefundene_klardaten(protokoll, patient) == []
-    txt = (tmp_path / "aus" / "scan_anonym.txt").read_text(encoding="utf-8")
+    txt = (tmp_path / "aus" / "scan_pseudonym.txt").read_text(encoding="utf-8")
     assert "Zusatz: Testzeile aus der Korrektur." in txt  # the correction reached the output
     fenster.close()
 
@@ -477,9 +477,9 @@ def test_export_gesperrt_bei_roter_ampel(qapp: QApplication, tmp_path: Path, bef
                                          patient: Patient, monkeypatch: pytest.MonkeyPatch) -> None:
     """When the re-check still finds identifiers, the light is red, the export button is
     off and exporting raises (a dialog in the real app); nothing is written."""
-    from anonymed.gui import sitzung as sitzungsmodul
-    from anonymed.kern.modell import Gegenprobe
-    from anonymed.pruefung.bericht import erstelle_bericht
+    from pseudonymed.gui import sitzung as sitzungsmodul
+    from pseudonymed.kern.modell import Gegenprobe
+    from pseudonymed.pruefung.bericht import erstelle_bericht
 
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)
@@ -507,5 +507,5 @@ def test_export_gesperrt_bei_roter_ampel(qapp: QApplication, tmp_path: Path, bef
     assert "nichts exportiert" in fenster.export.ausgabe.toPlainText()
     with pytest.raises(RuntimeError):
         fenster.export.exportieren()
-    assert not (tmp_path / "aus").exists() or not list((tmp_path / "aus").glob("*_anonym.pdf"))
+    assert not (tmp_path / "aus").exists() or not list((tmp_path / "aus").glob("*_pseudonym.pdf"))
     fenster.close()

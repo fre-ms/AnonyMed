@@ -7,11 +7,11 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from anonymed.ablauf import Ablaufoptionen, anonymisiere
-from anonymed.kern.modell import Patient
-from anonymed.pruefung import restrisiko as rr
-from anonymed.pruefung.bericht import als_text
-from anonymed.pseudonyme.speicher import Pseudonymspeicher
+from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pruefung import restrisiko as rr
+from pseudonymed.pruefung.bericht import als_text
+from pseudonymed.pseudonyme.speicher import Pseudonymspeicher
 from tests.test_gui import qapp  # noqa: F401
 
 
@@ -91,7 +91,7 @@ def test_vereinigung_mit_frueheren() -> None:
 
 def test_bericht_und_speicher(tmp_path: Path, befund: Path, patient: Patient) -> None:
     with Pseudonymspeicher(tmp_path / "s.sqlite") as sp:
-        erg = anonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
+        erg = pseudonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
                                                            ziel_ordner=tmp_path / "aus"),
                            speicher=sp)
         assert erg.freigegeben and erg.restrisiko is not None
@@ -107,7 +107,7 @@ def test_bericht_und_speicher(tmp_path: Path, befund: Path, patient: Patient) ->
                             19.0, 150.0)
         merkmale, n = sp.restrisiko_fruehere(patient)
         assert n == 2 and merkmale[0]["bits"] == 14.0  # the higher weight stays
-    klein = anonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
+    klein = pseudonymisiere(befund, patient, Ablaufoptionen(bericht=False, textdatei=False,
                                                          suffix="_k", referenzpopulation=50_000),
                          speicher=Pseudonymspeicher(":memory:"))
     assert klein.restrisiko.referenz == 50_000 and klein.restrisiko.lam < erg.restrisiko.lam
@@ -117,8 +117,8 @@ def test_fenster_kontrolle(qapp: QApplication, tmp_path: Path, befund: Path,  # 
                            patient: Patient) -> None:
     """The control step runs the re-check, shows both lights, and a red estimate needs an
     explicit confirmation before the export."""
-    from anonymed.gui.hauptfenster import Hauptfenster
-    from anonymed.gui.sitzung import Sitzung
+    from pseudonymed.gui.hauptfenster import Hauptfenster
+    from pseudonymed.gui.sitzung import Sitzung
 
     sitzung = Sitzung(speicherpfad=tmp_path / "s.sqlite")
     fenster = Hauptfenster(sitzung)

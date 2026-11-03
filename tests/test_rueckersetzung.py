@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.rueckersetzung import rueckersetzen
-from anonymed.pseudonyme.vergabe import Pseudonymvergabe
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.rueckersetzung import rueckersetzen
+from pseudonymed.pseudonyme.vergabe import Pseudonymvergabe
 
 
 def _zuordnung(patient: Patient, geheimnis: bytes | None = None) -> dict[str, str]:
@@ -70,7 +70,7 @@ def test_verbleibende_pseudonyme(patient: Patient) -> None:
 
 
 def test_hashkennung_und_pruefzeichen(patient: Patient) -> None:
-    from anonymed.pseudonyme.kennung import hash_kennung
+    from pseudonymed.pseudonyme.kennung import hash_kennung
 
     k = hash_kennung(bytes(32), "657|47|1959-07-21")
     v = Pseudonymvergabe(patient, k)

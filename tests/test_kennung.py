@@ -7,8 +7,8 @@ import datetime as dt
 
 import pytest
 
-from anonymed.kern.modell import Patient
-from anonymed.pseudonyme.kennung import (
+from pseudonymed.kern.modell import Patient
+from pseudonymed.pseudonyme.kennung import (
     ALPHABET,
     hash_kennung,
     hauptteil,
@@ -19,7 +19,7 @@ from anonymed.pseudonyme.kennung import (
     pruefzeichen,
     trenne_hausnummer,
 )
-from anonymed.pseudonyme.phonetik import koelner_phonetik
+from pseudonymed.pseudonyme.phonetik import koelner_phonetik
 
 SCHLUESSEL = bytes(range(32))
 

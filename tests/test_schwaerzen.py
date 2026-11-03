@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pymupdf
 
-from anonymed.dokument.textebene import lese_seite
-from anonymed.kern.modell import Art, Fundstelle
-from anonymed.schwaerzen.pdf import (
+from pseudonymed.dokument.textebene import lese_seite
+from pseudonymed.kern.modell import Art, Fundstelle
+from pseudonymed.schwaerzen.pdf import (
     Schwaerzoptionen,
     bereinige,
     lage_intakt,
@@ -104,7 +104,7 @@ def test_bereinige_entfernt_struktur() -> None:
     doc.embfile_add("a.txt", b"x")
     bereinige(doc)
     assert doc.metadata["title"] == "" and doc.metadata["author"] == ""
-    assert doc.metadata["producer"].startswith("AnonyMed")
+    assert doc.metadata["producer"].startswith("PseudonyMed")
     assert doc.get_toc() == [] and doc.embfile_count() == 0
     assert list(doc[0].annots()) == []
 
