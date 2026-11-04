@@ -63,6 +63,19 @@ class AnalysierenSeite(QWidget):
             " (siehe „2 Identifikatoren“)"))
         self.identifikatoren.setChecked(True)
         form.addRow(self.identifikatoren)
+        self.medikamente = QCheckBox(self.tr("Medikamente schwärzen"))
+        self.medikamente.setToolTip(self.tr(
+            "Medikamentennamen aus dem Lexikon (Wirkstoffe, einige Handelsnamen) und alle"
+            " Begriffe der Kategorie „Medikament“ in „3 Fachvokabular“. Standardmäßig aus:"
+            " Medikamente gehören zum medizinischen Inhalt."))
+        form.addRow(self.medikamente)
+        self.laborwerte = QCheckBox(self.tr("Laborwerte schwärzen (Name und Messwert)"))
+        self.laborwerte.setToolTip(self.tr(
+            "Ein Laborname zusammen mit dem Messwert direkt dahinter, etwa „TSH 2,3 mU/l“;"
+            " ein Laborname ohne Wert bleibt stehen. Eigene Namen in „3 Fachvokabular“ mit der"
+            " Kategorie „Laborwert“. Standardmäßig aus: Laborwerte gehören zum medizinischen"
+            " Inhalt."))
+        form.addRow(self.laborwerte)
         self.unscharf = QCheckBox(
             self.tr("Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)"))
         self.unscharf.setChecked(True)
@@ -154,6 +167,8 @@ class AnalysierenSeite(QWidget):
         o.ner = self.ner.isChecked()
         o.fachbegriffe = self.fachbegriffe.isChecked()
         o.identifikatoren = self.identifikatoren.isChecked()
+        o.medikamente_schwaerzen = self.medikamente.isChecked()
+        o.laborwerte_schwaerzen = self.laborwerte.isChecked()
         o.unscharf_text = self.unscharf.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:

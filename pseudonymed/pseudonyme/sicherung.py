@@ -52,7 +52,8 @@ KATEGORIEN = [  # pseudonym prefix -> label (first match wins)
     ("[E-Mail", "E-Mail"), ("[Versicherten", "Versichertennummer"), ("[Pat", "Patienten-ID"),
     ("[Aktenzeichen", "Aktenzeichen"), ("[IBAN", "IBAN"), ("[Code]", "Barcode/QR"),
     ("[Beruf", "Beruf"), ("[Klinik", "Klinik"), ("[Studie", "Studie"), ("[Titel", "Titel"),
-    ("[Identifikator", "Identifikator"),
+    ("[Identifikator", "Identifikator"), ("[Medikament", "Medikament"),
+    ("[Laborwert", "Laborwert"),
 ]
 _ART_LABELS = {
     "name": "Name", "vorname": "Name", "nachname": "Name", "geburtsname": "Geburtsname",
@@ -60,6 +61,7 @@ _ART_LABELS = {
     "email": "E-Mail", "versichertennummer": "Versichertennummer",
     "patienten_id": "Patienten-ID", "aktenzeichen": "Aktenzeichen", "iban": "IBAN",
     "begriff": "Begriff", "manuell": "Manuell", "identifikator": "Identifikator",
+    "medizin": "Medizinischer Inhalt",
 }
 
 

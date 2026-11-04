@@ -259,6 +259,14 @@ def pseudonymisieren(
         "--identifikatoren/--keine-identifikatoren",
         help="Berufe, Kliniken, Studien und Titel schwärzen (Tabelle 'identifikatoren').")]
     = True,
+    medikamente: Annotated[bool, typer.Option(
+        "--medikamente-schwaerzen/--medikamente-lassen",
+        help="Medikamentennamen schwärzen (Standard: stehen lassen, sie sind medizinischer"
+             " Inhalt).")] = False,
+    laborwerte: Annotated[bool, typer.Option(
+        "--laborwerte-schwaerzen/--laborwerte-lassen",
+        help="Laborwerte samt Messwert schwärzen, etwa „TSH 2,3 mU/l“ (Standard: stehen"
+             " lassen).")] = False,
     unscharf: Annotated[bool, typer.Option(
         "--unscharf/--genau",
         help="Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte).")] = True,
@@ -333,6 +341,7 @@ def pseudonymisieren(
         ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, identifikatoren=identifikatoren,
+        medikamente_schwaerzen=medikamente, laborwerte_schwaerzen=laborwerte,
         unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
         vokabular=vokabular, gliedern=gliedern,

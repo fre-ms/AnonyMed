@@ -34,6 +34,7 @@ class Art(StrEnum):
     IBAN = "iban"
     BEGRIFF = "begriff"
     IDENTIFIKATOR = "identifikator"
+    MEDIZIN = "medizin"  # medications, lab values: redacted only on request
     MANUELL = "manuell"
 
 

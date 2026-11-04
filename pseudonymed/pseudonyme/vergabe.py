@@ -150,14 +150,15 @@ class Pseudonymvergabe:
         return self._merke(f"[Begriff {nummer}]", text, Art.BEGRIFF)
 
     # -- identifiers from the lexicon: professions, hospitals, studies, titles ---------------------
-    def identifikator(self, praefix: str, text: str) -> str:
-        """An identifier of the identifiers step: "[Klinik <code>]" from the keyed hash of
-        the class and the normalised text, so that the same hospital gets the same code."""
+    def identifikator(self, praefix: str, text: str, art: Art = Art.IDENTIFIKATOR) -> str:
+        """An identifier of the identifiers step (or a medication or lab value): "[Klinik
+        <code>]" from the keyed hash of the class and the normalised text, so that the same
+        hospital gets the same code."""
         text = " ".join(text.split())
         if self.geheimnis is None:
-            return self._merke(f"[{praefix}]", text, Art.IDENTIFIKATOR)
+            return self._merke(f"[{praefix}]", text, art)
         code = hash_kennung(self.geheimnis, f"{praefix.casefold()}:" + normalisiere(text))
-        return self._merke(f"[{praefix} {code}]", text, Art.IDENTIFIKATOR)
+        return self._merke(f"[{praefix} {code}]", text, art)
 
     # -- people and places found by NER ----------------------------------------------------------
     def person_unbekannt(self, name: str) -> str:

@@ -45,7 +45,7 @@ No live mark in class 44 begins with "pseudo" or contains "pseudonym".
 | --- | --- |
 | pseudonymed.de | free (DENIC: "Status: free"; DENIC RDAP 404) |
 | pseudonymed.com, pseudonymed.net | free (Verisign RDAP 404) |
-| pseudonymed.org | registered on 2 November 2026 (InterNetX GmbH, registrant hidden behind a privacy service, expires 2 November 2027); no web service yet. Presumably the project's own registration |
+| pseudonymed.org | registered on 2 November 2026 (InterNetX GmbH, registrant hidden behind a privacy service, expires 2 November 2027); no web service yet. The project's own registration (confirmed on 4 November 2026) |
 | pseudonymed.eu | free (EURid WHOIS: "AVAILABLE") |
 | pseudonymed.app | free (Google Registry RDAP 404) |
 | pseudonymed.io | free (WHOIS: "Domain not found") |
@@ -68,7 +68,7 @@ The field itself is busy. Tools with the same purpose (pseudonymising text befor
 ## AnonyMed re-check
 
 - **Trade marks:** TMview mark text *contains* `anonymed` and `anonimed`: still no rows. *Similar to* `anonymed`: 297 rows, the same count as on 30 October 2026. No new application.
-- **Domains:** anonymed.de is still free. anonymed.com is unchanged (NameCheap, registered 16 February 2006, expires 16 February 2027; resolves to a Wix address, the HTTPS handshake fails, no web page). anonymed.eu is registered; WHOIS now names Spaceship, Inc. as registrar and Cloudflare name servers (the note of 30 October recorded no name servers), there is no address record and no web page. **anonymed.org is new:** registered on 2 November 2026 through InterNetX with the same name servers as pseudonymed.org, so presumably also the project's own. anonymed.net, .app and .io are still free.
+- **Domains:** anonymed.de is still free. anonymed.com is unchanged (NameCheap, registered 16 February 2006, expires 16 February 2027; resolves to a Wix address, the HTTPS handshake fails, no web page). anonymed.eu is registered; WHOIS now names Spaceship, Inc. as registrar and Cloudflare name servers (the note of 30 October recorded no name servers), there is no address record and no web page. **anonymed.org is new:** registered on 2 November 2026 through InterNetX with the same name servers as pseudonymed.org; also the project's own (confirmed on 4 November 2026). anonymed.net, .app and .io are still free.
 - **Other:** the Motivus "AnonyMed" page (motivus.com/accelerators-and-frameworks/anonymed/) is still live, still without ™ or ®. PyPI `anonymed` is free; on GitHub, `Anonymed` is an unrelated personal account from 2013 with two unrelated repositories.
 
 ## Assessment
@@ -77,7 +77,7 @@ No identical trade mark, application, product or company name was found, and no 
 
 There is a second weakness, in the name itself. "Pseudonym" plus "Med" may be treated as descriptive or non-distinctive for software that pseudonymises medical documents (section 8(2) nos. 1 and 2 MarkenG; Article 7(1)(b) and (c) EUTMR). A word mark might therefore meet objections, and rights against similar names would be narrow. The offices did register Pseudonymizer and PSEUDOMIZER, so refusal is not certain. A figurative mark, or a name with a distinctive element, would be easier to protect. AnonyMed has the same structure.
 
-The domain position is good: .de, .com, .net, .eu, .app and .io are free, and .org is presumably the project's own.
+The domain position is good: .de, .com, .net, .eu, .app and .io are free, and .org is the project's own.
 
 Remaining risks: TMview is not an official register; very recent filings, and filings claiming a foreign priority of up to six months, may not be visible yet; company names and unregistered signs (section 5 MarkenG, section 4 no. 2 MarkenG) can only be searched for partially; and several "pseudo" applications were filed in 2026 alone in classes 9 and 42, so more are likely to follow.
 

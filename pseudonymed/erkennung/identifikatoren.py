@@ -196,7 +196,8 @@ class Kandidat:
 class Erkenner:
     """The identifier rows with their matcher."""
 
-    def __init__(self) -> None:
+    def __init__(self, registernummern: bool = True) -> None:
+        self.registernummern = registernummern  # NCT, DRKS … as study hits
         self.index: dict[str, list[_Muster]] = {}
         self.je_klasse: dict[str, int] = {}
         self._gesehen: set[tuple[tuple[str, ...], str]] = set()
@@ -205,8 +206,9 @@ class Erkenner:
     def anzahl(self) -> int:
         return sum(self.je_klasse.values())
 
-    def fuege_hinzu(self, begriff: str, klasse: str) -> int:
-        """Add one row (hospitals with their short forms); returns how many forms."""
+    def fuege_hinzu(self, begriff: str, klasse: str, exakt: bool | None = None) -> int:
+        """Add one row (hospitals with their short forms); returns how many forms.
+        ``exakt`` asks for the registered spelling (default: titles and studies only)."""
         begriff = " ".join(begriff.split())
         if klasse == KLASSE_TITEL:
             if len(begriff) < 2 or (begriff.islower() and len(begriff) <= 4):
@@ -219,10 +221,11 @@ class Erkenner:
         elif klasse == KLASSE_KLINIK:
             formen = klinik_formen(begriff)
         else:
-            formen = {begriff} if len(begriff) >= MIN_LAENGE else set()
+            # an entry matched only in its exact spelling may be short ("Hb")
+            formen = {begriff} if len(begriff) >= (2 if exakt else MIN_LAENGE) else set()
         if klasse == KLASSE_BERUF:
             formen = {f for f in formen if _norm(f) not in _KEIN_BERUF}
-        neu = sum(self._form(form, klasse) for form in formen)
+        neu = sum(self._form(form, klasse, exakt) for form in formen)
         if neu:
             self.je_klasse[klasse] = self.je_klasse.get(klasse, 0) + 1
         return neu
@@ -234,7 +237,7 @@ class Erkenner:
         return sum(self._form(f"{w} {o}", KLASSE_KLINIK)
                    for o in orte if len(o) >= 3 for w in _HAUSWOERTER)
 
-    def _form(self, form: str, klasse: str) -> int:
+    def _form(self, form: str, klasse: str, exakt: bool | None = None) -> int:
         original = tuple(_TOKEN.findall(form))
         if not original or len(original) > MAX_WOERTER:
             return 0
@@ -242,7 +245,8 @@ class Erkenner:
         if (normal, klasse) in self._gesehen:
             return 0
         self._gesehen.add((normal, klasse))
-        exakt = klasse in (KLASSE_TITEL, KLASSE_STUDIE)
+        if exakt is None:
+            exakt = klasse in (KLASSE_TITEL, KLASSE_STUDIE)
         self.index.setdefault(normal[0], []).append(
             _Muster(normal, original, klasse, exakt, form[-1] if form[-1] in ".)" else ""))
         return 1
@@ -312,7 +316,7 @@ class Erkenner:
                 beruf_ende = gewaehlt.ende
             while i < len(tokens) and tokens[i].start() < gewaehlt.ende:
                 i += 1
-        if not titel:
+        if not titel and self.registernummern:
             aus += _studien_nummern(text, aus)
             aus.sort(key=lambda k: k.start)
         return aus
