@@ -77,8 +77,11 @@ class Ablaufoptionen:
     ner: bool = False  # people and places the rules do not know (extra "ner")
     fachbegriffe: bool = True  # protect medical terms from NER and fuzzy OCR matching
     identifikatoren: bool = True  # professions, hospitals, studies, titles (identifiers step)
-    medikamente_schwaerzen: bool = False  # medical content: off unless asked for
-    laborwerte_schwaerzen: bool = False  # lab name with its measurement
+    # medical content, four levels, all off unless asked for (see erkennung.medizininhalte)
+    medikamente_schwaerzen: bool = False  # the drug name
+    dosierungen_schwaerzen: bool = False  # dose and schedule next to a drug name
+    laborwerte_schwaerzen: bool = False  # the lab name, the examination
+    messwerte_schwaerzen: bool = False  # the measurement after a lab name
     unscharf_text: bool = True  # text files: fuzzy search for misspelt identifiers (transcripts)
     aufbereiten: str = "auto"  # image-only pages: "auto" (suggested clean-up) or "aus"
     verworfene_merken: bool = False  # remember discarded hits per patient in the store
@@ -110,7 +113,9 @@ class Ablaufoptionen:
             "fachbegriffe": self.fachbegriffe,
             "identifikatoren": self.identifikatoren,
             "medikamente_schwaerzen": self.medikamente_schwaerzen,
+            "dosierungen_schwaerzen": self.dosierungen_schwaerzen,
             "laborwerte_schwaerzen": self.laborwerte_schwaerzen,
+            "messwerte_schwaerzen": self.messwerte_schwaerzen,
             "unscharf_text": self.unscharf_text,
             "aufbereiten": self.aufbereiten,
             "papierformat": self.papierformat,
@@ -337,7 +342,7 @@ def _erkenne_seiten(
     opt: Ablaufoptionen, vergabe: Pseudonymvergabe | None = None,
     ner: nermodul.NER | None = None, fachbegriffe: fachmodul.Fachbegriffe | None = None,
     verschont: list[str] | None = None, identifikatoren: identmodul.Erkenner | None = None,
-    medizin: identmodul.Erkenner | None = None,
+    medizin: medmodul.Medizinsuche | None = None,
 ) -> None:
     """Run the detection over pages that were read already: rules, vocabulary marks,
     identifiers, NER and the titles of the people found on the text layer; on OCR text
@@ -354,8 +359,7 @@ def _erkenne_seiten(
             eintrag.fundstellen += identmodul.finde_identifikatoren(
                 textebene, identifikatoren, vergabe, eintrag.fundstellen, "text")
         if medizin is not None and vergabe is not None and textebene.hat_textebene:
-            eintrag.fundstellen += medmodul.finde(textebene, medizin, vergabe,
-                                                  eintrag.fundstellen, "text")
+            eintrag.fundstellen += medizin.finde(textebene, vergabe, eintrag.fundstellen, "text")
         if ner is not None and vergabe is not None and textebene.hat_textebene:
             neue = nermodul.finde_ner(textebene, ner, vergabe, eintrag.fundstellen, "text",
                                       fachbegriffe, verschont)
@@ -376,8 +380,7 @@ def _erkenne_seiten(
                     eintrag.ocr, identifikatoren, vergabe, ocr_treffer, "ocr")
             if medizin is not None and vergabe is not None:
                 ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
-                eintrag.fundstellen += medmodul.finde(eintrag.ocr, medizin, vergabe,
-                                                      ocr_treffer, "ocr")
+                eintrag.fundstellen += medizin.finde(eintrag.ocr, vergabe, ocr_treffer, "ocr")
             if ner is not None and vergabe is not None:
                 ocr_treffer = [f for f in eintrag.fundstellen if f.quelle == "ocr"]
                 neue = nermodul.finde_ner(eintrag.ocr, ner, vergabe, ocr_treffer, "ocr",
@@ -419,7 +422,7 @@ def _korrektur_treffer(eintrag: _Seite, regeln: list[Regel], ziele: list[Ziel],
                        opt: Ablaufoptionen, fachbegriffe: fachmodul.Fachbegriffe | None,
                        identifikatoren: identmodul.Erkenner | None = None,
                        vergabe: Pseudonymvergabe | None = None,
-                       medizin: identmodul.Erkenner | None = None) -> list[Fundstelle]:
+                       medizin: medmodul.Medizinsuche | None = None) -> list[Fundstelle]:
     """Rules, fuzzy search, identifiers and the chosen medical content over the user's
     corrected OCR text: text-only hits."""
     assert eintrag.korrektur is not None
@@ -430,7 +433,7 @@ def _korrektur_treffer(eintrag: _Seite, regeln: list[Regel], ziele: list[Ziel],
     if identifikatoren is not None and vergabe is not None:
         treffer += identmodul.finde_identifikatoren(seite, identifikatoren, vergabe, treffer)
     if medizin is not None and vergabe is not None:
-        treffer += medmodul.finde(seite, medizin, vergabe, treffer)
+        treffer += medizin.finde(seite, vergabe, treffer)
     if identifikatoren is not None and vergabe is not None:
         treffer += identmodul.finde_titel(seite, identifikatoren, vergabe, treffer)
     for f in treffer:
@@ -662,8 +665,7 @@ class Vorbereitung:
         s.korrektur = text
         fach = fachmodul.standard() if self.opt.fachbegriffe else None
         ident = identmodul.standard() if self.opt.identifikatoren else None
-        medizin = medmodul.standard(self.opt.medikamente_schwaerzen,
-                                    self.opt.laborwerte_schwaerzen)
+        medizin = medmodul.standard(medmodul.Auswahl.aus(self.opt))
         s.korrektur_treffer = _korrektur_treffer(s, self.regeln, self.ziele, self.opt, fach,
                                                  ident, self.vergabe, medizin)
         self.version += 1
@@ -736,7 +738,7 @@ class _Ruestzeug:
     ner: nermodul.NER | None
     fachbegriffe: fachmodul.Fachbegriffe | None
     identifikatoren: identmodul.Erkenner | None = None
-    medizin: identmodul.Erkenner | None = None  # medications and lab values, when chosen
+    medizin: medmodul.Medizinsuche | None = None  # medications and lab values, when chosen
 
 
 def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeicher) -> _Ruestzeug:
@@ -764,13 +766,11 @@ def _ruestzeug(patient: Patient, opt: Ablaufoptionen, speicher: Pseudonymspeiche
                              " (Extra 'ner', siehe Anleitung); ohne NER fortgefahren.")
     fachbegriffe = fachmodul.standard() if opt.fachbegriffe else None
     identifikatoren = identmodul.standard() if opt.identifikatoren else None
-    medizin = medmodul.standard(opt.medikamente_schwaerzen, opt.laborwerte_schwaerzen)
+    medizin = medmodul.standard(medmodul.Auswahl.aus(opt))
     if medizin is not None:
-        for klasse, gewaehlt in ((medmodul.KLASSE_MEDIKAMENT, opt.medikamente_schwaerzen),
-                                 (medmodul.KLASSE_LABORWERT, opt.laborwerte_schwaerzen)):
-            if gewaehlt and not medizin.je_klasse.get(klasse):
-                warnungen.append(f"{klasse}e schwärzen gewählt, aber die Liste ist leer"
-                                 " (Lexikon nicht geladen?); nichts davon geschwärzt.")
+        for klasse in medizin.fehlende_listen():
+            warnungen.append(f"{klasse}e schwärzen gewählt, aber die Liste ist leer"
+                             " (Lexikon nicht geladen?); nichts davon geschwärzt.")
     return _Ruestzeug(kennung.kennung, vergabe, regeln_fuer(patient, vergabe),
                       ziele_fuer(patient, vergabe), warnungen, ner, fachbegriffe,
                       identifikatoren, medizin)
@@ -1133,7 +1133,7 @@ def _vorbereiten_text(
         eintrag.fundstellen += identmodul.finde_identifikatoren(
             seite, r.identifikatoren, r.vergabe, eintrag.fundstellen)
     if r.medizin is not None:
-        eintrag.fundstellen += medmodul.finde(seite, r.medizin, r.vergabe, eintrag.fundstellen)
+        eintrag.fundstellen += r.medizin.finde(seite, r.vergabe, eintrag.fundstellen)
     verschont: list[str] = []
     if r.ner is not None:
         eintrag.fundstellen += nermodul.finde_ner(seite, r.ner, r.vergabe, eintrag.fundstellen,

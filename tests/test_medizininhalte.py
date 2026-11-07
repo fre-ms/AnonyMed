@@ -1,4 +1,4 @@
-"""Medications and lab values: off by default, redacted on request, restored afterwards."""
+"""Medications and lab values in four levels: off by default, redacted on request, restored."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from pseudonymed.cli import app
 from pseudonymed.erkennung import fachbegriffe as fachmodul
 from pseudonymed.erkennung import lexikon
 from pseudonymed.erkennung import medizininhalte as medmodul
+from pseudonymed.erkennung.medizininhalte import Auswahl
 from pseudonymed.erkennung.vokabular import Vokabular
 from pseudonymed.kern.modell import Art, Patient
 from pseudonymed.pruefung.bericht import als_text
@@ -26,13 +27,17 @@ from tests.test_gui import qapp  # noqa: F401
 ZEILEN = [  # begriff, klasse, quelle
     ("Levetiracetam", "Medikament", "Wikidata"),
     ("Lamotrigin", "Medikament", "Wikidata"),
+    ("Ibuprofen", "Medikament", "Wikidata"),
+    ("Paracetamol", "Medikament", "Wikidata"),
     ("Sauerstoff", "Medikament", "Wikidata"),
     ("ASS", "Medikament", "Wikidata"), ("ASS", "Erkrankung", "Wikidata"),  # also autism
-    ("TSH", "Medikament", "Wikidata"), ("TSH", "Laborwert", "Laborwerte"),
+    ("Kalium", "Medikament", "Wikidata"), ("Kalium", "Laborwert", "Laborwerte"),  # both
+    ("TSH", "Laborwert", "Laborwerte"),
     ("Hb", "Laborwert", "Laborwerte"), ("HbA1c", "Laborwert", "Laborwerte"),
-    ("Kreatinin", "Laborwert", "Laborwerte"),
+    ("Kreatinin", "Laborwert", "Laborwerte"), ("Ferritin", "Laborwert", "Laborwerte"),
     ("Zuname", "Laborwert", "Wikidata"),  # the noisy Wikidata lab rows stay unused
 ]
+ALLE = Auswahl(True, True, True, True)
 
 
 def _caches_leeren() -> None:
@@ -57,38 +62,82 @@ def lexikon_klein(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
     _caches_leeren()
 
 
-def _gefunden(text: str, medikamente: bool = True, laborwerte: bool = True) -> list[str]:
-    e = medmodul.standard(medikamente, laborwerte)
-    assert e is not None
-    aus = []
-    for k in e.kandidaten(text):
-        ende = medmodul.messwert_ende(text, k.ende) if k.klasse == "Laborwert" else k.ende
-        if ende is not None:
-            aus.append(text[k.start:ende])
-    return aus
+def _spannen(text: str, auswahl: Auswahl = ALLE) -> list[tuple[str, str]]:
+    suche = medmodul.standard(auswahl)
+    assert suche is not None
+    return [(text[a:b], art) for a, b, art in suche.spannen(text)]
 
 
-def test_auswahl_der_listen(lexikon_klein: Path) -> None:
-    assert medmodul.standard(False, False) is None
-    e = medmodul.standard(True, True)
-    assert e is not None and e.je_klasse == {"Medikament": 3, "Laborwert": 4}
-    text = ("Levetiracetams Wirkung, Lamotrigin 50 mg, ASS 100 mg, Marcumar nach INR,"
-            " Sauerstoff 2 l/min, TSH basal.")
-    assert _gefunden(text) == ["Levetiracetams", "Lamotrigin", "Marcumar"]
-    assert _gefunden("Lamotrigin, TSH 2,3 mU/l", medikamente=False) == ["TSH 2,3 mU/l"]
-    assert _gefunden("Lamotrigin, TSH 2,3 mU/l", laborwerte=False) == ["Lamotrigin"]
+# -- the selection and the lists -----------------------------------------------------------------
+def test_auswahl() -> None:
+    assert medmodul.standard(Auswahl()) is None and not Auswahl().aktiv
+    opt = Ablaufoptionen(dosierungen_schwaerzen=True, messwerte_schwaerzen=True)
+    a = Auswahl.aus(opt)
+    assert a == Auswahl(dosierungen=True, messwerte=True)
+    assert a.medikamentennamen and a.labornamen and not a.medikamente and not a.laborwerte
 
 
-def test_laborwerte_nur_mit_messwert(lexikon_klein: Path) -> None:
-    text = ("TSH 2,3 mU/l, Hb: 12,4 g/dl, HbA1c von 6,2 %, Kreatinin < 1,1 mg/dl, TSH 4."
-            " Kontrolle des TSH am 03.11.2026, Kreatinin erhöht, HB 12 ohne Einheit, hb 12,"
-            " Zuname 12 mg/l.")
-    assert _gefunden(text) == ["TSH 2,3 mU/l", "Hb: 12,4 g/dl", "HbA1c von 6,2 %",
-                               "Kreatinin < 1,1 mg/dl", "TSH 4"]
-    assert medmodul.messwert_ende("TSH 12.03.2026", 3) is None  # a date is no value
-    assert medmodul.messwert_ende("TSH 2,3 im Normbereich", 3) == len("TSH 2,3")
+def test_listen(lexikon_klein: Path) -> None:
+    suche = medmodul.standard(ALLE)
+    assert suche is not None
+    assert suche.erkenner.je_klasse == {"Medikament": 6, "Laborwert": 6}  # no ASS, Sauerstoff
+    assert suche.beide == {"kalium"} and suche.fehlende_listen() == []
+    assert _spannen("ASS 100 mg, Sauerstoff 2 l/min, Zuname 12 mg/l, Marcumar nach INR.") == [
+        ("Marcumar", "Medikament")]
 
 
+# -- medications: substance and dose as separate levels -------------------------------------------
+def test_medikamente_zwei_stufen(lexikon_klein: Path) -> None:
+    text = ("Levetiracetam 500 mg 1-0-1, Lamotrigin 50 mg abends, 2 Tbl. Ibuprofen 400 mg bei"
+            " Bedarf, Paracetamol. Donepezil 10 mg zur Nacht, p. o. Keppra seit 3 Jahren.")
+    assert _spannen(text, Auswahl(medikamente=True)) == [
+        ("Levetiracetam", "Medikament"), ("Lamotrigin", "Medikament"), ("Ibuprofen", "Medikament"),
+        ("Paracetamol", "Medikament")]
+    assert _spannen(text, Auswahl(dosierungen=True)) == [
+        ("500 mg 1-0-1", "Dosierung"), ("50 mg abends", "Dosierung"), ("2 Tbl.", "Dosierung"),
+        ("400 mg bei Bedarf", "Dosierung")]
+    assert len(_spannen(text, Auswahl(medikamente=True, dosierungen=True))) == 8
+
+
+def test_dosis_muster(lexikon_klein: Path) -> None:
+    faelle = {
+        "Levetiracetam 500 mg 1-0-1, Lamotrigin 50 mg": ["500 mg 1-0-1", "50 mg"],
+        "Levetiracetam\t500 mg\t1-0-1\nLamotrigin\t50 mg\t0-0-1": ["500 mg\t1-0-1", "50 mg\t0-0-1"],
+        "Ibuprofen 400 mg bei Bedarf, 1 Tbl. Paracetamol 500 mg, 1-0-1":
+            ["400 mg bei Bedarf", "1 Tbl.", "500 mg, 1-0-1"],
+        "Levetiracetam 2019 begonnen, seit 3 Jahren, ab 8 Uhr, Lamotrigin 2× 1000 mg/d":
+            ["2× 1000 mg/d"],
+        "Ibuprofen ½-0-½, Paracetamol 3x1 Tbl. tgl., Lamotrigin 20 mg/kg KG i. v.":
+            ["½-0-½", "3x1 Tbl. tgl.", "20 mg/kg KG i. v."],
+    }
+    for text, erwartet in faelle.items():
+        assert [t for t, _a in _spannen(text, Auswahl(dosierungen=True))] == erwartet, text
+
+
+# -- lab values: examination and measurement as separate levels ----------------------------------
+def test_laborwerte_zwei_stufen(lexikon_klein: Path) -> None:
+    text = ("TSH 2,3 mU/l, Hb: 12,4 g/dl, HbA1c von 6,2 %, Kreatinin (i. S.) < 1,1 mg/dl."
+            " Kontrolle des TSH in 3 Monaten; TSH 12.03.2026 abgenommen; Ferritin erniedrigt;"
+            " HB 12 und hb 12 sind keine Namen; Zuname 12 mg/l.")
+    assert [t for t, _a in _spannen(text, Auswahl(laborwerte=True))] == [
+        "TSH", "Hb", "HbA1c", "Kreatinin", "TSH", "TSH", "Ferritin"]
+    assert _spannen(text, Auswahl(messwerte=True)) == [
+        ("2,3 mU/l", "Messwert"), ("12,4 g/dl", "Messwert"), ("6,2 %", "Messwert"),
+        ("< 1,1 mg/dl", "Messwert")]
+    assert len(_spannen(text, Auswahl(laborwerte=True, messwerte=True))) == 11
+
+
+def test_begriff_auf_beiden_listen(lexikon_klein: Path) -> None:
+    text = "Kalium 4,1 mmol/l; Kalium 40 mmol 1-0-1; Kalium substituiert."
+    assert _spannen(text) == [
+        ("Kalium", "Laborwert"), ("4,1 mmol/l", "Messwert"),
+        ("Kalium", "Medikament"), ("40 mmol 1-0-1", "Dosierung"),
+        ("Kalium", "Laborwert")]
+    assert _spannen(text, Auswahl(medikamente=True)) == [("Kalium", "Medikament")] * 2
+    assert _spannen(text, Auswahl(messwerte=True)) == [("4,1 mmol/l", "Messwert")]
+
+
+# -- the pipeline ---------------------------------------------------------------------------------
 def test_standardmaessig_bleibt_alles(lexikon_klein: Path, tmp_path: Path, patient: Patient,
                                       speicher: Pseudonymspeicher) -> None:
     quelle = tmp_path / "notiz.txt"
@@ -96,32 +145,45 @@ def test_standardmaessig_bleibt_alles(lexikon_klein: Path, tmp_path: Path, patie
                       " TSH 2,3 mU/l.\n", encoding="utf-8")
     erg = pseudonymisiere(quelle, patient, Ablaufoptionen(), speicher=speicher)
     text = erg.ziel_txt.read_text(encoding="utf-8")
-    assert erg.freigegeben and "Levetiracetam 500 mg" in text and "TSH 2,3 mU/l" in text
-    assert erg.bericht.optionen["medikamente_schwaerzen"] is False
-    assert erg.bericht.optionen["laborwerte_schwaerzen"] is False
+    assert erg.freigegeben and "Levetiracetam 500 mg 1-0-1" in text and "TSH 2,3 mU/l" in text
+    for name in ("medikamente", "dosierungen", "laborwerte", "messwerte"):
+        assert erg.bericht.optionen[name + "_schwaerzen"] is False
 
 
-def test_textdatei_auf_wunsch(lexikon_klein: Path, tmp_path: Path, patient: Patient,
+def test_textdatei_jede_stufe(lexikon_klein: Path, tmp_path: Path, patient: Patient,
                               speicher: Pseudonymspeicher) -> None:
     quelle = tmp_path / "notiz.txt"
     quelle.write_text(
         f"{patient.vorname} {patient.nachname} nimmt Levetiracetam 500 mg 1-0-1 und Marcumar."
         " Labor: TSH 2,3 mU/l, Hb 12,4 g/dl. Levetiracetam wird fortgeführt.\n",
         encoding="utf-8")
-    opt = Ablaufoptionen(medikamente_schwaerzen=True, laborwerte_schwaerzen=True)
+    erwartung = {  # option -> (gone, still there)
+        "medikamente_schwaerzen": (["Levetiracetam", "Marcumar"], ["500 mg 1-0-1", "TSH 2,3"]),
+        "dosierungen_schwaerzen": (["500 mg 1-0-1"], ["Levetiracetam", "TSH 2,3 mU/l"]),
+        "laborwerte_schwaerzen": (["TSH", "Hb "], ["2,3 mU/l", "12,4 g/dl", "Levetiracetam"]),
+        "messwerte_schwaerzen": (["2,3 mU/l", "12,4 g/dl"], ["TSH ", "Hb ", "500 mg 1-0-1"]),
+    }
+    for option, (weg, bleibt) in erwartung.items():
+        opt = Ablaufoptionen(**{option: True}, suffix="_" + option)
+        erg = pseudonymisiere(quelle, patient, opt, speicher=speicher)
+        assert erg.freigegeben, als_text(erg.bericht)
+        text = erg.ziel_txt.read_text(encoding="utf-8")
+        for klartext in weg:
+            assert klartext not in text, (option, text)
+        for klartext in bleibt:
+            assert klartext in text, (option, text)
+    opt = Ablaufoptionen(medikamente_schwaerzen=True, dosierungen_schwaerzen=True,
+                         laborwerte_schwaerzen=True, messwerte_schwaerzen=True)
     erg = pseudonymisiere(quelle, patient, opt, speicher=speicher)
-    assert erg.freigegeben, als_text(erg.bericht)
     text = erg.ziel_txt.read_text(encoding="utf-8")
-    for klartext in ("Levetiracetam", "Marcumar", "TSH", "2,3", "Hb 12"):
-        assert klartext not in text, text
-    assert "500 mg 1-0-1" in text  # the dose stays
     codes = [w for w in text.split("[")[1:] if w.startswith("Medikament ")]
     assert len(codes) == 3 and codes[0][:17] == codes[2][:17]  # same drug, same code
-    assert text.count("[Laborwert ") == 2
-    assert any(h.startswith("Medizinischer Inhalt: 5 Treffer") for h in erg.bericht.hinweise)
+    for praefix in ("[Dosierung ", "[Laborwert ", "[Messwert "):
+        assert praefix in text, text
+    assert any(h.startswith("Medizinischer Inhalt: 8 Treffer") for h in erg.bericht.hinweise)
     z = speicher.zuordnung(patient.schluessel())
     zurueck = rueckersetzen(text, z, bekannte_kennungen=speicher.kennungen())
-    assert "Levetiracetam 500 mg" in zurueck.text and "TSH 2,3 mU/l" in zurueck.text
+    assert "Levetiracetam 500 mg 1-0-1" in zurueck.text and "TSH 2,3 mU/l" in zurueck.text
 
 
 def test_pdf_ohne_gruene_marke_unter_dem_treffer(lexikon_klein: Path, tmp_path: Path,
@@ -162,24 +224,27 @@ def test_warnung_bei_leerer_liste(tmp_path: Path, patient: Patient, speicher: Ps
     _caches_leeren()
     quelle = tmp_path / "notiz.txt"
     quelle.write_text("Levetiracetam 500 mg\n", encoding="utf-8")
-    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(medikamente_schwaerzen=True),
+    erg = pseudonymisiere(quelle, patient, Ablaufoptionen(dosierungen_schwaerzen=True),
                           speicher=speicher)
     assert any("Medikamente schwärzen gewählt, aber die Liste ist leer" in w
                for w in erg.bericht.warnungen)
     _caches_leeren()
 
 
+# -- interface and command line -------------------------------------------------------------------
 def test_oberflaeche(qapp: QApplication, lexikon_klein: Path) -> None:  # noqa: F811
     from pseudonymed.gui.hauptfenster import Hauptfenster
     from pseudonymed.gui.sitzung import Sitzung
 
     fenster = Hauptfenster(Sitzung())
     seite = fenster.analysieren
-    assert not seite.medikamente.isChecked() and not seite.laborwerte.isChecked()
-    seite.medikamente.setChecked(True)
+    kaesten = (seite.medikamente, seite.dosierungen, seite.laborwerte, seite.messwerte)
+    assert not any(k.isChecked() for k in kaesten)
+    seite.dosierungen.setChecked(True)
+    seite.messwerte.setChecked(True)
     seite._optionen_uebernehmen()
-    assert fenster.sitzung.optionen.medikamente_schwaerzen is True
-    assert fenster.sitzung.optionen.laborwerte_schwaerzen is False
+    o = fenster.sitzung.optionen
+    assert Auswahl.aus(o) == Auswahl(dosierungen=True, messwerte=True)
     fenster.close()
 
 
@@ -188,7 +253,9 @@ def test_kommandozeile(lexikon_klein: Path, tmp_path: Path, patient: Patient) ->
     quelle.write_text("Levetiracetam 500 mg, TSH 2,3 mU/l.\n", encoding="utf-8")
     r = CliRunner().invoke(app, [
         "pseudonymisieren", str(quelle), "--patient", str(_patientendatei(tmp_path, patient)),
-        "--speicher", str(tmp_path / "s.sqlite"), "--laborwerte-schwaerzen"])
+        "--speicher", str(tmp_path / "s.sqlite"), "--messwerte-schwaerzen",
+        "--dosierungen-schwaerzen"])
     assert r.exit_code == 0, r.output
     text = (tmp_path / "notiz_pseudonym.txt").read_text(encoding="utf-8")
-    assert "Levetiracetam 500 mg" in text and "[Laborwert " in text and "TSH" not in text
+    assert "Levetiracetam [Dosierung " in text and "TSH [Messwert " in text
+    assert "500 mg" not in text and "2,3" not in text

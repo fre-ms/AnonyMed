@@ -261,12 +261,20 @@ def pseudonymisieren(
     = True,
     medikamente: Annotated[bool, typer.Option(
         "--medikamente-schwaerzen/--medikamente-lassen",
-        help="Medikamentennamen schwärzen (Standard: stehen lassen, sie sind medizinischer"
-             " Inhalt).")] = False,
+        help="Medikamente: die Substanz (Wirkstoff, Handelsname) schwärzen. Standard: stehen"
+             " lassen, medizinischer Inhalt.")] = False,
+    dosierungen: Annotated[bool, typer.Option(
+        "--dosierungen-schwaerzen/--dosierungen-lassen",
+        help="Medikamente: Dosierung und Verordnungsschema neben der Substanz schwärzen"
+             " („500 mg 1-0-1“, „bei Bedarf“). Standard: stehen lassen.")] = False,
     laborwerte: Annotated[bool, typer.Option(
         "--laborwerte-schwaerzen/--laborwerte-lassen",
-        help="Laborwerte samt Messwert schwärzen, etwa „TSH 2,3 mU/l“ (Standard: stehen"
-             " lassen).")] = False,
+        help="Laborwerte: die Untersuchung (den Parameter, etwa „TSH“) schwärzen. Standard:"
+             " stehen lassen.")] = False,
+    messwerte: Annotated[bool, typer.Option(
+        "--messwerte-schwaerzen/--messwerte-lassen",
+        help="Laborwerte: den Messwert hinter der Untersuchung schwärzen („2,3 mU/l“)."
+             " Standard: stehen lassen.")] = False,
     unscharf: Annotated[bool, typer.Option(
         "--unscharf/--genau",
         help="Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte).")] = True,
@@ -341,7 +349,8 @@ def pseudonymisieren(
         ziel_ordner=ziel,
         abgleich=_abgleich_entscheidung(neu, gleich), ocr=ocr, codes=codes, vorschau=vorschau,
         unlesbar=unlesbar, ner=ner, fachbegriffe=fachbegriffe, identifikatoren=identifikatoren,
-        medikamente_schwaerzen=medikamente, laborwerte_schwaerzen=laborwerte,
+        medikamente_schwaerzen=medikamente, dosierungen_schwaerzen=dosierungen,
+        laborwerte_schwaerzen=laborwerte, messwerte_schwaerzen=messwerte,
         unscharf_text=unscharf,
         aufbereiten=aufbereiten, papierformat=papier, ocr_tabellen=tabellen,
         vokabular=vokabular, gliedern=gliedern,

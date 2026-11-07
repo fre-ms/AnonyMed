@@ -63,19 +63,34 @@ class AnalysierenSeite(QWidget):
             " (siehe „2 Identifikatoren“)"))
         self.identifikatoren.setChecked(True)
         form.addRow(self.identifikatoren)
-        self.medikamente = QCheckBox(self.tr("Medikamente schwärzen"))
+        # medical content: four levels, each on its own, all off by default
+        self.medikamente = QCheckBox(self.tr(
+            "Medikamente: Substanz schwärzen (Wirkstoff, Handelsname)"))
         self.medikamente.setToolTip(self.tr(
             "Medikamentennamen aus dem Lexikon (Wirkstoffe, einige Handelsnamen) und alle"
-            " Begriffe der Kategorie „Medikament“ in „3 Fachvokabular“. Standardmäßig aus:"
-            " Medikamente gehören zum medizinischen Inhalt."))
+            " Begriffe der Kategorie „Medikament“ in „3 Fachvokabular“; Dosierung und Schema"
+            " bleiben stehen. Standardmäßig aus: medizinischer Inhalt."))
         form.addRow(self.medikamente)
-        self.laborwerte = QCheckBox(self.tr("Laborwerte schwärzen (Name und Messwert)"))
+        self.dosierungen = QCheckBox(self.tr(
+            "Medikamente: Dosierung und Verordnungsschema schwärzen"))
+        self.dosierungen.setToolTip(self.tr(
+            "Was neben einer Substanz steht: Menge und Einheit, Einnahmeschema, Zeiten,"
+            " Applikationsweg („500 mg 1-0-1“, „2 Tbl.“, „bei Bedarf“, „p. o.“); die Substanz"
+            " selbst bleibt stehen, wenn sie nicht eigens gewählt ist. Standardmäßig aus."))
+        form.addRow(self.dosierungen)
+        self.laborwerte = QCheckBox(self.tr(
+            "Laborwerte: Untersuchung schwärzen (Parameter)"))
         self.laborwerte.setToolTip(self.tr(
-            "Ein Laborname zusammen mit dem Messwert direkt dahinter, etwa „TSH 2,3 mU/l“;"
-            " ein Laborname ohne Wert bleibt stehen. Eigene Namen in „3 Fachvokabular“ mit der"
-            " Kategorie „Laborwert“. Standardmäßig aus: Laborwerte gehören zum medizinischen"
-            " Inhalt."))
+            "Der Name der Untersuchung, wo immer er steht („TSH“, „Kreatinin“), aus der"
+            " Laborliste des Lexikons und der Kategorie „Laborwert“ in „3 Fachvokabular“; der"
+            " Messwert bleibt stehen, wenn er nicht eigens gewählt ist. Standardmäßig aus."))
         form.addRow(self.laborwerte)
+        self.messwerte = QCheckBox(self.tr("Laborwerte: Messwert schwärzen"))
+        self.messwerte.setToolTip(self.tr(
+            "Der Wert direkt hinter einer Untersuchung („2,3 mU/l“ in „TSH 2,3 mU/l“, auch"
+            " „< 5 mg/l“ oder „von 6,2 %“); die Untersuchung selbst bleibt stehen, wenn sie"
+            " nicht eigens gewählt ist. Standardmäßig aus."))
+        form.addRow(self.messwerte)
         self.unscharf = QCheckBox(
             self.tr("Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)"))
         self.unscharf.setChecked(True)
@@ -168,7 +183,9 @@ class AnalysierenSeite(QWidget):
         o.fachbegriffe = self.fachbegriffe.isChecked()
         o.identifikatoren = self.identifikatoren.isChecked()
         o.medikamente_schwaerzen = self.medikamente.isChecked()
+        o.dosierungen_schwaerzen = self.dosierungen.isChecked()
         o.laborwerte_schwaerzen = self.laborwerte.isChecked()
+        o.messwerte_schwaerzen = self.messwerte.isChecked()
         o.unscharf_text = self.unscharf.isChecked()
 
     def _melde(self, titel: str, text: str) -> None:

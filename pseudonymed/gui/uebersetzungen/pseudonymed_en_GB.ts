@@ -162,181 +162,204 @@
         <source>Identifikatoren schwärzen: Kliniken, Berufe, Studien, Titel (siehe „2 Identifikatoren“)</source>
         <translation>Redact identifiers: hospitals, professions, studies, titles (see ‘2 Identifiers’)</translation>
     </message>
-    <message>
-        <location filename="../analysieren_seite.py" line="66"/>
-        <source>Medikamente schwärzen</source>
-        <translation>Redact medications</translation>
-    </message>
+    
+    
+    
     <message>
         <location filename="../analysieren_seite.py" line="68"/>
-        <source>Medikamentennamen aus dem Lexikon (Wirkstoffe, einige Handelsnamen) und alle Begriffe der Kategorie „Medikament“ in „3 Fachvokabular“. Standardmäßig aus: Medikamente gehören zum medizinischen Inhalt.</source>
-        <translation>Drug names from the lexicon (active substances, some trade names) and every term of the category ‘Medikament’ in ‘3 Medical vocabulary’. Off by default: medications belong to the medical content.</translation>
+        <source>Medikamente: Substanz schwärzen (Wirkstoff, Handelsname)</source>
+        <translation>Medications: redact the substance (active ingredient, trade name)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="72"/>
-        <source>Laborwerte schwärzen (Name und Messwert)</source>
-        <translation>Redact lab values (name and measurement)</translation>
+        <location filename="../analysieren_seite.py" line="70"/>
+        <source>Medikamentennamen aus dem Lexikon (Wirkstoffe, einige Handelsnamen) und alle Begriffe der Kategorie „Medikament“ in „3 Fachvokabular“; Dosierung und Schema bleiben stehen. Standardmäßig aus: medizinischer Inhalt.</source>
+        <translation>Drug names from the lexicon (active ingredients, some trade names) and every term of the category ‘Medikament’ in ‘3 Medical vocabulary’; dose and schedule stay. Off by default: medical content.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="74"/>
-        <source>Ein Laborname zusammen mit dem Messwert direkt dahinter, etwa „TSH 2,3 mU/l“; ein Laborname ohne Wert bleibt stehen. Eigene Namen in „3 Fachvokabular“ mit der Kategorie „Laborwert“. Standardmäßig aus: Laborwerte gehören zum medizinischen Inhalt.</source>
-        <translation>A lab name together with the measurement right after it, such as ‘TSH 2,3 mU/l’; a lab name without a value stays. Your own names in ‘3 Medical vocabulary’ with the category ‘Laborwert’. Off by default: lab values belong to the medical content.</translation>
+        <location filename="../analysieren_seite.py" line="75"/>
+        <source>Medikamente: Dosierung und Verordnungsschema schwärzen</source>
+        <translation>Medications: redact the dose and the prescription schedule</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="80"/>
+        <location filename="../analysieren_seite.py" line="77"/>
+        <source>Was neben einer Substanz steht: Menge und Einheit, Einnahmeschema, Zeiten, Applikationsweg („500 mg 1-0-1“, „2 Tbl.“, „bei Bedarf“, „p. o.“); die Substanz selbst bleibt stehen, wenn sie nicht eigens gewählt ist. Standardmäßig aus.</source>
+        <translation>What stands next to a substance: amount and unit, dosing scheme, times, route (‘500 mg 1-0-1’, ‘2 Tbl.’, ‘bei Bedarf’, ‘p. o.’); the substance itself stays unless chosen separately. Off by default.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="82"/>
+        <source>Laborwerte: Untersuchung schwärzen (Parameter)</source>
+        <translation>Lab values: redact the examination (parameter)</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="84"/>
+        <source>Der Name der Untersuchung, wo immer er steht („TSH“, „Kreatinin“), aus der Laborliste des Lexikons und der Kategorie „Laborwert“ in „3 Fachvokabular“; der Messwert bleibt stehen, wenn er nicht eigens gewählt ist. Standardmäßig aus.</source>
+        <translation>The name of the examination wherever it stands (‘TSH’, ‘Kreatinin’), from the lexicon&apos;s lab list and the category ‘Laborwert’ in ‘3 Medical vocabulary’; the measurement stays unless chosen separately. Off by default.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="88"/>
+        <source>Laborwerte: Messwert schwärzen</source>
+        <translation>Lab values: redact the measurement</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="90"/>
+        <source>Der Wert direkt hinter einer Untersuchung („2,3 mU/l“ in „TSH 2,3 mU/l“, auch „&lt; 5 mg/l“ oder „von 6,2 %“); die Untersuchung selbst bleibt stehen, wenn sie nicht eigens gewählt ist. Standardmäßig aus.</source>
+        <translation>The value right after an examination (‘2,3 mU/l’ in ‘TSH 2,3 mU/l’, also ‘&lt; 5 mg/l’ or ‘von 6,2 %’); the examination itself stays unless chosen separately. Off by default.</translation>
+    </message>
+    <message>
+        <location filename="../analysieren_seite.py" line="95"/>
         <source>Textdateien: abweichend geschriebene Namen unscharf suchen (Transkripte)</source>
         <translation>Text files: fuzzy search for misspelt names (transcripts)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="83"/>
+        <location filename="../analysieren_seite.py" line="98"/>
         <source>Unbekannte Personen und Orte per NER suchen (rät)</source>
         <translation>Find unknown people and places with NER (guesses)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="88"/>
+        <location filename="../analysieren_seite.py" line="103"/>
         <source>Extra &apos;ner&apos; und ein deutsches spaCy-Modell installieren.</source>
         <translation>Install the extra &apos;ner&apos; and a German spaCy model.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="92"/>
+        <location filename="../analysieren_seite.py" line="107"/>
         <source>Fachvokabular (geschützt vor NER und unscharfer Suche)</source>
         <translation>Medical vocabulary (shielded from NER and fuzzy search)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="99"/>
+        <location filename="../analysieren_seite.py" line="114"/>
         <source>Empfänger (Pseudonyme zum Weitergeben)</source>
         <translation>Recipient (pseudonyms to pass on)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="102"/>
+        <location filename="../analysieren_seite.py" line="117"/>
         <source>Für einen Empfänger pseudonymisieren: Einmalschlüssel, die Zuordnung steht nur in einer verschlüsselten Kapsel für den Empfänger; lokal wird nichts gespeichert</source>
         <translation>Pseudonymise for a recipient: one-time key, the mapping lives only in an encrypted capsule for the recipient; nothing is stored locally</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="108"/>
+        <location filename="../analysieren_seite.py" line="123"/>
         <source>Öffentlicher Schlüssel: Datei (.asc) oder https-Adresse</source>
         <translation>Public key: file (.asc) or https address</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="111"/>
+        <location filename="../analysieren_seite.py" line="126"/>
         <source>Schlüssel prüfen</source>
         <translation>Check key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="126"/>
+        <location filename="../analysieren_seite.py" line="141"/>
         <source>Extra &apos;pgp&apos; (pysequoia) oder GnuPG installieren.</source>
         <translation>Install the extra &apos;pgp&apos; (pysequoia) or GnuPG.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="129"/>
+        <location filename="../analysieren_seite.py" line="144"/>
         <source>Dokumente dieser Sitzung:</source>
         <translation>Documents of this session:</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="140"/>
-        <location filename="../analysieren_seite.py" line="235"/>
-        <location filename="../analysieren_seite.py" line="238"/>
-        <location filename="../analysieren_seite.py" line="241"/>
+        <location filename="../analysieren_seite.py" line="155"/>
+        <location filename="../analysieren_seite.py" line="252"/>
+        <location filename="../analysieren_seite.py" line="255"/>
+        <location filename="../analysieren_seite.py" line="258"/>
         <source>Analysieren</source>
         <translation>Analyse</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="159"/>
+        <location filename="../analysieren_seite.py" line="174"/>
         <source>{gesamt} geschützte Begriffe ({quellen}). Ansehen, ergänzen und importieren unter „3 Fachvokabular“.</source>
         <translation>{gesamt} protected terms ({quellen}). View, add and import under “3 Medical vocabulary”.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="182"/>
+        <location filename="../analysieren_seite.py" line="199"/>
         <source>Öffentlicher Schlüssel des Empfängers</source>
         <translation>Recipient&apos;s public key</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="183"/>
+        <location filename="../analysieren_seite.py" line="200"/>
         <source>OpenPGP-Schlüssel (*.asc *.gpg *.pgp);;Alle Dateien (*)</source>
         <translation>OpenPGP keys (*.asc *.gpg *.pgp);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="193"/>
+        <location filename="../analysieren_seite.py" line="210"/>
         <source>Bitte Schlüsseldatei oder Adresse angeben.</source>
         <translation>Please give a key file or an address.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="200"/>
+        <location filename="../analysieren_seite.py" line="217"/>
         <source>Schlüssel nicht brauchbar: {fehler}</source>
         <translation>Key not usable: {fehler}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="207"/>
+        <location filename="../analysieren_seite.py" line="224"/>
         <source> ACHTUNG: Der Fingerabdruck weicht vom früher geprüften ab ({alt}). Nur weiterverwenden, wenn der Empfänger den neuen Schlüssel bestätigt hat.</source>
         <translation> WARNING: the fingerprint differs from the one checked before ({alt}). Go on only if the recipient has confirmed the new key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="217"/>
+        <location filename="../analysieren_seite.py" line="234"/>
         <source>Empfänger: {beschreibung}. Fingerabdruck mit dem Empfänger auf einem zweiten Weg abgleichen (Webseite, Briefkopf, Telefon).</source>
         <translation>Recipient: {beschreibung}. Compare the fingerprint with the recipient by a second channel (website, letterhead, telephone).</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="226"/>
+        <location filename="../analysieren_seite.py" line="243"/>
         <source>Empfänger</source>
         <translation>Recipient</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="227"/>
+        <location filename="../analysieren_seite.py" line="244"/>
         <source>Für einen Empfänger braucht es dessen öffentlichen Schlüssel.</source>
         <translation>A recipient needs their public key.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="235"/>
+        <location filename="../analysieren_seite.py" line="252"/>
         <source>Bitte zuerst einen Patienten übernehmen.</source>
         <translation>Please choose a patient first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="238"/>
+        <location filename="../analysieren_seite.py" line="255"/>
         <source>Bitte zuerst Dokumente hinzufügen.</source>
         <translation>Please add documents first.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="242"/>
+        <location filename="../analysieren_seite.py" line="259"/>
         <source>Die Dokumente werden noch geladen; bitte einen Moment warten.</source>
         <translation>The documents are still loading; please wait a moment.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="257"/>
+        <location filename="../analysieren_seite.py" line="274"/>
         <source>Fertig: {n} Dokument(e) analysiert.</source>
         <translation>Done: {n} document(s) analysed.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="265"/>
+        <location filename="../analysieren_seite.py" line="282"/>
         <source>Analysiere {nummer} von {gesamt}: {name} …</source>
         <translation>Analysing {nummer} of {gesamt}: {name} …</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="293"/>
+        <location filename="../analysieren_seite.py" line="310"/>
         <source>Abgebrochen.</source>
         <translation>Cancelled.</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="306"/>
+        <location filename="../analysieren_seite.py" line="323"/>
         <source>{kennung}: {nachname}, {vorname}, geb. {geb} (Übereinstimmung {score})</source>
         <translation>{kennung}: {nachname}, {vorname}, born {geb} (match {score})</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="310"/>
+        <location filename="../analysieren_seite.py" line="327"/>
         <source>Ähnliche Person im Pseudonymspeicher</source>
         <translation>Similar person in the pseudonym store</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="311"/>
+        <location filename="../analysieren_seite.py" line="328"/>
         <source>Diese Person ähnelt einem vorhandenen Eintrag. Dieselbe Person?</source>
         <translation>This person resembles an existing entry. The same person?</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="313"/>
+        <location filename="../analysieren_seite.py" line="330"/>
         <source>Ja, {kennung}</source>
         <translation>Yes, {kennung}</translation>
     </message>
     <message>
-        <location filename="../analysieren_seite.py" line="315"/>
+        <location filename="../analysieren_seite.py" line="332"/>
         <source>Nein, neue Person</source>
         <translation>No, a new person</translation>
     </message>
