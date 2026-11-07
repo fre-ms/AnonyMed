@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QBrush,
@@ -14,15 +16,16 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QCheckBox,
+    QFileDialog,
     QGraphicsPixmapItem,
     QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
     QHBoxLayout,
     QHeaderView,
-    QInputDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSplitter,
     QStackedWidget,
@@ -35,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from pseudonymed import arbeitsstand as standmodul
 from pseudonymed.gui.sitzung import Dokument, Sitzung
 from pseudonymed.kern.modell import Fundstelle
 
@@ -44,6 +48,7 @@ from pseudonymed.kern.modell import Fundstelle
 ROT = QColor(200, 30, 30)
 GELB = QColor(230, 165, 0)
 GRUEN = QColor(40, 160, 60)
+BLAU = QColor(30, 90, 200)  # a word the user selected to take into the list
 SCHWARZ = QColor(0, 0, 0)
 FARBEN = {"rot": ROT, "gelb": GELB, "gruen": GRUEN, "fachbegriff": GRUEN}
 VORSCHAU_DPI = 100
@@ -68,6 +73,7 @@ class Seitenansicht(QGraphicsView):
 
     treffer_gewaehlt = Signal(object)
     kasten_gezeichnet = Signal(object)  # (x0, y0, x1, y1) in page points
+    punkt_gewaehlt = Signal(float, float, bool)  # a click on text: x, y in points, extend?
     gescrollt = Signal(float, float)  # relative scroll position (0..1, 0..1)
     gezoomt = Signal(float)  # absolute scale factor
 
@@ -155,14 +161,17 @@ class Seitenansicht(QGraphicsView):
     def zeige(self, png: bytes, fundstellen: list[Fundstelle], gewaehlt: Fundstelle | None,
               fachrects: list[tuple[float, float, float, float]] = (),
               verworfen: list[Fundstelle] = (),
-              unsicher: list[tuple[float, float, float, float]] = ()) -> None:
+              unsicher: list[tuple[float, float, float, float]] = (),
+              auswahl: list[tuple[float, float, float, float]] = ()) -> None:
         self._szene.clear()
         self._items.clear()
         bild = QImage.fromData(png)
         self._szene.addItem(QGraphicsPixmapItem(QPixmap.fromImage(bild)))
         self._szene.setSceneRect(0, 0, bild.width(), bild.height())
-        for rect in fachrects:  # protected medical terms: stay, not clickable
+        for rect in fachrects:  # protected medical terms: stay, click to select the word
             self._kasten(rect, GRUEN, 1, 28, hinweis=self.tr("Fachbegriff (bleibt)"))
+        for rect in auswahl:  # words picked by the user, not yet in the list
+            self._kasten(rect, BLAU, 2, 50, hinweis=self.tr("Auswahl (aufnehmen?)"))
         for rect in unsicher:  # badly read words: look, not hits
             self._kasten(rect, GELB, 1, 0, hinweis=self.tr("unsicher gelesen"))
         for f in verworfen:  # discarded hits: stay, click to take back
@@ -222,6 +231,7 @@ class Seitenansicht(QGraphicsView):
             if f is not None:
                 self.treffer_gewaehlt.emit(f)
                 return
+        self._erweitern = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         self._start = pos
         self._gummi = QGraphicsRectItem(QRectF(pos, pos))
         farbe_ = QColor(120, 120, 120) if self.loeschmodus else (
@@ -251,6 +261,9 @@ class Seitenansicht(QGraphicsView):
         if r.width() > 4 and r.height() > 4:
             self.kasten_gezeichnet.emit((r.left() / self.skala, r.top() / self.skala,
                                          r.right() / self.skala, r.bottom() / self.skala))
+        else:  # a plain click: the word under it (Ctrl/Cmd extends the selection)
+            self.punkt_gewaehlt.emit(r.left() / self.skala, r.top() / self.skala,
+                                     getattr(self, "_erweitern", False))
 
 
 def _als_linksklick(event):
@@ -340,6 +353,7 @@ class PruefenSeite(QWidget):
         self.dokument: Dokument | None = None
         self.seite = 0
         self.gewaehlt: Fundstelle | None = None
+        self.auswahl: tuple[int, int] | None = None  # offsets of words picked on the page
         self.synchron = False
 
         aussen = QVBoxLayout(self)
@@ -352,6 +366,7 @@ class PruefenSeite(QWidget):
         self.ansicht = Seitenansicht()
         self.ansicht.treffer_gewaehlt.connect(self.waehle)
         self.ansicht.kasten_gezeichnet.connect(self.kasten)
+        self.ansicht.punkt_gewaehlt.connect(self.punkt)
         self.textansicht = Textansicht()
         self.textansicht.treffer_gewaehlt.connect(self.waehle)
         self.stapel = QStackedWidget()
@@ -365,10 +380,13 @@ class PruefenSeite(QWidget):
             "Rot: wird geschwärzt (gestrichelt: Vorschlag von NER oder unscharfer Suche) ·"
             " Gelb: unsicher gelesen (unlesbare Zeilen werden vorsorglich geschwärzt) ·"
             " Grün: bleibt stehen (Fachbegriff, verworfener Treffer; Klick stellt ihn wieder"
-            " her). Ziehen zeichnet einen Kasten mit dem Ersatztext aus dem Feld, mit „Maske"
+            " her). Klick auf ein Wort wählt es (blau), Strg/Cmd + Klick erweitert die Auswahl"
+            " bis dorthin, „Auswahl aufnehmen“ macht daraus einen Treffer; so kommen auch"
+            " Fachbegriffe oder Wörter in die Liste, die die Analyse nicht gefunden hat."
+            " Ziehen zeichnet einen Kasten mit dem Ersatztext aus dem Feld, mit „Maske"
             " zeichnen“ eine schwarze Maske; Umschalt + Ziehen verschiebt den Ausschnitt,"
-            " Strg/Cmd + Rad zoomt. In Textdateien markiert „Auswahl schwärzen“ den"
-            " ausgewählten Text. Die Quelle jedes Treffers steht in der Tabelle."))
+            " Strg/Cmd + Rad zoomt. In Textdateien nimmt „Auswahl aufnehmen“ den"
+            " ausgewählten Text auf. Die Quelle jedes Treffers steht in der Tabelle."))
         legende.setWordWrap(True)
         r.addWidget(legende)
         self.tabelle = QTableWidget(0, 4)
@@ -390,17 +408,23 @@ class PruefenSeite(QWidget):
         self.merken.toggled.connect(self._merken_uebernehmen)
         r.addWidget(self.merken)
         ersatz = QHBoxLayout()
-        ersatz.addWidget(QLabel(self.tr("Ersatztext für Kästen")))
+        ersatz.addWidget(QLabel(self.tr("Ersatztext für Kästen und Aufnahmen")))
         self.ersatztext = QLineEdit(self.tr("[geschwärzt]"))
+        self.ersatztext.setToolTip(self.tr(
+            "Für Kästen der Text, der hineingeschrieben wird. Für aufgenommene Wörter gilt:"
+            " bleibt hier „[geschwärzt]“ stehen, bekommt das Wort einen eigenen Code"
+            " ([Begriff …]), den die Reidentifikation zurücksetzt."))
         ersatz.addWidget(self.ersatztext, 1)
         r.addLayout(ersatz)
         knoepfe = QHBoxLayout()
         self.verwerfen = QPushButton(self.tr("Treffer verwerfen"))
         self.verwerfen.clicked.connect(self.verwerfe)
         knoepfe.addWidget(self.verwerfen)
-        self.markieren = QPushButton(self.tr("Auswahl schwärzen"))
-        self.markieren.clicked.connect(lambda: self.markiere_auswahl())
-        self.markieren.setVisible(False)
+        self.markieren = QPushButton(self.tr("Auswahl aufnehmen"))
+        self.markieren.setToolTip(self.tr(
+            "Die gewählten Wörter (Seite) oder den markierten Text (Textdatei) in die"
+            " Trefferliste aufnehmen."))
+        self.markieren.clicked.connect(lambda: self.aufnehmen())
         knoepfe.addWidget(self.markieren)
         self.maske_modus = QPushButton(self.tr("Maske zeichnen"))
         self.maske_modus.setCheckable(True)
@@ -420,6 +444,13 @@ class PruefenSeite(QWidget):
         self.hinweis = QLabel("")
         self.hinweis.setWordWrap(True)
         r.addWidget(self.hinweis)
+        self.speichern = QPushButton(self.tr("Arbeitsstand speichern …"))
+        self.speichern.setToolTip(self.tr(
+            "Das aufbereitete Dokument und eine Konfigurationsdatei schreiben, aus denen sich"
+            " die Sichtprüfung später wieder aufnehmen und abwandeln lässt (Aufbereitung,"
+            " Texterkennung, Treffer, Entscheidungen). Beide Dateien enthalten Klardaten."))
+        self.speichern.clicked.connect(self.arbeitsstand_waehlen)
+        r.addWidget(self.speichern)
         teiler.addWidget(rechts)
         teiler.setSizes([180, 620, 360])
         aussen.addWidget(teiler, 1)
@@ -456,6 +487,7 @@ class PruefenSeite(QWidget):
         self.dokument = d
         self.seite = max(nummer, 0)
         self.gewaehlt = None
+        self.auswahl = None
         self.zeichne()
 
     def fundstellen(self) -> list[Fundstelle]:
@@ -476,10 +508,12 @@ class PruefenSeite(QWidget):
             self.stapel.setCurrentWidget(self.textansicht)
         else:
             fach = v.fachbegriffe_rects(self.seite) if zeigen else []
+            auswahl = ([tuple(r) for r in v._textbasis(self.seite).rects(*self.auswahl)]
+                       if self.auswahl is not None else [])
             self.ansicht.zeige(v.seitenbild(self.seite, VORSCHAU_DPI), treffer, self.gewaehlt,
-                               fach, verworfen, v.unsichere_rects(self.seite))
+                               fach, verworfen, v.unsichere_rects(self.seite), auswahl)
             self.stapel.setCurrentWidget(self.ansicht)
-        self.markieren.setVisible(v.ist_text)
+        self.markieren.setEnabled(v.ist_text or self.auswahl is not None)
         self.maske_modus.setVisible(not v.ist_text)
         verworfen_gewaehlt = self.gewaehlt is not None and self.gewaehlt in v.verworfen
         self.verwerfen.setText(self.tr("Treffer wiederherstellen") if verworfen_gewaehlt
@@ -559,8 +593,54 @@ class PruefenSeite(QWidget):
             self.hinweis.setText(self.tr("{n} Kasten gesetzt: {pseudonym}").format(
                 n=len(neue), pseudonym=neue[0].pseudonym) + " · " + self.hinweis.text())
 
+    def punkt(self, x: float, y: float, erweitern: bool = False) -> None:
+        """A click on the page: select the word there, or extend the selection to it."""
+        if self.dokument is None or self.dokument.vorbereitung is None \
+                or self.dokument.vorbereitung.ist_text:
+            return
+        spanne = self.dokument.vorbereitung.wort_bei(self.seite, x, y)
+        if spanne is None:
+            self.auswahl = None
+        elif erweitern and self.auswahl is not None:
+            self.auswahl = (min(self.auswahl[0], spanne[0]), max(self.auswahl[1], spanne[1]))
+        else:
+            self.auswahl = spanne
+        self.gewaehlt = None
+        self.zeichne()
+
+    def _ersatz(self, pseudonym: str | None) -> str | None:
+        """The replacement for a take-up: the argument, the field, or None for a code
+        when the field still holds the default."""
+        if pseudonym is not None:
+            return pseudonym
+        text = self.ersatztext.text().strip()
+        return None if text in ("", "[geschwärzt]", self.tr("[geschwärzt]")) else text
+
+    def aufnehmen(self, pseudonym: str | None = None) -> None:
+        """Take the picked words (page) or the selected text (text file) into the list."""
+        if self.dokument is None or self.dokument.vorbereitung is None:
+            return
+        v = self.dokument.vorbereitung
+        spanne = self.textansicht.auswahl() if v.ist_text else self.auswahl
+        if spanne is None:
+            if self.synchron:
+                raise ValueError("Keine Auswahl.")
+            self.hinweis.setText(self.tr("Erst ein Wort anklicken oder Text markieren."))
+            return
+        try:
+            f = v.aufnehmen(self.seite, spanne[0], spanne[1], self._ersatz(pseudonym))
+        except ValueError as e:
+            self.hinweis.setText(str(e))
+            return
+        self.auswahl = None
+        self.gewaehlt = f
+        self.zeichne()
+        self.hinweis.setText(self.tr("Aufgenommen: {pseudonym}").format(pseudonym=f.pseudonym)
+                             + " · " + self.hinweis.text())
+
     def markiere_auswahl(self, pseudonym: str | None = None) -> None:
-        """Text files: the selected text becomes a manual hit."""
+        """Text files: the selected text becomes a manual hit with the given replacement
+        (kept for scripts; the button calls :meth:`aufnehmen`)."""
         if self.dokument is None or self.dokument.vorbereitung is None \
                 or not self.dokument.vorbereitung.ist_text:
             return
@@ -569,13 +649,36 @@ class PruefenSeite(QWidget):
             if self.synchron:
                 raise ValueError("Keine Auswahl.")
             return
-        if pseudonym is None:
-            pseudonym, ok = QInputDialog.getText(self, self.tr("Auswahl schwärzen"),
-                                                 self.tr("Ersatztext:"),
-                                                 text=self.tr("[geschwärzt]"))
-            if not ok:
-                return
         self.dokument.vorbereitung.markiere(self.seite, spanne[0], spanne[1],
                                             pseudonym or self.tr("[geschwärzt]"))
         self.gewaehlt = None
         self.zeichne()
+
+    # -- working state -----------------------------------------------------------------------------
+    def arbeitsstand_waehlen(self) -> None:
+        if self.dokument is None or self.dokument.vorbereitung is None:
+            return
+        v = self.dokument.vorbereitung
+        vorschlag = v.quelle.with_name(v.quelle.stem + standmodul.ENDUNG)
+        pfad, _ = QFileDialog.getSaveFileName(
+            self, self.tr("Arbeitsstand speichern"), str(vorschlag),
+            self.tr("Arbeitsstand (*.arbeitsstand.json)"))
+        if pfad:
+            self.arbeitsstand_speichern(Path(pfad))
+
+    def arbeitsstand_speichern(self, pfad: Path) -> tuple[Path, Path] | None:
+        """Write document and configuration; returns the two paths."""
+        if self.dokument is None or self.dokument.vorbereitung is None:
+            return None
+        try:
+            dokument, konfiguration = standmodul.speichere(self.dokument.vorbereitung, pfad)
+        except (standmodul.ArbeitsstandFehler, OSError) as e:
+            if self.synchron:
+                raise
+            QMessageBox.warning(self, self.tr("Arbeitsstand"), str(e))
+            return None
+        self.hinweis.setText(self.tr(
+            "Arbeitsstand gespeichert: {dokument} und {konfiguration} (beide mit Klardaten,"
+            " wie das Original aufbewahren).").format(dokument=dokument.name,
+                                                     konfiguration=konfiguration.name))
+        return dokument, konfiguration

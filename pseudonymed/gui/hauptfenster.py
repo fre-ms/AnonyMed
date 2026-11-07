@@ -65,7 +65,7 @@ class Hauptfenster(QMainWindow):
         self.setMinimumSize(720, 480)
         self.patient.uebernommen.connect(lambda _p: self.zeige_seite(self.dokumente))
         self.dokumente.weiter.connect(lambda: self.zeige_seite(self.texterkennung))
-        self.dokumente.geladen.connect(self.texterkennung.aktualisiere)
+        self.dokumente.geladen.connect(self._nach_laden)
         self.texterkennung.weiter.connect(lambda: self.zeige_seite(self.analysieren))
         self.texterkennung.gelesen.connect(self.analysieren.aktualisiere)
         self.analysieren.analysiert.connect(self._nach_analyse)
@@ -87,6 +87,18 @@ class Hauptfenster(QMainWindow):
         speichere_einstellungen(e)
         QMessageBox.information(self, self.tr("Sprache"), self.tr(
             "Die Sprache gilt ab dem nächsten Start von PseudonyMed."))
+
+    def _nach_laden(self) -> None:
+        """Every pending document is open.  A restored working state fills the patient
+        step and the review and goes straight there."""
+        self.texterkennung.aktualisiere()
+        wieder = [d for d in self.sitzung.dokumente
+                  if d.arbeitsstand is not None and d.vorbereitung is not None and not d.fehler]
+        if wieder:
+            if self.sitzung.patient is not None:
+                self.patient.fuelle(self.sitzung.patient)
+            self.analysieren.aktualisiere()
+            self._nach_analyse()
 
     def _nach_analyse(self) -> None:
         self.dokumente.aktualisiere()

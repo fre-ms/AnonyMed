@@ -76,6 +76,21 @@ class Aufbereitung:
                 "linien_entfernen": self.linien_entfernen, "schwarzweiss": self.schwarzweiss,
                 "masken": len(self.masken), "maskenfarbe": self.maskenfarbe}
 
+    def vollstaendig(self) -> dict[str, Any]:
+        """Every field, masks and corners included (the working state)."""
+        d = {k: v for k, v in self.__dict__.items() if k not in ("ecken", "masken")}
+        d["ecken"] = [list(e) for e in self.ecken] if self.ecken is not None else None
+        d["masken"] = [list(m) for m in self.masken]
+        return d
+
+    @classmethod
+    def aus_dict(cls, d: dict[str, Any]) -> Aufbereitung:
+        felder = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
+        if felder.get("ecken") is not None:
+            felder["ecken"] = [tuple(e) for e in felder["ecken"]]
+        felder["masken"] = [tuple(m) for m in felder.get("masken", [])]
+        return cls(**felder)
+
 
 # -- rendering -----------------------------------------------------------------------------------
 

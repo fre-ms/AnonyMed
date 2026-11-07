@@ -10,6 +10,7 @@ rectangles for redaction.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import pymupdf
 
@@ -98,6 +99,41 @@ class Seitentext:
                 continue
             return box[0]
         return self.breite - 18.0
+
+    def als_dict(self) -> dict[str, Any]:
+        """Everything needed to rebuild the page without reading it again (the working
+        state); boxes rounded to a hundredth of a point."""
+        def runde(b: Box | None) -> list[float] | None:
+            return [round(v, 2) for v in b] if b is not None else None
+
+        return {
+            "nummer": self.nummer, "breite": round(self.breite, 2), "hoehe": round(self.hoehe, 2),
+            "text": self.text, "quelle": self.quelle,
+            "boxen": [runde(b) for b in self.boxen], "zeilen": self.zeilen,
+            "groessen": [round(g, 2) for g in self.groessen],
+            "basislinien": [round(b, 2) for b in self.basislinien],
+            "zeilenboxen": {str(z): runde(b) for z, b in self.zeilenboxen.items()},
+            "konfidenzen": [round(k, 3) for k in self.konfidenzen],
+            "wortspannen": [list(s) for s in self.wortspannen],
+        }
+
+    @classmethod
+    def aus_dict(cls, d: dict[str, Any]) -> Seitentext:
+        seite = cls(nummer=int(d["nummer"]), breite=float(d["breite"]), hoehe=float(d["hoehe"]),
+                    text=str(d["text"]), quelle=str(d.get("quelle", "text")))
+        seite.boxen = [tuple(b) if b is not None else None for b in d.get("boxen", [])]
+        seite.zeilen = [int(z) for z in d.get("zeilen", [])]
+        seite.groessen = [float(g) for g in d.get("groessen", [])]
+        seite.basislinien = [float(b) for b in d.get("basislinien", [])]
+        seite.zeilenboxen = {int(z): tuple(b) for z, b in d.get("zeilenboxen", {}).items()
+                             if b is not None}
+        seite.konfidenzen = [float(k) for k in d.get("konfidenzen", [])]
+        seite.wortspannen = [(int(a), int(b)) for a, b in d.get("wortspannen", [])]
+        n = len(seite.text)
+        if any(len(liste) != n for liste in (seite.boxen, seite.zeilen, seite.groessen,
+                                              seite.basislinien)):
+            raise ValueError(f"Seitentext {seite.nummer + 1}: Zeichenlisten passen nicht zum Text.")
+        return seite
 
     def _fuege_an(
         self, zeichen: str, box: Box | None, zeile: int, groesse: float, basislinie: float

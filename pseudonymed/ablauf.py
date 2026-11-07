@@ -404,6 +404,45 @@ def _erkenne_seiten(
             eintrag.fundstellen += codemodul.finde_codes(page, eintrag.nummer)
 
 
+def _ohne_rand(text: str, start: int, ende: int) -> tuple[int, int]:
+    start, ende = max(0, start), min(ende, len(text))
+    while start < ende and text[start].isspace():
+        start += 1
+    while ende > start and text[ende - 1].isspace():
+        ende -= 1
+    if ende <= start:
+        raise ValueError("Leere Auswahl.")
+    return start, ende
+
+
+def wort_bei(basis: Seitentext, x: float, y: float,
+             toleranz: float = 2.0) -> tuple[int, int] | None:
+    """Offsets of the word whose character box lies under (x, y), widened by ``toleranz``
+    points; None without one.  A word runs between whitespace, trailing punctuation left
+    out."""
+    getroffen = None
+    for i, box in enumerate(basis.boxen):
+        if box is None:
+            continue
+        if (box[0] - toleranz <= x <= box[2] + toleranz
+                and box[1] - toleranz <= y <= box[3] + toleranz):
+            getroffen = i
+            break
+    if getroffen is None or basis.text[getroffen].isspace():
+        return None
+    text = basis.text
+    a, b = getroffen, getroffen + 1
+    while a > 0 and not text[a - 1].isspace():
+        a -= 1
+    while b < len(text) and not text[b].isspace():
+        b += 1
+    while b - 1 > a and text[b - 1] in ".,;:!?)]}":
+        b -= 1
+    while a < b - 1 and text[a] in "([{„\"'":
+        a += 1
+    return a, b
+
+
 def _gemerkte_verwerfen(seiten: list[_Seite], gemerkt: set[tuple[str, str]]) -> list[Fundstelle]:
     """Move hits the user discarded in an earlier session (same rule and text) out of
     the pages; they come back green and can be restored."""
@@ -715,6 +754,42 @@ class Vorbereitung:
         for f in neue:
             f.regel = "maske"
         return neue
+
+    def _textbasis(self, nummer: int) -> Seitentext:
+        """The text the review clicks into: the OCR reading on image pages, else the
+        text layer."""
+        seite = self.seiten[nummer]
+        bildseite = seite.ocr is not None and not seite.text.hat_textebene
+        return seite.ocr if bildseite else seite.text
+
+    def wort_bei(self, nummer: int, x: float, y: float) -> tuple[int, int] | None:
+        """Offsets of the word under the point (page points) on page ``nummer``, or None
+        where no printed character lies within two points."""
+        return wort_bei(self._textbasis(nummer), x, y)
+
+    def aufnehmen(self, nummer: int, start: int, ende: int,
+                  pseudonym: str | None = None) -> Fundstelle:
+        """Take a span of recognised text into the hit list by hand (a word the analysis
+        left alone, a term from the protected vocabulary); hits it overlaps are replaced.
+        Without ``pseudonym`` the text gets a code of its own, "[Begriff <code>]", so the
+        re-identification can put it back."""
+        basis = self._textbasis(nummer)
+        start, ende = _ohne_rand(basis.text, start, ende)
+        text = basis.text[start:ende]
+        seite = self.seiten[nummer]
+        quelle = "ocr" if basis is seite.ocr else "text"
+        seite.fundstellen = [f for f in seite.fundstellen
+                             if f.quelle not in (quelle, "manuell")
+                             or not (start < f.ende and ende > f.start)]
+        f = Fundstelle(seite=nummer, start=start, ende=ende, text=text, art=Art.BEGRIFF,
+                       regel="aufnahme",
+                       pseudonym=pseudonym or self.vergabe.identifikator("Begriff", text,
+                                                                         Art.BEGRIFF),
+                       rects=[tuple(r) for r in basis.rects(start, ende)],
+                       schriftgroesse=basis.schriftgroesse(start, ende), quelle="manuell")
+        seite.fundstellen.append(f)
+        self.version += 1
+        return f
 
     def schliessen(self) -> None:
         for d in (self.doc, self.original):
@@ -1092,19 +1167,25 @@ class Textvorbereitung:
         """Mark ``[start, ende)`` by hand; hits it overlaps are replaced by it."""
         seite = self.seiten[nummer]
         text = seite.text.text  # the analysis copy, same length as ``self.text``
-        start, ende = max(0, start), min(ende, len(text))
-        while start < ende and text[start].isspace():
-            start += 1
-        while ende > start and text[ende - 1].isspace():
-            ende -= 1
-        if ende <= start:
-            raise ValueError("Leere Auswahl.")
+        start, ende = _ohne_rand(text, start, ende)
         seite.fundstellen = [f for f in seite.fundstellen
                              if not (start < f.ende and ende > f.start)]
         f = Fundstelle(seite=nummer, start=start, ende=ende, text=self.text[start:ende],
                        art=Art.MANUELL, regel="manuell", pseudonym=pseudonym, quelle="manuell")
         seite.fundstellen.append(f)
         self.version += 1
+        return f
+
+    def aufnehmen(self, nummer: int, start: int, ende: int,
+                  pseudonym: str | None = None) -> Fundstelle:
+        """Like :meth:`markiere`, with a code of its own by default so that the
+        re-identification can put the text back."""
+        text = self.seiten[nummer].text.text
+        start, ende = _ohne_rand(text, start, ende)
+        if pseudonym is None:
+            pseudonym = self.vergabe.identifikator("Begriff", self.text[start:ende], Art.BEGRIFF)
+        f = self.markiere(nummer, start, ende, pseudonym)
+        f.art, f.regel = Art.BEGRIFF, "aufnahme"
         return f
 
     def schliessen(self) -> None:

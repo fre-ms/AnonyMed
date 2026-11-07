@@ -210,6 +210,28 @@ class Fundstelle:
     rolle: Rolle | None = None
     quelle: str = "text"  # "text", "ocr" or "manuell"
 
+    def als_dict(self) -> dict[str, Any]:
+        """Complete form including the clear text: only for the working state, which
+        sits next to the unredacted document anyway; never for a report or a log."""
+        return {
+            "seite": self.seite, "start": self.start, "ende": self.ende, "text": self.text,
+            "art": str(self.art), "regel": self.regel, "pseudonym": self.pseudonym,
+            "rects": [[round(v, 2) for v in r] for r in self.rects],
+            "schriftgroesse": round(self.schriftgroesse, 2),
+            "rolle": str(self.rolle) if self.rolle is not None else None, "quelle": self.quelle,
+        }
+
+    @classmethod
+    def aus_dict(cls, d: dict[str, Any]) -> Fundstelle:
+        return cls(
+            seite=int(d["seite"]), start=int(d["start"]), ende=int(d["ende"]),
+            text=str(d.get("text", "")), art=Art(d["art"]), regel=str(d["regel"]),
+            pseudonym=str(d["pseudonym"]), rects=[tuple(r) for r in d.get("rects", [])],
+            schriftgroesse=float(d.get("schriftgroesse", 10.0)),
+            rolle=Rolle(d["rolle"]) if d.get("rolle") else None,
+            quelle=str(d.get("quelle", "text")),
+        )
+
     def ohne_klartext(self) -> dict[str, Any]:
         """Report form of the hit: everything except the clear text."""
         return {

@@ -155,8 +155,15 @@ class AnalysierenSeite(QWidget):
         self.knopf = QPushButton(self.tr("Analysieren"))
         self.knopf.setDefault(True)
         self.knopf.clicked.connect(self.analysieren)
+        self.erneut_knopf = QPushButton(self.tr("Erneut analysieren"))
+        self.erneut_knopf.setToolTip(self.tr(
+            "Auch schon analysierte Dokumente mit den jetzigen Einstellungen neu durchsuchen."
+            " Aufbereitung, Texterkennung und Korrekturen bleiben; Kästen, Masken,"
+            " Aufnahmen und verworfene Treffer werden übernommen."))
+        self.erneut_knopf.clicked.connect(lambda: self.analysieren(erneut=True))
         unten.addWidget(self.status, 1)
         unten.addWidget(self.knopf)
+        unten.addWidget(self.erneut_knopf)
         aussen.addLayout(unten)
 
     # -- state -----------------------------------------------------------------------------------
@@ -237,7 +244,7 @@ class AnalysierenSeite(QWidget):
         return z
 
     # -- analysis ----------------------------------------------------------------------------------
-    def analysieren(self) -> None:
+    def analysieren(self, erneut: bool = False) -> None:
         if self.weitergabe.isChecked():
             if self.zertifikat is None and self.empfaenger_pruefen() is None:
                 self._melde(self.tr("Empfänger"), self.tr(
@@ -260,7 +267,8 @@ class AnalysierenSeite(QWidget):
             return
         self._optionen_uebernehmen()
         self._warteschlange = [d for d in self.sitzung.dokumente
-                               if d.vorbereitung is None or d.vorbereitung.abgeschlossen]
+                               if erneut or d.vorbereitung is None
+                               or d.vorbereitung.abgeschlossen]
         self._gesamt = len(self._warteschlange)
         self.fortschritt.setRange(0, max(1, self._gesamt))
         self.fortschritt.setValue(0)

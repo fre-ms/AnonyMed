@@ -11,7 +11,8 @@ from typing import Annotated
 import typer
 
 from pseudonymed import __version__, umgebung
-from pseudonymed.ablauf import Ablaufoptionen, pseudonymisiere
+from pseudonymed import arbeitsstand as standmodul
+from pseudonymed.ablauf import Ablaufoptionen, abschliessen, analysiere, vorbereiten
 from pseudonymed.dokument.laden import papierformat
 from pseudonymed.dokument.ocr import OCRFehler, verfuegbare_backends
 from pseudonymed.dokument.textdatei import ist_textdatei
@@ -291,6 +292,17 @@ def pseudonymisieren(
     vokabular: Annotated[bool, typer.Option(
         "--vokabular/--kein-vokabular",
         help="Verworfene Rate-Treffer als <name>_pseudonym.vokabular.txt schreiben.")] = True,
+    arbeitsstand: Annotated[bool, typer.Option(
+        "--arbeitsstand",
+        help="Vor dem Abschluss den Arbeitsstand neben die Ausgabe schreiben"
+             " (<name>.arbeitsstand.pdf + .json, mit Klardaten): wieder aufnehmbar in der"
+             " Oberfläche oder als Eingabe dieses Befehls.")] = False,
+    neu_analysieren: Annotated[bool, typer.Option(
+        "--neu-analysieren",
+        help="Einen Arbeitsstand als Eingabe mit den jetzigen Erkennungsoptionen erneut"
+             " durchsuchen (Aufbereitung, Texterkennung, Kästen, Masken, Aufnahmen und"
+             " verworfene Treffer bleiben); ohne den Schalter wird er abgeschlossen, wie er"
+             " gespeichert wurde.")] = False,
     gliedern: Annotated[bool, typer.Option(
         "--gliedern/--roh",
         help="OCR-Text als Markdown gliedern: Absätze zusammenfügen, Überschriften, Listen,"
@@ -337,8 +349,14 @@ def pseudonymisieren(
     if aufbereiten not in ("auto", "aus"):
         typer.echo("--aufbereiten muss 'auto' oder 'aus' sein.", err=True)
         raise typer.Exit(code=1)
-    p = _patient_bestimmen(patient, vcf, kontakt, nr, konfig)
-    if p.hinweise:
+    staende = {datei: standmodul.ist_arbeitsstand(datei) for datei in dateien}
+    if zertifikat and any(staende.values()):
+        typer.echo("Ein Arbeitsstand lässt sich nicht für einen Empfänger abschließen"
+                   " (seine Codes stammen aus der lokalen Datenbank).", err=True)
+        raise typer.Exit(code=1)
+    p = (_patient_bestimmen(patient, vcf, kontakt, nr, konfig)
+         if not all(staende.values()) else None)  # saved states carry their patient
+    if p is not None and p.hinweise:
         typer.echo(
             "Hinweis: Die Kontaktkarte enthält Notizen. Angehörige, Zuweiser oder Begriffe daraus"
             " werden nicht automatisch geschwärzt; bei Bedarf 'kontakte export' nutzen und die"
@@ -364,12 +382,35 @@ def pseudonymisieren(
     alles_frei = True
     with (einmalspeicher(schema) if zertifikat else _speicher(speicher, schema)) as sp:
         for datei in dateien:
+            person = p
             try:
-                erg = pseudonymisiere(datei, p, opt, speicher=sp)
+                stand = staende[datei]
+                if stand is not None:
+                    a = standmodul.lies(stand)
+                    person = a.patient
+                    if neu_analysieren and a.ist_text:
+                        v = vorbereiten(a.dokumentpfad, person, opt, speicher=sp)
+                        standmodul.uebernehme_entscheidungen(a, v)
+                    elif neu_analysieren:
+                        v = analysiere(standmodul.lesung_aus(a, opt), person, opt, speicher=sp)
+                        standmodul.uebernehme_entscheidungen(a, v)
+                    else:
+                        v = standmodul.vorbereitung_aus(a, speicher=sp, opt=opt)
+                    typer.echo(f"Arbeitsstand {stand.name}: {len(v.fundstellen)} Treffer,"
+                               f" {len(v.verworfen)} verworfen", err=True)
+                else:
+                    v = vorbereiten(datei, p, opt, speicher=sp)
+                    if arbeitsstand:
+                        ordner = opt.ziel_ordner or datei.parent
+                        dok, js = standmodul.speichere(v, ordner / (datei.stem
+                                                                    + standmodul.ENDUNG))
+                        typer.echo(f"Arbeitsstand: {js}  (+ {dok.name}; enthält Klardaten)")
+                erg = abschliessen(v)
             except UnsichererAbgleich as e:
-                _unsicher_melden(p, e)
+                _unsicher_melden(person, e)
                 raise typer.Exit(code=4) from e
-            except (ValueError, NotImplementedError, OCRFehler) as e:
+            except (ValueError, NotImplementedError, OCRFehler,
+                    standmodul.ArbeitsstandFehler) as e:
                 typer.echo(f"{datei.name}: {e}", err=True)
                 alles_frei = False
                 continue
@@ -389,7 +430,7 @@ def pseudonymisieren(
                 typer.echo(f"NICHT freigegeben: {datei.name}", err=True)
             if erg.ziel_bericht:
                 typer.echo(f"Bericht:     {erg.ziel_bericht}")
-            wort = "Patientin" if p.weiblich else "Patient"
+            wort = "Patientin" if person.weiblich else "Patient"
             typer.echo(f"Pseudonym der Hauptperson: {wort} {erg.kennung}\n")
     if not alles_frei:
         raise typer.Exit(code=2)

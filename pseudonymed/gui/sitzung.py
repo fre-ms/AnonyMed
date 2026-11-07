@@ -7,6 +7,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pseudonymed import arbeitsstand as standmodul
 from pseudonymed.ablauf import (
     Ablaufoptionen,
     Ergebnis,
@@ -39,6 +40,15 @@ class Dokument:
     vorpruefung_version: int = -1  # review state the pre-check belongs to
     ergebnis: Ergebnis | None = None
     fehler: str = ""
+    arbeitsstand: Path | None = None  # the JSON file the document was restored from
+
+    @property
+    def textquelle(self) -> Path:
+        """The text file a new analysis of a text document reads: the saved one of a
+        working state, else the file itself."""
+        if self.arbeitsstand is not None:
+            return standmodul.lies(self.arbeitsstand).dokumentpfad or self.pfad
+        return self.pfad
 
     @property
     def aufzubereiten(self) -> bool:
@@ -117,6 +127,13 @@ class Sitzung:
 
     def fuege_hinzu(self, pfad: str | Path) -> Dokument | None:
         pfad = Path(pfad)
+        stand = standmodul.ist_arbeitsstand(pfad)
+        if stand is not None:  # a saved working state, by its JSON or the document beside it
+            if any(d.pfad == stand for d in self.dokumente):
+                return None
+            d = Dokument(stand, arbeitsstand=stand)
+            self.dokumente.append(d)
+            return d
         if pfad.suffix.lower() not in {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp",
                                        ".heic", ".heif", ".webp", *TEXTENDUNGEN}:
             return None
@@ -156,6 +173,9 @@ class Sitzung:
             d.vorlage.schliessen()
         d.vorlage, d.aufbereitung, d.vorbereitung, d.ergebnis, d.fehler = None, {}, None, None, ""
         d.lesung, d.vorpruefung = None, None
+        if d.arbeitsstand is not None:
+            self._arbeitsstand_laden(d)
+            return
         if ist_textdatei(d.pfad):
             return
         try:
@@ -166,22 +186,64 @@ class Sitzung:
         d.aufbereitung = {n: aufmodul.Aufbereitung(**{**a.__dict__, "masken": list(a.masken)})
                           for n, a in d.vorlage.vorschlaege.items()}
 
+    def _arbeitsstand_laden(self, d: Dokument) -> None:
+        """Restore a saved working state: the review is filled in, the patient taken over."""
+        assert d.arbeitsstand is not None
+        if self.empfaenger is not None:
+            d.fehler = "Im Empfängermodus lässt sich kein Arbeitsstand laden."
+            raise ValueError(d.fehler)
+        try:
+            a = standmodul.lies(d.arbeitsstand)
+            opt = a.optionen
+            opt.abgleich = self.abgleich
+            opt.verworfene_merken = self.optionen.verworfene_merken
+            speicher = self.speicher()
+            try:
+                d.vorbereitung = standmodul.vorbereitung_aus(a, speicher=speicher, opt=opt)
+            except Exception:
+                speicher.close()
+                raise
+        except Exception as e:
+            d.fehler = str(e)
+            raise
+        d.vorbereitung.eigener_speicher = True
+        if self.patient is None or self.patient.schluessel() != a.patient.schluessel():
+            self.patient = a.patient
+
     def analysiere(self, d: Dokument) -> None:
-        """Phase one for one document; raises UnsichererAbgleich for the dialog."""
+        """Phase one for one document; raises UnsichererAbgleich for the dialog.  A document
+        analysed already is analysed again on its saved reading (clean-up, OCR and
+        corrections stay), and the boxes, masks, marks and discards are taken over."""
         if self.patient is None:
             raise ValueError("Kein Patient gewählt.")
+        alt: standmodul.Arbeitsstand | None = None
         if d.vorbereitung is not None and not d.vorbereitung.abgeschlossen:
+            try:
+                alt = standmodul.erfasse(d.vorbereitung)
+            except standmodul.ArbeitsstandFehler:
+                alt = None  # recipient mode: read again from the file
             d.vorbereitung.schliessen()
         d.vorbereitung, d.ergebnis, d.fehler = None, None, ""
         opt = Ablaufoptionen(**{**self.optionen.__dict__, "abgleich": self.abgleich})
         aufbereitung = dict(d.aufbereitung) if d.vorlage is not None else None
         speicher = self.speicher()
         try:
-            if d.lesung is not None and not d.lesung.verbraucht:
+            if alt is not None and not alt.ist_text:
+                lesung = standmodul.lesung_aus(alt, opt)
+                try:
+                    d.vorbereitung = analysiere(lesung, self.patient, opt, speicher=speicher)
+                except Exception:
+                    lesung.schliessen()
+                    raise
+            elif alt is not None:
+                d.vorbereitung = vorbereiten(d.textquelle, self.patient, opt, speicher=speicher)
+            elif d.lesung is not None and not d.lesung.verbraucht:
                 d.vorbereitung = analysiere(d.lesung, self.patient, opt, speicher=speicher)
             else:
                 d.vorbereitung = vorbereiten(d.pfad, self.patient, opt, speicher=speicher,
                                              aufbereitung=aufbereitung)
+            if alt is not None:
+                standmodul.uebernehme_entscheidungen(alt, d.vorbereitung)
         except UnsichererAbgleich:
             speicher.close()
             raise

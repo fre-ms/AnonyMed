@@ -63,7 +63,9 @@ class DokumenteSeite(QWidget):
 
         aussen.addWidget(QLabel(self.tr(
             "Dateien hierher ziehen oder hinzufügen (PDF, Fotos, Texte, Whisper-JSON, E-Mails)."
-            " Scans und Fotos erscheinen darunter zum Aufbereiten vor der Texterkennung.")))
+            " Scans und Fotos erscheinen darunter zum Aufbereiten vor der Texterkennung."
+            " Ein gespeicherter Arbeitsstand (…arbeitsstand.json oder das Dokument daneben)"
+            " füllt alles bis zur Sichtprüfung wieder aus.")))
         oben = QHBoxLayout()
         self.liste = Ablage()
         self.liste.setMaximumHeight(150)
@@ -172,6 +174,9 @@ class DokumenteSeite(QWidget):
                 return self.tr("freigegeben")
             return self.tr("nicht freigegeben")
         if d.vorbereitung is not None:
+            if d.arbeitsstand is not None:
+                return self.tr("Arbeitsstand, {treffer} Treffer").format(
+                    treffer=len(d.vorbereitung.fundstellen))
             if d.vorbereitung.ist_text:
                 return self.tr("Text, {treffer} Treffer").format(
                     treffer=len(d.vorbereitung.fundstellen))
