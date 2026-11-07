@@ -109,9 +109,10 @@ def test_erneute_analyse_uebernimmt_entscheidungen(befund: Path, patient: Patien
                                                    speicher: Pseudonymspeicher) -> None:
     v = _vorbereitet(befund, patient, speicher)
     alt = standmodul.erfasse(v)
+    assert alt.pfad is None and alt.quelle == befund  # outputs stay beside the source
     v.schliessen()
     lesung = standmodul.lesung_aus(alt, Ablaufoptionen(identifikatoren=False))
-    assert lesung.backend is None and not lesung.verbraucht
+    assert lesung.backend is None and not lesung.verbraucht and lesung.quelle == befund
     v3 = analysiere(lesung, patient, Ablaufoptionen(identifikatoren=False), speicher=speicher)
     n = standmodul.uebernehme_entscheidungen(alt, v3)
     assert n == 5  # box (two lines), mask, take-up, one discard

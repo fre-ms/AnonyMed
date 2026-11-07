@@ -69,6 +69,7 @@ class Arbeitsstand:
     daten: dict[str, Any]
     dokument: bytes
     pfad: Path | None = None  # the JSON file, None for an in-memory capture
+    ordner: Path | None = None  # in-memory capture: the folder of the source
 
     @property
     def ist_text(self) -> bool:
@@ -88,8 +89,9 @@ class Arbeitsstand:
 
     @property
     def quelle(self) -> Path:
-        """Path the outputs are named after: the original file name in the state's folder."""
-        ordner = self.pfad.parent if self.pfad is not None else Path.cwd()
+        """Path the outputs are named after: the original file name in the state's folder
+        (an in-memory capture keeps the source's folder)."""
+        ordner = self.pfad.parent if self.pfad is not None else (self.ordner or Path.cwd())
         return ordner / str(self.daten["dokument"]["quelle"])
 
     @property
@@ -183,7 +185,7 @@ def erfasse(v: Vorbereitung | Textvorbereitung) -> Arbeitsstand:
         "hinweise": list(v.hinweise),
         "version": v.version,
     }
-    return Arbeitsstand(daten, dokument)
+    return Arbeitsstand(daten, dokument, ordner=v.quelle.parent)
 
 
 def speichere(v: Vorbereitung | Textvorbereitung, ziel: str | Path) -> tuple[Path, Path]:
